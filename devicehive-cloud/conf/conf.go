@@ -1,33 +1,26 @@
 package conf
 
 import (
-	"flag"
 	"io/ioutil"
 
 	"gopkg.in/yaml.v2"
 )
 
-const (
-	argKey     = "conf"
-	defaultVal = ""
-)
-
 type Conf struct {
-	URL       string
-	AccessKey string
+	URL       string `yaml:"URL,omitempty"`
+	AccessKey string `yaml:"AccessKey,omitempty"`
 
-	DeviceID   string
-	DeviceName string
+	DeviceID   string `yaml:"DeviceID,omitempty"`
+	DeviceName string `yaml:"DeviceName,omitempty"`
 }
 
 func FromArgs() (filepath string, c Conf, err error) {
-	pFilePath := flag.String(argKey, defaultVal, "file with DeviceHive configuration in Yaml")
-	filepath = *pFilePath
-	if len(filepath) == 0 {
+	parseArgs()
+	if len(confArgValue) == 0 {
 		c = testConf()
 		return
 	}
-	c, err = readConf(filepath)
+	c, err = readConf(confArgValue)
 	return
 }
 

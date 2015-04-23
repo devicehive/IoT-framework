@@ -6,9 +6,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/devicehive/IoT-framework-gw/devicehive-gw/conf"
-	"github.com/devicehive/IoT-framework-gw/devicehive-gw/rest"
-	"github.com/devicehive/IoT-framework-gw/devicehive-gw/ws"
+	"github.com/devicehive/IoT-framework/devicehive-cloud/conf"
+	"github.com/devicehive/IoT-framework/devicehive-cloud/rest"
+	"github.com/devicehive/IoT-framework/devicehive-cloud/ws"
 	"github.com/godbus/dbus"
 )
 

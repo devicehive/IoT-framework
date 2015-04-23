@@ -13,6 +13,12 @@ go install
 $GOPATH/bin/devicehive-cloud -conf=deviceconf.yml
 ```
 
-##Configuaration example
-TODO.
+##Configuaration file
+Example:
+```
+URL: http://52.1.250.210:8080/dh/rest
+AccessKey: 1jwKgLYi/CdfBTI9KByfYxwyQ6HUIEfnGSgakdpFjgk=
 
+DeviceID: 0B24431A-EC99-4887-8B4F-38C3CEAF1D03
+DeviceName: snappy-go-gateway
+```
