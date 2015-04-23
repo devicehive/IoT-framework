@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
@@ -17,11 +17,11 @@ def device_discovered(mac, name, rssi):
         ble.Connect(mac)
 
 def device_connected(mac):
-    print "Connected to %s" % (mac)
-    # ble.GattWrite(mac, "fff3", "0f0d0300ffffffc800c800c8000059ffff")
+    print("Connected to %s" % (mac))    
     try:
-        ble.GattWrite('00:00:00:00:00:00', "fff3", "0f0d0300ffffffc800c800c8000059ffff")
-    except dbus.DBusException, e:
+        ble.GattWrite(mac, "fff3", "0f0d0300ffffff0000c800c8000091ffff")
+        # ble.GattWrite(mac, "fff3", "0f0d0300ffffffc800c800c8000059ffff")
+    except (dbus.DBusException, e):
         print(e)
 
 def main():
