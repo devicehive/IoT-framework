@@ -24,6 +24,11 @@ type DiscoveredDeviceInfo struct {
 	ready           bool
 }
 
+func newDHError(message string) *dbus.Error {
+	return dbus.NewError("com.devicehive.Error",
+		[]interface{}{message})
+}
+
 func NewBleDbusWrapper(bus *dbus.Conn) *BleDbusWrapper {
 	d, err := gatt.NewDevice([]gatt.Option{
 		gatt.LnxDeviceID(0, false),
@@ -54,7 +59,8 @@ func NewBleDbusWrapper(bus *dbus.Conn) *BleDbusWrapper {
 			dev := wrapper.devicesDiscovered[id]
 			dev.characteristics = make(map[string]*gatt.Characteristic)
 			dev.ready = false
-			dev.explorePeripheral(p)
+			dev.peripheral = p
+			dev.explorePeripheral(dev.peripheral)
 			dev.ready = true
 			bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.DeviceConnected", id)
 		}
@@ -79,7 +85,7 @@ func NewBleDbusWrapper(bus *dbus.Conn) *BleDbusWrapper {
 
 func (w *BleDbusWrapper) ScanStart() (string, *dbus.Error) {
 	if !w.connected {
-		return "disconnected", nil
+		return "ERROR", newDHError("Disconnected")
 	}
 
 	w.device.Scan(nil, false)
@@ -88,7 +94,7 @@ func (w *BleDbusWrapper) ScanStart() (string, *dbus.Error) {
 
 func (w *BleDbusWrapper) ScanStop() (string, *dbus.Error) {
 	if !w.connected {
-		return "disconnected", nil
+		return "ERROR", newDHError("Disconnected")
 	}
 
 	w.device.StopScanning()
@@ -116,7 +122,7 @@ func (w *BleDbusWrapper) Connect(mac string) (string, *dbus.Error) {
 	mac, err := normalizeHex(mac)
 
 	if err != nil {
-		return "Invalid MAC provided", nil
+		return "ERROR", newDHError("Invalid MAC provided")
 	}
 
 	log.Printf("Connecting to: %s", mac)
@@ -126,8 +132,8 @@ func (w *BleDbusWrapper) Connect(mac string) (string, *dbus.Error) {
 		return "OK", nil
 	}
 
-	fmt.Print("Connect(): MAC wasn't descovered, use Scan Start/Stop before")
-	return "Undiscovered MAC", nil
+	log.Print("Connect(): MAC wasn't descovered, use Scan Start/Stop before")
+	return "Undiscovered MAC", newDHError("Connect(): MAC wasn't descovered, use Scan Start/Stop before")
 }
 
 func (w *BleDbusWrapper) Disconnect(mac string) (string, *dbus.Error) {
@@ -135,8 +141,9 @@ func (w *BleDbusWrapper) Disconnect(mac string) (string, *dbus.Error) {
 		w.device.CancelConnection(val.peripheral)
 		return "OK", nil
 	}
-	fmt.Print("Disconnect(): MAC wasn't descovered, use Scan Start/Stop before")
-	return "ERROR", nil
+	
+	log.Print("Disconnect(): MAC wasn't descovered, use Scan Start/Stop before")
+	return "ERROR", newDHError("Disconnect(): MAC wasn't descovered, use Scan Start/Stop before")
 }
 
 func (w *BleDbusWrapper) GattWrite(mac string, uuid string, message string) (string, *dbus.Error) {
@@ -146,24 +153,24 @@ func (w *BleDbusWrapper) GattWrite(mac string, uuid string, message string) (str
 	b, err := hex.DecodeString(message)
 
 	if err != nil {
-		log.Printf("Invalid message: %v", message)
-		return "ERROR", nil
+		log.Printf("Invalid message: %s", message)
+		return "ERROR", newDHError(fmt.Sprintf("Invalid message: %s", message))
 	}
 
 	if val, ok := w.devicesDiscovered[mac]; ok {
 		log.Printf("Writing: %v to mac %v char %v", b, mac, uuid)
-		error := val.peripheral.WriteCharacteristic(val.characteristics[uuid], b, true)
-		log.Print("Done!")
+		error := val.peripheral.WriteCharacteristic(val.characteristics[uuid], b, false)
 
 		if error != nil {
 			log.Printf("Error writing characteristic: %s", error)
-			return "ERROR", nil
+			return "ERROR", newDHError(error.Error())
 		}
 
 		return "OK", nil
 	}
 
-	return "Invalid MAC", nil
+	log.Printf("Invalid peripheral ID: %s", mac)
+	return "ERROR", newDHError("Invalid peripheral ID")
 }
 
 func (b *DiscoveredDeviceInfo) explorePeripheral(p gatt.Peripheral) {
@@ -234,6 +241,7 @@ func (b *DiscoveredDeviceInfo) explorePeripheral(p gatt.Peripheral) {
 
 			id, _ := normalizeHex(c.UUID().String())
 			b.characteristics[id] = c
+
 		}
 		fmt.Println()
 		b.ready = true
