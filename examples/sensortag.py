@@ -12,22 +12,28 @@ def get_ble():
 
 ble = get_ble()
 def device_discovered(mac, name, rssi):
-    if (name == 'DELIGHT'):
+    if ((name == 'SensorTag') and (mac == 'b4994c6423f7')):
         ble.ScanStop()
         ble.Connect(mac)
 
 def device_connected(mac):
     print("Connected to %s" % (mac))    
     try:
-        ble.GattWrite(mac, "fff3", "0f0d0300ffffff0000c800c8000091ffff")
-        # ble.GattWrite(mac, "fff3", "0f0d0300ffffffc800c800c8000059ffff")
+        ble.GattWrite(mac, "F000AA1204514000b000000000000000", "01")
+        ble.GattWrite(mac, "F000AA1304514000b000000000000000", "0A")
+        ble.GattNotifications(mac, "F000AA1104514000b000000000000000")
+
     except dbus.DBusException as e:
         print(e)
+
+def notification_received(mac, uuid, message):
+    print("MAC: %s, UUID: %s, Received: %s" % (mac, uuid, message))
 
 def main():
     ble.ScanStart()
     ble.connect_to_signal("DeviceDiscovered", device_discovered)
     ble.connect_to_signal("DeviceConnected", device_connected)
+    ble.connect_to_signal("NotificationReceived", notification_received)
 
     GObject.MainLoop().run()
 
