@@ -89,7 +89,7 @@ func main() {
 					params = string(b)
 				}
 				log.Printf("Parameters: %v", params)
-				bus.Emit("/", "com.devicehive.cloud.CommandReceived", m["command"].(string), params)
+				bus.Emit("/com/devicehive/cloud", "com.devicehive.cloud.CommandReceived", m["command"].(string), params)
 			})
 			conn = &c
 
@@ -108,7 +108,7 @@ func main() {
 		conn.SubscribeCommands()
 	})
 
-	bus.Export(w, "/", DBusConnName)
+	bus.Export(w, "/com/devicehive/cloud", DBusConnName)
 
 	select {}
 }
