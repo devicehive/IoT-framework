@@ -24,7 +24,7 @@ type DiscoveredDeviceInfo struct {
 	ready           bool
 }
 
-type gattCommandHandler func(p gatt.Peripheral, c *gatt.Characteristic, b []byte) error
+type gattCommandHandler func(p gatt.Peripheral, c *gatt.Characteristic, b []byte) ([]byte, error)
 
 func newDHError(message string) *dbus.Error {
 	return dbus.NewError("com.devicehive.Error",
@@ -85,6 +85,14 @@ func NewBleDbusWrapper(bus *dbus.Conn) *BleDbusWrapper {
 		}
 	}))
 
+	d.Handle(gatt.PeripheralDisconnected(func(p gatt.Peripheral, err error) {
+		id, _ := normalizeHex(p.ID())
+		if dev, ok := wrapper.devicesDiscovered[id]; ok {
+			dev.ready = false
+			bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.DeviceDisconnected", id)
+		}
+	}))
+
 	d.Init(func(dev gatt.Device, s gatt.State) {
 		switch s {
 		case gatt.StatePoweredOn:
@@ -106,6 +114,15 @@ func (w *BleDbusWrapper) ScanStart() *dbus.Error {
 	}
 
 	w.device.Scan(nil, false)
+
+	// Just let them know devices that are cached, as they might be connected and
+	// no longer advertising. Put RSSI to 0.
+	go func() {
+		for k, v := range w.devicesDiscovered {
+			w.bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.DeviceDiscovered", k, v.name, int16(0))
+		}
+	}()
+
 	return nil
 }
 
@@ -146,14 +163,16 @@ func (w *BleDbusWrapper) Disconnect(mac string) *dbus.Error {
 	return newDHError("MAC wasn't descovered, use Scan Start/Stop first")
 }
 
-func (w *BleDbusWrapper) handleGattCommand(mac string, uuid string, message string, handler gattCommandHandler) *dbus.Error {
+func (w *BleDbusWrapper) handleGattCommand(mac string, uuid string, message string, handler gattCommandHandler) (string, *dbus.Error) {
 	mac, _ = normalizeHex(mac)
 	uuid, _ = normalizeHex(uuid)
+
+	res := ""
 
 	if val, ok := w.devicesDiscovered[mac]; ok {
 		if !w.devicesDiscovered[mac].ready {
 			log.Printf("Device %s is not ready (probably still connecting, or discoverig services and characteristics)", mac)
-			return newDHError("Device not ready")
+			return "", newDHError("Device not ready")
 		}
 
 		log.Printf("GATT COMMAND to mac %v char %v", mac, uuid)
@@ -164,41 +183,56 @@ func (w *BleDbusWrapper) handleGattCommand(mac string, uuid string, message stri
 			b, err = hex.DecodeString(message)
 			if err != nil {
 				log.Printf("Invalid message: %s", message)
-				return newDHError(err.Error())
+				return "", newDHError(err.Error())
 			}
 		}
 
 		if c, ok := val.characteristics[uuid]; ok {
-			err = handler(val.peripheral, c, b)
+			b, err = handler(val.peripheral, c, b)
+
+			if b != nil {
+				res = hex.EncodeToString(b)
+			}
+
 			if err != nil {
-				log.Printf("Error writing characteristic: %s", err)
-				return newDHError(err.Error())
+				log.Printf("Error writing/reading characteristic: %s", err)
+				return "", newDHError(err.Error())
 			}
 		} else {
 			s := fmt.Sprintf("Characteristic %s not found. Please try full name and check the device spec.", uuid)
 			log.Print(s)
-			return newDHError(s)
+			return "", newDHError(s)
 		}
 
 	} else {
 		log.Printf("Invalid peripheral ID: %s", mac)
-		return newDHError("Invalid peripheral ID")
+		return "", newDHError("Invalid peripheral ID")
 	}
 
-	return nil
+	return res, nil
 }
 
 func (w *BleDbusWrapper) GattWrite(mac string, uuid string, message string) *dbus.Error {
-	h := func(p gatt.Peripheral, c *gatt.Characteristic, b []byte) error {
-		return p.WriteCharacteristic(c, b, false)
+	h := func(p gatt.Peripheral, c *gatt.Characteristic, b []byte) ([]byte, error) {
+		error := p.WriteCharacteristic(c, b, false)
+		return nil, error
 	}
 
-	return w.handleGattCommand(mac, uuid, message, h)
+	_, error := w.handleGattCommand(mac, uuid, message, h)
+	return error
+}
+
+func (w *BleDbusWrapper) GattRead(mac string, uuid string) (string, *dbus.Error) {
+	h := func(p gatt.Peripheral, c *gatt.Characteristic, b []byte) ([]byte, error) {
+		return p.ReadCharacteristic(c)
+	}
+
+	return w.handleGattCommand(mac, uuid, "", h)
 }
 
 func (w *BleDbusWrapper) GattNotifications(mac string, uuid string) *dbus.Error {
-	h := func(p gatt.Peripheral, c *gatt.Characteristic, b []byte) error {
-		return p.SetNotifyValue(c, func(_ *gatt.Characteristic, b []byte, e error) {
+	h := func(p gatt.Peripheral, c *gatt.Characteristic, b []byte) ([]byte, error) {
+		err := p.SetNotifyValue(c, func(_ *gatt.Characteristic, b []byte, e error) {
 			if e != nil {
 				log.Printf("Notification handler received error: %s", e)
 				return
@@ -208,9 +242,30 @@ func (w *BleDbusWrapper) GattNotifications(mac string, uuid string) *dbus.Error 
 			log.Printf("Received notification: %s", m)
 			w.bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.NotificationReceived", mac, uuid, m)
 		})
+		return nil, err
 	}
 
-	return w.handleGattCommand(mac, uuid, "", h)
+	_, err := w.handleGattCommand(mac, uuid, "", h)
+	return err
+}
+
+func (w *BleDbusWrapper) GattIndications(mac string, uuid string) *dbus.Error {
+	h := func(p gatt.Peripheral, c *gatt.Characteristic, b []byte) ([]byte, error) {
+		err := p.SetIndicateValue(c, func(_ *gatt.Characteristic, b []byte, e error) {
+			if e != nil {
+				log.Printf("Indications handler received error: %s", e)
+				return
+			}
+
+			m := hex.EncodeToString(b)
+			log.Printf("Received indication: %s", m)
+			w.bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.IndicationReceived", mac, uuid, m)
+		})
+		return nil, err
+	}
+
+	_, err := w.handleGattCommand(mac, uuid, "", h)
+	return err
 }
 
 func (b *DiscoveredDeviceInfo) explorePeripheral(p gatt.Peripheral) error {
