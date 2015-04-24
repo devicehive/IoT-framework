@@ -16,6 +16,11 @@ type DbusObjectWrapper struct {
 	c *ws.Conn
 }
 
+func newDHError(message string) *dbus.Error {
+	return dbus.NewError("com.devicehive.Error",
+		[]interface{}{message})
+}
+
 func NewDbusObjectWrapper(c *ws.Conn) *DbusObjectWrapper {
 	w := new(DbusObjectWrapper)
 	w.c = c
@@ -23,18 +28,35 @@ func NewDbusObjectWrapper(c *ws.Conn) *DbusObjectWrapper {
 	return w
 }
 
-func (w *DbusObjectWrapper) SendNotification(name, parameters string) {
+func parseJSON(s string) (map[string]interface{}, error) {
 	var dat map[string]interface{}
-	b := []byte(parameters)
+	b := []byte(s)
 	b = bytes.Trim(b, "\x00")
-
 	err := json.Unmarshal(b, &dat)
 
+	return dat, err
+}
+
+func (w *DbusObjectWrapper) SendNotification(name, parameters string) *dbus.Error {
+	dat, err := parseJSON(parameters)
+
 	if err != nil {
-		log.Panic(err)
+		return newDHError(err.Error())
 	}
 
 	w.c.SendNotification(name, dat)
+	return nil
+}
+
+func (w *DbusObjectWrapper) UpdateCommand(id uint32, status string, result string) *dbus.Error {
+	dat, err := parseJSON(result)
+
+	if err != nil {
+		return newDHError(err.Error())
+	}
+
+	w.c.UpdateCommand(id, status, dat)
+	return nil
 }
 
 const (
@@ -89,7 +111,11 @@ func main() {
 					params = string(b)
 				}
 				log.Printf("Parameters: %v", params)
-				bus.Emit("/com/devicehive/cloud", "com.devicehive.cloud.CommandReceived", m["command"].(string), params)
+				bus.Emit("/com/devicehive/cloud",
+					"com.devicehive.cloud.CommandReceived",
+					uint32(m["id"].(float64)),
+					m["command"].(string),
+					params)
 			})
 			conn = &c
 

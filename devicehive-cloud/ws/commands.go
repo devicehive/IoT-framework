@@ -34,6 +34,18 @@ func (c *Conn) SubscribeCommands() {
 	c.SendCommand(m)
 }
 
+func (c *Conn) UpdateCommand(id uint32, status string, result map[string]interface{}) {
+	m := map[string]interface{}{
+		"action":    "command/update",
+		"commandId": id,
+		"command": map[string]interface{}{
+			"status": status,
+			"result": result,
+		},
+	}
+	c.SendCommand(m)
+}
+
 func (c *Conn) SendNotification(name string, parameters map[string]interface{}) {
 	m := map[string]interface{}{
 		"action": "notification/insert",

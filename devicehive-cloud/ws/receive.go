@@ -64,12 +64,13 @@ func (c *Conn) handleMessage(m []byte) {
 		c.queue[r](dat)
 	case "authenticate":
 		c.queue[r](dat)
+	case "command/update":
+		c.queue[r](dat)
 	case "command/insert":
 		log.Printf("Command/insert")
 		command := dat["command"]
 		go c.CommandReceived()(command.(map[string]interface{}))
 	default:
 		log.Printf("Unknown notification: %s", a)
-		log.Panic()
 	}
 }
