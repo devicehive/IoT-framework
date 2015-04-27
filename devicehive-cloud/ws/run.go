@@ -13,7 +13,7 @@ func (c *Conn) Run(init func()) {
 		log.Printf("Starting websocket loop")
 		err := c.runInternal(init)
 		if err != nil {
-			log.Print(err)
+			log.Printf("Error: %s", err)
 		}
 		log.Printf("Stopped websocket loop")
 		time.Sleep(5 * time.Second)
@@ -31,7 +31,7 @@ func (c *Conn) runInternal(init func()) error {
 	if err != nil {
 		return err
 	}
-
+	
 	c.ws = ws
 
 	go c.writePump()

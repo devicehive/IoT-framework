@@ -47,10 +47,12 @@ func (c *Conn) writePump() {
 				return
 			}
 			if err := c.write(websocket.TextMessage, message); err != nil {
+				log.Print(err)
 				return
 			}
 		case <-ticker.C:
 			if err := c.write(websocket.PingMessage, []byte{}); err != nil {
+				log.Print(err)
 				return
 			}
 		}

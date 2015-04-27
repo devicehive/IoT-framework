@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/godbus/dbus"
+	"github.com/godbus/dbus/introspect"
+	"github.com/godbus/dbus/prop"
 	"github.com/paypal/gatt"
 	"log"
 	"strings"
@@ -66,7 +68,7 @@ func NewBleDbusWrapper(bus *dbus.Conn) *BleDbusWrapper {
 	d.Handle(gatt.PeripheralDiscovered(func(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
 		id, _ := normalizeHex(p.ID())
 		if _, ok := wrapper.devicesDiscovered[id]; !ok {
-			wrapper.devicesDiscovered[id] = &DiscoveredDeviceInfo{name: p.Name(), rssi: rssi, peripheral: p}
+			wrapper.devicesDiscovered[id] = &DiscoveredDeviceInfo{name: p.Name(), rssi: rssi, peripheral: p, ready: false}
 			log.Printf("Adding mac: %s", id)
 		}
 		bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.DeviceDiscovered", id, p.Name(), int16(rssi))
@@ -76,8 +78,7 @@ func NewBleDbusWrapper(bus *dbus.Conn) *BleDbusWrapper {
 		id, _ := normalizeHex(p.ID())
 		if _, ok := wrapper.devicesDiscovered[id]; ok {
 			dev := wrapper.devicesDiscovered[id]
-			dev.characteristics = make(map[string]*gatt.Characteristic)
-			dev.ready = false
+			dev.characteristics = make(map[string]*gatt.Characteristic)			
 			dev.peripheral = p
 			dev.explorePeripheral(dev.peripheral)
 			dev.ready = true
@@ -135,22 +136,29 @@ func (w *BleDbusWrapper) ScanStop() *dbus.Error {
 	return nil
 }
 
-func (w *BleDbusWrapper) Connect(mac string) *dbus.Error {
+func (w *BleDbusWrapper) Connect(mac string) (bool, *dbus.Error) {
 	mac, err := normalizeHex(mac)
 
 	if err != nil {
-		return newDHError("Invalid MAC provided")
+		return false, newDHError("Invalid MAC provided")
 	}
 
 	log.Printf("Connecting to: %s", mac)
 
 	if val, ok := w.devicesDiscovered[mac]; ok {
-		w.device.Connect(val.peripheral)
-		return nil
+
+		if !val.ready {			
+			log.Printf("trying to connect: %s", mac)
+			w.device.Connect(val.peripheral)
+		} else {
+			log.Printf("Already connected to: %s", mac)
+		}
+
+		return val.ready, nil
 	}
 
 	log.Print("MAC wasn't descovered")
-	return newDHError("MAC wasn't descovered, use Scan Start/Stop first")
+	return false, newDHError("MAC wasn't descovered, use Scan Start/Stop first")
 }
 
 func (w *BleDbusWrapper) Disconnect(mac string) *dbus.Error {
@@ -356,6 +364,22 @@ func main() {
 	}(c)
 
 	bus.Export(w, "/com/devicehive/bluetooth", "com.devicehive.bluetooth")
+
+	// Introspectable
+	n := &introspect.Node {
+		Name: "/com/devicehive/bluetooth",
+		Interfaces: []introspect.Interface {
+			introspect.IntrospectData,
+			prop.IntrospectData,
+			{
+				Name:       "com.devicehive.bluetooth",
+				Methods:    introspect.Methods(w),
+			},
+		},
+	}
+
+	bus.Export(introspect.NewIntrospectable(n), "/com/devicehive/bluetooth", "org.freedesktop.DBus.Introspectable")
+
 
 	select {}
 }
