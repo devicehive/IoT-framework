@@ -23,6 +23,7 @@ func (c *Conn) readPump() error {
 	for {
 		_, r, err := c.ws.NextReader()
 		if err != nil {
+			log.Print(err)
 			return err
 		}
 
@@ -30,6 +31,7 @@ func (c *Conn) readPump() error {
 		_, err = r.Read(buf)
 
 		if err != nil {
+			log.Print(err)
 			return err
 		}
 

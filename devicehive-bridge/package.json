@@ -1,0 +1,29 @@
+{
+  "name": "devicehive-bridge",
+  "version": "0.0.1",
+  "description": "DeviceHive BLE to Coloud dbus bridge",
+  "main": "devicehive-bridge.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/devicehive/IoT-framework"
+  },
+  "keywords": [
+    "IoT",
+    "DeviceHive",
+    "BLE",
+    "cloud",
+    "dbus"
+  ],
+  "author": "Sergey Demyanov",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/devicehive/IoT-framework/issues"
+  },
+  "dependencies": {
+    "dbus-native": "^0.2.0",
+    "lodash": "^3.7.0"
+  }
+}
