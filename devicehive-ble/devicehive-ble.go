@@ -23,6 +23,7 @@ type DiscoveredDeviceInfo struct {
 	rssi            int
 	peripheral      gatt.Peripheral
 	characteristics map[string]*gatt.Characteristic
+	connected       bool
 	ready           bool
 }
 
@@ -77,9 +78,10 @@ func NewBleDbusWrapper(bus *dbus.Conn) *BleDbusWrapper {
 
 	d.Handle(gatt.PeripheralConnected(func(p gatt.Peripheral, err error) {
 		id, _ := normalizeHex(p.ID())
-		if _, ok := wrapper.devicesDiscovered[id]; ok {
-			dev := wrapper.devicesDiscovered[id]
-			dev.characteristics = make(map[string]*gatt.Characteristic)			
+		log.Printf("PeripheralConnected: %s", id)
+		if dev, ok := wrapper.devicesDiscovered[id]; ok {
+			dev.connected = true
+			dev.characteristics = make(map[string]*gatt.Characteristic)
 			dev.peripheral = p
 			dev.explorePeripheral(dev.peripheral)
 			dev.ready = true
@@ -89,8 +91,9 @@ func NewBleDbusWrapper(bus *dbus.Conn) *BleDbusWrapper {
 
 	d.Handle(gatt.PeripheralDisconnected(func(p gatt.Peripheral, err error) {
 		id, _ := normalizeHex(p.ID())
-		if dev, ok := wrapper.devicesDiscovered[id]; ok {
-			dev.ready = false
+		if _, ok := wrapper.devicesDiscovered[id]; ok {
+			log.Printf("Disconnected: %s", id)
+			delete(wrapper.devicesDiscovered, id)
 			bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.DeviceDisconnected", id)
 		}
 	}))
@@ -115,15 +118,16 @@ func (w *BleDbusWrapper) ScanStart() *dbus.Error {
 		return newDHError("Disconnected")
 	}
 
-	w.device.Scan(nil, false)
-
 	// Just let them know devices that are cached, as they might be connected and
 	// no longer advertising. Put RSSI to 0.
 	go func() {
 		for k, v := range w.devicesDiscovered {
+			log.Printf("Already scanned: %s, %s", k, v.name)
 			w.bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.DeviceDiscovered", k, v.name, int16(0))
 		}
 	}()
+
+	w.device.Scan(nil, false)
 
 	return nil
 }
@@ -147,10 +151,10 @@ func (w *BleDbusWrapper) Connect(mac string) (bool, *dbus.Error) {
 	log.Printf("Connecting to: %s", mac)
 
 	if val, ok := w.devicesDiscovered[mac]; ok {
-
-		if !val.ready {
+		if !val.connected {
 			log.Printf("trying to connect: %s", mac)
 			w.device.Connect(val.peripheral)
+			log.Print("Exited Connect()")
 		} else {
 			log.Printf("Already connected to: %s", mac)
 		}
@@ -239,7 +243,7 @@ func (w *BleDbusWrapper) GattRead(mac string, uuid string) (string, *dbus.Error)
 	return w.handleGattCommand(mac, uuid, "", h)
 }
 
-func (w *BleDbusWrapper) GattNotifications(mac string, uuid string, enable bool) *dbus.Error {	
+func (w *BleDbusWrapper) GattNotifications(mac string, uuid string, enable bool) *dbus.Error {
 	h := func(p gatt.Peripheral, c *gatt.Characteristic, b []byte) ([]byte, error) {
 
 		if enable {
@@ -364,20 +368,19 @@ func main() {
 	bus.Export(w, "/com/devicehive/bluetooth", "com.devicehive.bluetooth")
 
 	// Introspectable
-	n := &introspect.Node {
+	n := &introspect.Node{
 		Name: "/com/devicehive/bluetooth",
-		Interfaces: []introspect.Interface {
+		Interfaces: []introspect.Interface{
 			introspect.IntrospectData,
 			prop.IntrospectData,
 			{
-				Name:       "com.devicehive.bluetooth",
-				Methods:    introspect.Methods(w),
+				Name:    "com.devicehive.bluetooth",
+				Methods: introspect.Methods(w),
 			},
 		},
 	}
 
 	bus.Export(introspect.NewIntrospectable(n), "/com/devicehive/bluetooth", "org.freedesktop.DBus.Introspectable")
-
 
 	select {}
 }
