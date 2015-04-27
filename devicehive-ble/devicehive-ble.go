@@ -343,18 +343,6 @@ func main() {
 	}
 
 	w := NewBleDbusWrapper(bus)
-
-	log.Printf("Exporting BleDbusWrapper...")
-
-	c := make(chan *dbus.Signal)
-	bus.Signal(c)
-
-	go func(ch chan *dbus.Signal) {
-		for c := range ch {
-			log.Printf("Signal: %+v", c)
-		}
-	}(c)
-
 	bus.Export(w, "/com/devicehive/bluetooth", "com.devicehive.bluetooth")
 
 	select {}
