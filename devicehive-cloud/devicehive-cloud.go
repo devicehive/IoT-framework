@@ -9,7 +9,11 @@ import (
 	"./conf"
 	"./rest"
 	"./ws"
-	
+
+	// "github.com/devicehive/IoT-framework/devicehive-cloud/conf"
+	// "github.com/devicehive/IoT-framework/devicehive-cloud/rest"
+	// "github.com/devicehive/IoT-framework/devicehive-cloud/ws"
+
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
 	"github.com/godbus/dbus/prop"
@@ -139,22 +143,20 @@ func main() {
 
 	bus.Export(w, "/com/devicehive/cloud", DBusConnName)
 
-
 	// Introspectable
-	n := &introspect.Node {
+	n := &introspect.Node{
 		Name: "/com/devicehive/cloud",
-		Interfaces: []introspect.Interface {
+		Interfaces: []introspect.Interface{
 			introspect.IntrospectData,
 			prop.IntrospectData,
 			{
-				Name:       "com.devicehive.cloud",
-				Methods:    introspect.Methods(w),
+				Name:    "com.devicehive.cloud",
+				Methods: introspect.Methods(w),
 			},
 		},
 	}
 
 	bus.Export(introspect.NewIntrospectable(n), "/com/devicehive/cloud", "org.freedesktop.DBus.Introspectable")
-
 
 	select {}
 }
