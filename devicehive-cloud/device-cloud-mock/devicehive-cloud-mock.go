@@ -6,9 +6,9 @@ import (
 	"log"
 	"time"
 
-	// "./conf"
-	// "./rest"
-	"./ws"
+	// "../conf"
+	// "../rest"
+	"../ws"
 
 	// "github.com/devicehive/IoT-framework/devicehive-cloud/conf"
 	// "github.com/devicehive/IoT-framework/devicehive-cloud/rest"
@@ -170,7 +170,6 @@ func main() {
 	// 			break
 	// 		}
 	// 	}
-	// 	log.Print(err)
 	// 	time.Sleep(5 * time.Second)
 	// }
 
