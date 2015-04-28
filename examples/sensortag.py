@@ -12,8 +12,9 @@ def get_ble():
 
 ble = get_ble()
 def device_discovered(mac, name, rssi):
-    if ((name == 'SensorTag') and (mac == 'bc6a29abdb7a')):
-        ble.ScanStop()
+    print("Discovered %s (%s) %s" % (mac, name, rssi))
+    if ((name == 'SensorTag')):
+        #ble.ScanStop()
         ble.Connect(mac)
 
 def device_connected(mac):
