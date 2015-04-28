@@ -93,7 +93,7 @@ func NewBleDbusWrapper(bus *dbus.Conn) *BleDbusWrapper {
 		id, _ := normalizeHex(p.ID())
 		if _, ok := wrapper.devicesDiscovered[id]; ok {
 			log.Printf("Disconnected: %s", id)
-			delete(wrapper.devicesDiscovered, id)
+			//delete(wrapper.devicesDiscovered, id)
 			bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.DeviceDisconnected", id)
 		}
 	}))
@@ -159,7 +159,7 @@ func (w *BleDbusWrapper) Connect(mac string) (bool, *dbus.Error) {
 			log.Printf("Already connected to: %s", mac)
 		}
 
-		return val.ready, nil
+		return val.connected, nil
 	}
 
 	log.Print("MAC wasn't descovered")
