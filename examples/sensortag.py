@@ -12,7 +12,7 @@ def get_ble():
 
 ble = get_ble()
 def device_discovered(mac, name, rssi):
-    if ((name == 'SensorTag') and (mac == 'bc6a29abdb7a')):
+    if ((name == 'SensorTag')):
         ble.ScanStop()
         ble.Connect(mac)
 
@@ -21,7 +21,7 @@ def device_connected(mac):
     try:
         ble.GattWrite(mac, "F000AA1204514000b000000000000000", "01")
         ble.GattWrite(mac, "F000AA1304514000b000000000000000", "0A")
-        ble.GattNotifications(mac, "F000AA1104514000b000000000000000")
+        ble.GattNotifications(mac, "F000AA1104514000b000000000000000", True)
 
     except dbus.DBusException as e:
         print(e)
