@@ -72,8 +72,8 @@ func NewBleDbusWrapper(bus *dbus.Conn) *BleDbusWrapper {
 		if _, ok := wrapper.devicesDiscovered[id]; !ok {
 			wrapper.devicesDiscovered[id] = &DiscoveredDeviceInfo{name: name, rssi: rssi, peripheral: p, ready: false}
 			log.Printf("Adding mac: %s - %s", id, name)
+			bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.DeviceDiscovered", id, name, int16(rssi))
 		}
-		bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.DeviceDiscovered", id, name, int16(rssi))
 	}))
 
 	d.Handle(gatt.PeripheralConnected(func(p gatt.Peripheral, err error) {
@@ -127,7 +127,7 @@ func (w *BleDbusWrapper) ScanStart() *dbus.Error {
 		}
 	}()
 
-	w.device.Scan(nil, false)
+	w.device.Scan(nil, true)
 
 	return nil
 }
@@ -157,6 +157,7 @@ func (w *BleDbusWrapper) Connect(mac string) (bool, *dbus.Error) {
 			log.Print("Exited Connect()")
 		} else {
 			log.Printf("Already connected to: %s", mac)
+			w.bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.DeviceConnected", mac)
 		}
 
 		return val.connected, nil
@@ -169,6 +170,7 @@ func (w *BleDbusWrapper) Connect(mac string) (bool, *dbus.Error) {
 func (w *BleDbusWrapper) Disconnect(mac string) *dbus.Error {
 	if val, ok := w.devicesDiscovered[mac]; ok {
 		w.device.CancelConnection(val.peripheral)
+		val.connected = false
 		return nil
 	}
 
@@ -183,9 +185,14 @@ func (w *BleDbusWrapper) handleGattCommand(mac string, uuid string, message stri
 	res := ""
 
 	if val, ok := w.devicesDiscovered[mac]; ok {
-		if !w.devicesDiscovered[mac].ready {
+		if !val.ready {
 			log.Printf("Device %s is not ready (probably still connecting, or discoverig services and characteristics)", mac)
 			return "", newDHError("Device not ready")
+		}
+
+		if !val.connected {
+			log.Printf("handleGattCommand(): %s is not connected", mac)
+			return "", newDHError("Device not connected")
 		}
 
 		log.Printf("GATT COMMAND to mac %v char %v", mac, uuid)
