@@ -9,6 +9,7 @@ import (
 	"github.com/paypal/gatt"
 	"log"
 	"strings"
+	"sync"
 )
 
 type BleDbusWrapper struct {
@@ -16,6 +17,7 @@ type BleDbusWrapper struct {
 	device            gatt.Device
 	connected         bool
 	devicesDiscovered map[string]*DiscoveredDeviceInfo
+	sync              sync.Mutex
 }
 
 type DiscoveredDeviceInfo struct {
@@ -25,6 +27,7 @@ type DiscoveredDeviceInfo struct {
 	characteristics map[string]*gatt.Characteristic
 	connected       bool
 	ready           bool
+	connectedOnce   bool
 }
 
 type gattCommandHandler func(p gatt.Peripheral, c *gatt.Characteristic, b []byte) ([]byte, error)
@@ -67,34 +70,52 @@ func NewBleDbusWrapper(bus *dbus.Conn) *BleDbusWrapper {
 	wrapper.devicesDiscovered = make(map[string]*DiscoveredDeviceInfo)
 
 	d.Handle(gatt.PeripheralDiscovered(func(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
+		wrapper.sync.Lock()
+		defer wrapper.sync.Unlock()
 		id, _ := normalizeHex(p.ID())
 		name := strings.Trim(p.Name(), "\x00")
-		if _, ok := wrapper.devicesDiscovered[id]; !ok {
-			wrapper.devicesDiscovered[id] = &DiscoveredDeviceInfo{name: name, rssi: rssi, peripheral: p, ready: false}
+		dev, ok := wrapper.devicesDiscovered[id]
+		if !ok {
+			wrapper.devicesDiscovered[id] = &DiscoveredDeviceInfo{name: name, rssi: rssi, peripheral: p, ready: false, connectedOnce: false}
 			log.Printf("Adding mac: %s - %s", id, name)
-			bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.DeviceDiscovered", id, name, int16(rssi))
+			bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.PeripheralDiscovered", id, name, int16(rssi))
+		} else {
+			if (dev.name == "") && (name != "") {
+				dev.name = name
+				bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.PeripheralDiscovered", id, name, int16(rssi))
+			}
 		}
 	}))
 
 	d.Handle(gatt.PeripheralConnected(func(p gatt.Peripheral, err error) {
+		wrapper.sync.Lock()
+		defer wrapper.sync.Unlock()
+
 		id, _ := normalizeHex(p.ID())
 		log.Printf("PeripheralConnected: %s", id)
 		if dev, ok := wrapper.devicesDiscovered[id]; ok {
 			dev.connected = true
-			dev.characteristics = make(map[string]*gatt.Characteristic)
 			dev.peripheral = p
-			dev.explorePeripheral(dev.peripheral)
+			if !dev.connectedOnce {
+				dev.characteristics = make(map[string]*gatt.Characteristic)
+				dev.explorePeripheral(dev.peripheral)
+			}
+			dev.connectedOnce = true
 			dev.ready = true
-			bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.DeviceConnected", id)
+			bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.PeripheralConnected", id)
 		}
 	}))
 
 	d.Handle(gatt.PeripheralDisconnected(func(p gatt.Peripheral, err error) {
+		wrapper.sync.Lock()
+		defer wrapper.sync.Unlock()
+
 		id, _ := normalizeHex(p.ID())
-		if _, ok := wrapper.devicesDiscovered[id]; ok {
+		if dev, ok := wrapper.devicesDiscovered[id]; ok {
 			log.Printf("Disconnected: %s", id)
-			delete(wrapper.devicesDiscovered, id)
-			bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.DeviceDisconnected", id)
+			dev.connected = false
+			// delete(wrapper.devicesDiscovered, id)
+			bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.PeripheralDisconnected", id)
 		}
 	}))
 
@@ -123,7 +144,7 @@ func (w *BleDbusWrapper) ScanStart() *dbus.Error {
 	go func() {
 		for k, v := range w.devicesDiscovered {
 			log.Printf("Already scanned: %s, %s", k, v.name)
-			w.bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.DeviceDiscovered", k, v.name, int16(0))
+			w.bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.PeripheralDiscovered", k, v.name, int16(0))
 		}
 	}()
 
@@ -142,6 +163,9 @@ func (w *BleDbusWrapper) ScanStop() *dbus.Error {
 }
 
 func (w *BleDbusWrapper) Connect(mac string) (bool, *dbus.Error) {
+	w.sync.Lock()
+	defer w.sync.Unlock()
+
 	mac, err := normalizeHex(mac)
 
 	if err != nil {
@@ -157,7 +181,7 @@ func (w *BleDbusWrapper) Connect(mac string) (bool, *dbus.Error) {
 			log.Print("Exited Connect()")
 		} else {
 			log.Printf("Already connected to: %s", mac)
-			w.bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.DeviceConnected", mac)
+			w.bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.PeripheralConnected", mac)
 		}
 
 		return val.ready, nil
@@ -179,6 +203,9 @@ func (w *BleDbusWrapper) Disconnect(mac string) *dbus.Error {
 }
 
 func (w *BleDbusWrapper) handleGattCommand(mac string, uuid string, message string, handler gattCommandHandler) (string, *dbus.Error) {
+	w.sync.Lock()
+	defer w.sync.Unlock()
+
 	mac, _ = normalizeHex(mac)
 	uuid, _ = normalizeHex(uuid)
 
@@ -208,7 +235,9 @@ func (w *BleDbusWrapper) handleGattCommand(mac string, uuid string, message stri
 		}
 
 		if c, ok := val.characteristics[uuid]; ok {
+			log.Printf("Enter handler for %v", val.peripheral)
 			b, err = handler(val.peripheral, c, b)
+			log.Printf("Exit handler for %v", val.peripheral)
 
 			if b != nil {
 				res = hex.EncodeToString(b)
@@ -261,7 +290,7 @@ func (w *BleDbusWrapper) GattNotifications(mac string, uuid string, enable bool)
 				}
 
 				m := hex.EncodeToString(b)
-				log.Printf("Received notification: %s", m)
+				// log.Printf("Received notification: %s", m)
 				w.bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.NotificationReceived", mac, uuid, m)
 			})
 			return nil, err
@@ -284,7 +313,7 @@ func (w *BleDbusWrapper) GattIndications(mac string, uuid string, enable bool) *
 				}
 
 				m := hex.EncodeToString(b)
-				log.Printf("Received indication: %s", m)
+				// log.Printf("Received indication: %s", m)
 				w.bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.IndicationReceived", mac, uuid, m)
 			})
 			return nil, err

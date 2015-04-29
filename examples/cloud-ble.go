@@ -1,23 +1,84 @@
 package main
 
 import (
+	"container/heap"
 	"encoding/json"
 	"fmt"
 	"github.com/godbus/dbus"
 	"log"
 	"strings"
 	"sync"
+	"time"
 )
+
+const QueueCapacity = 2048
 
 type dbusWrapper struct {
 	conn         *dbus.Conn
 	path, iface  string
 	handlers     map[string]signalHandler
 	handlersSync sync.Mutex
+
+	queue *signalQueue
 }
 
-type signalHandler func(args ...interface{})
+type signalHandlerFunc func(args ...interface{})
 type cloudCommandHandler func(map[string]interface{}) (map[string]interface{}, error)
+
+type signalHandler struct {
+	handler  signalHandlerFunc
+	priority uint64
+}
+
+type signalItem struct {
+	handler   signalHandler
+	signal    *dbus.Signal
+	timestamp uint64
+}
+
+type signalQueue struct {
+	items     []signalItem
+	queueSync sync.Mutex
+	cond      *sync.Cond
+}
+
+func (q signalQueue) Len() int {
+	return len(q.items)
+}
+
+func (q signalQueue) Less(i, j int) bool {
+	return q.items[i].timestamp*q.items[i].handler.priority > q.items[j].timestamp*q.items[j].handler.priority
+}
+
+func (q signalQueue) Swap(i, j int) {
+	if (i > len(q.items)-1) || (j > len(q.items)-1) || (i < 0) || (j < 0) {
+		return
+	}
+
+	q.items[i], q.items[j] = q.items[j], q.items[i]
+}
+
+func (q *signalQueue) Push(x interface{}) {
+	q.cond.L.Lock()
+	q.items = append(q.items, x.(signalItem))
+	q.cond.L.Unlock()
+	q.cond.Signal()
+}
+
+func (q *signalQueue) Pop() interface{} {
+	q.cond.L.Lock()
+
+	old := q.items
+	n := len(old)
+
+	x := old[n-1]
+	q.items = old[0 : n-1]
+
+	q.cond.L.Unlock()
+	q.cond.Signal()
+
+	return x
+}
 
 func NewdbusWrapper(path string, iface string) (*dbusWrapper, error) {
 	d := new(dbusWrapper)
@@ -32,6 +93,8 @@ func NewdbusWrapper(path string, iface string) (*dbusWrapper, error) {
 	d.conn = conn
 	d.path = path
 	d.iface = iface
+	d.queue = &signalQueue{cond: &sync.Cond{L: &sync.Mutex{}}}
+	heap.Init(d.queue)
 
 	filter := fmt.Sprintf("type='signal',path='%[1]s',interface='%[2]s',sender='%[2]s'", path, iface)
 	log.Printf("Filter: %s", filter)
@@ -39,17 +102,33 @@ func NewdbusWrapper(path string, iface string) (*dbusWrapper, error) {
 	conn.Object("org.freedesktop.DBus", "/org/freedesktop/DBus").Call("org.freedesktop.DBus.AddMatch", 0, filter)
 
 	go func() {
-		ch := make(chan *dbus.Signal, 100)
+		ch := make(chan *dbus.Signal, 2*QueueCapacity)
 		conn.Signal(ch)
 		for signal := range ch {
 			if !((strings.Index(signal.Name, iface) == 0) && (string(signal.Path) == path)) {
 				continue
 			}
-
-			log.Printf("Received: %s", signal)
 			if val, ok := d.handlers[signal.Name]; ok {
-				val(signal.Body...)
+				for d.queue.Len() > QueueCapacity-1 {
+					item := heap.Remove(d.queue, d.queue.Len()-1)
+					log.Printf("Removing %+v from queue", item)
+				}
+				heap.Push(d.queue, signalItem{handler: val, signal: signal, timestamp: uint64(time.Now().Unix())})
+			} else {
+				log.Printf("Unhandled signal: %s", signal.Name)
 			}
+		}
+	}()
+
+	go func() {
+		for {
+			d.queue.cond.L.Lock()
+			for d.queue.Len() == 0 {
+				d.queue.cond.Wait()
+			}
+			d.queue.cond.L.Unlock()
+			item := heap.Pop(d.queue).(signalItem)
+			item.handler.handler(item.signal.Body...)
 		}
 	}()
 
@@ -68,12 +147,13 @@ func (d *dbusWrapper) call(name string, args ...interface{}) *dbus.Call {
 
 func (d *dbusWrapper) SendNotification(name string, parameters interface{}) {
 	b, _ := json.Marshal(parameters)
+	// log.Printf("Sending cloud notification: %s", string(b))
 	d.call("SendNotification", name, string(b))
 }
 
-func (d *dbusWrapper) RegisterHandler(signal string, h signalHandler) {
+func (d *dbusWrapper) RegisterHandler(signal string, priority uint64, h signalHandlerFunc) {
 	d.handlersSync.Lock()
-	d.handlers[d.iface+"."+signal] = h
+	d.handlers[d.iface+"."+signal] = signalHandler{priority: priority, handler: h}
 	d.handlersSync.Unlock()
 }
 
@@ -134,7 +214,7 @@ func main() {
 		log.Panic(err)
 	}
 
-	ble.RegisterHandler("DeviceDiscovered", func(args ...interface{}) {
+	ble.RegisterHandler("PeripheralDiscovered", 100, func(args ...interface{}) {
 		cloud.SendNotification("PeripheralDiscovered", map[string]interface{}{
 			"mac":  args[0].(string),
 			"name": args[1].(string),
@@ -142,31 +222,31 @@ func main() {
 		})
 	})
 
-	ble.RegisterHandler("DeviceConnected", func(args ...interface{}) {
-		cloud.SendNotification("DeviceConnected", map[string]interface{}{
-			"mac": args[0].(string),
-		})
-	})
-
-	ble.RegisterHandler("PeripheralConnected", func(args ...interface{}) {
+	ble.RegisterHandler("PeripheralConnected", 100, func(args ...interface{}) {
 		cloud.SendNotification("PeripheralConnected", map[string]interface{}{
 			"mac": args[0].(string),
 		})
 	})
 
-	ble.RegisterHandler("NotificationReceived", func(args ...interface{}) {
-		cloud.SendNotification("NotificationReceived", map[string]interface{}{
-			"mac":            args[0].(string),
-			"characteristic": args[1].(string),
-			"value":          args[2].(string),
+	ble.RegisterHandler("PeripheralDisconnected", 100, func(args ...interface{}) {
+		cloud.SendNotification("PeripheralDisconnected", map[string]interface{}{
+			"mac": args[0].(string),
 		})
 	})
 
-	ble.RegisterHandler("IndicationReceived", func(args ...interface{}) {
+	ble.RegisterHandler("NotificationReceived", 1, func(args ...interface{}) {
+		cloud.SendNotification("NotificationReceived", map[string]interface{}{
+			"mac":   args[0].(string),
+			"uuid":  args[1].(string),
+			"value": args[2].(string),
+		})
+	})
+
+	ble.RegisterHandler("IndicationReceived", 1, func(args ...interface{}) {
 		cloud.SendNotification("IndicationReceived", map[string]interface{}{
-			"mac":            args[0].(string),
-			"characteristic": args[1].(string),
-			"value":          args[2].(string),
+			"mac":   args[0].(string),
+			"uuid":  args[1].(string),
+			"value": args[2].(string),
 		})
 	})
 
@@ -214,7 +294,7 @@ func main() {
 		return nil, err
 	}
 
-	cloud.RegisterHandler("CommandReceived", func(args ...interface{}) {
+	cloud.RegisterHandler("CommandReceived", 1, func(args ...interface{}) {
 		id := args[0].(uint32)
 		command := args[1].(string)
 		params := args[2].(string)
@@ -229,7 +309,7 @@ func main() {
 			if err != nil {
 				cloud.CloudUpdateCommand(id, fmt.Sprintf("ERROR: %s", err.Error()), nil)
 			} else {
-				cloud.CloudUpdateCommand(id, "OK", res)
+				cloud.CloudUpdateCommand(id, "success", res)
 			}
 
 		} else {
