@@ -184,7 +184,7 @@ func (w *BleDbusWrapper) Connect(mac string) (bool, *dbus.Error) {
 			w.bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.PeripheralConnected", mac)
 		}
 
-		return val.ready, nil
+		return val.connected, nil
 	}
 
 	log.Print("MAC wasn't descovered")

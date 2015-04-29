@@ -25,7 +25,7 @@ var proc_scan_start = function (ctx, id, params, cb){
 var proc_scan_stop = function (ctx, id, params, cb){
     console.log('Stopping Scan');
     ctx.ble.ScanStop();
-    var results = {peripherals: _.values(ctx.discovered_peripherals)};
+    var results = ctx.discovered_peripherals;
     cb(null, results);
 };
 
@@ -77,14 +77,18 @@ var proc_write = function (ctx, id, params, cb){
     var characteristic = params.characteristic;
     var value = params.value;
 
+    if (!mac) throw "Parameter missing: 'device'";
+    if (!characteristic) throw "Parameter missing: 'characteristic'";
+    if (!value) throw "Parameter missing: 'value'";
+
     console.log('Writing', mac, characteristic, value);
 
-    ensure_connected(ctx, mac, function (err) {
+    ensure_connected(ctx, mac, function (err, callback) {
         if (err)
-            return cb(err);
+            return cb(err, null, callback);
 
         ctx.ble.GattWrite(mac, characteristic, value, function (err) {
-            cb(err);
+            cb(err, null, callback);
         });
     });
 
@@ -97,12 +101,12 @@ var proc_read = function (ctx, id, params, cb){
 
     console.log('Reading', mac, characteristic);
 
-    ensure_connected(ctx, mac, function (err) {
+    ensure_connected(ctx, mac, function (err, callback) {
         if (err)
-            return cb(err);
+            return cb(err, null, callback);
 
         ctx.ble.GattRead(mac, characteristic, value, function (err, value) {
-            cb(err, {value: value});
+            cb(err, {value: value}, callback);
         });
     });
 
@@ -116,12 +120,12 @@ var proc_notifications_start = function (ctx, id, params, cb){
 
     console.log('Starting notifications', mac, characteristic);
 
-    ensure_connected(ctx, mac, function (err) {
+    ensure_connected(ctx, mac, function (err, callback) {
         if (err)
-            return cb(err);
+            return cb(err, null, callback);
 
         ctx.ble.GattNotifications(mac, characteristic, true, function (err) {
-            cb(err);
+            cb(err, null, callback);
         });
     });
 
@@ -135,12 +139,12 @@ var proc_notifications_stop = function (ctx, id, params, cb){
 
     console.log('Stopping notifications', mac, characteristic);
 
-    ensure_connected(ctx, mac, function (err) {
+    ensure_connected(ctx, mac, function (err, callback) {
         if (err)
-            return cb(err);
+            return cb(err, null, callback);
 
         ctx.ble.GattNotifications(mac, characteristic, false, function (err) {
-            cb(err);
+            cb(err, null, callback);
         });
     });
 
@@ -153,12 +157,12 @@ var proc_indications_start = function (ctx, id, params, cb){
 
     console.log('Starting indications', mac, characteristic);
 
-    ensure_connected(ctx, mac, function (err) {
+    ensure_connected(ctx, mac, function (err, callback) {
         if (err)
-            return cb(err);
+            return cb(err, null, callback);
 
         ctx.ble.GattIndications(mac, characteristic, true, function (err) {
-            cb(err);
+            cb(err, null, callback);
         });
     });
 
@@ -172,12 +176,12 @@ var proc_indications_stop = function (ctx, id, params, cb){
 
     console.log('Stopping indications', mac, characteristic);
 
-    ensure_connected(ctx, mac, function (err) {
+    ensure_connected(ctx, mac, function (err, callback) {
         if (err)
-            return cb(err);
+            return cb(err, null, callback);
 
         ctx.ble.GattIndications(mac, characteristic, false, function (err) {
-            cb(err);
+            cb(err, null, callback);
         });
     });
 
@@ -207,15 +211,21 @@ var device_discovered = function (ctx, mac, name, rssi) {
     ctx.cloud.SendNotification('PeripheralDiscovered', JSON.stringify(peripheral))
 };
 
+var process_queue = function(mac){
+    var queue = on_connect_callbacks[mac];
+    var f = queue.shift();
+    f(null, _.curry(process_queue)(mac))
+};
+
 var device_connected = function (ctx, mac) {
+    ctx.cloud.SendNotification('PeripheralConnected', JSON.stringify({address: mac}))
+
     var queue = on_connect_callbacks[mac];
     if (!queue) return;
     console.log('Processing pending operations', mac,  queue.length);
-    while (queue.length){
-        queue.shift()(null);
-    }
-    ctx.cloud.SendNotification('PeripheralConnected', JSON.stringify({address: mac}))
+    _.curry(process_queue)(mac)();
 };
+
 
 var notification_received = function (ctx, type, mac, uuid, message) {
     console.log(type, mac, uuid, message);
@@ -233,7 +243,7 @@ systemBus.getService(DH_CLOUD_NS).getInterface(DH_CLOUD_PATH, DH_CLOUD_NS, funct
         console.log('Error '+DH_CLOUD_NS+' dbus service: ' + err);
         process.exit(1);
     }
-    console.log('Connected to', DH_CLOUD_NS);
+    console.log('Connected to', DH_CLOUD_PATH);
 
     systemBus.getService(DH_BLE_NS).getInterface(DH_BLE_PATH, DH_BLE_NS, function(err, ble) {
 
@@ -254,27 +264,31 @@ systemBus.getService(DH_CLOUD_NS).getInterface(DH_CLOUD_PATH, DH_CLOUD_NS, funct
         cloud.on ('CommandReceived', function (id, name, paramsstr) {
             console.log (id, name, paramsstr);
 
-            try {
-                var cmd = handlers[name];
-                var params = JSON.parse(paramsstr || '{}');
+            setTimeout(function () {
+                try {
+                    var cmd = handlers[name];
+                    var params = JSON.parse(paramsstr || '{}');
 
-                if (!cmd)
-                    throw 'Unknown command: ' + name;
+                    if (!cmd)
+                        throw 'Unknown command: ' + name;
 
-                cmd(context, id, params, function (err, result) {
-                    if (err){
-                        console.log('Update Command', id, name, 'Error', err);
-                        cloud.UpdateCommand(id, 'Error', JSON.stringify({error: err, details: (result||{})}));
-                    } else {
-                        console.log('Update Command', id, name, 'Success', result);
-                        cloud.UpdateCommand(id, 'Success', JSON.stringify(result||{}));
-                    }
-                });
+                    cmd(context, id, params, function (err, result, cb) {
+                        if (err){
+                            console.log('Update Command', id, name, 'Error', err);
+                            cloud.UpdateCommand(id, 'Error', JSON.stringify({error: err, details: (result||{})}));
+                            if (cb) cb();
+                        } else {
+                            console.log('Update Command', id, name, 'Success', result);
+                            cloud.UpdateCommand(id, 'Success', JSON.stringify(result||{}));
+                            if (cb) cb();
+                        }
+                    });
 
-            } catch(e) {
-                console.log('Update Command', id, name, 'Error', e);
-                cloud.UpdateCommand(id, 'Error', JSON.stringify({error: e}));
-            }
+                } catch(e) {
+                    console.log('Update Command', id, name, 'Error', e);
+                    cloud.UpdateCommand(id, 'Error', JSON.stringify({error: e}));
+                }
+            }, 10);
 
         });
 
