@@ -42,7 +42,7 @@ func (c *Conn) readPump() error {
 func (c *Conn) handleMessage(m []byte) {
 	var dat map[string]interface{}
 	m = bytes.Trim(m, "\x00")
-	log.Printf("handleMessage(): %s", m)
+	// log.Printf("handleMessage(): %s", m)
 	err := json.Unmarshal(m, &dat)
 	if err != nil {
 		log.Panic(err)
@@ -69,10 +69,11 @@ func (c *Conn) handleMessage(m []byte) {
 	case "command/update":
 		c.queue[r](dat)
 	case "command/insert":
-		log.Printf("Command/insert")
+		// log.Printf("Command/insert")
 		command := dat["command"]
 		go c.CommandReceived()(command.(map[string]interface{}))
 	default:
 		log.Printf("Unknown notification: %s", a)
 	}
+	delete(c.queue, r)
 }

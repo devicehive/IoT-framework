@@ -31,14 +31,14 @@ func (c *Conn) runInternal(init func()) error {
 	if err != nil {
 		return err
 	}
-	
+
 	c.ws = ws
 
 	go c.writePump()
 	go func() {
 		for {
 			m := <-c.receive
-			log.Printf("Received response: %v", m)
+			// log.Printf("Received response: %v", m)
 			go c.handleMessage(m)
 		}
 	}()

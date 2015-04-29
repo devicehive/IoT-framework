@@ -16,7 +16,7 @@ func (c *Conn) SendCommand(command map[string]interface{}) {
 	r := make(chan bool)
 
 	c.queue[c.lastCommandId] = func(res map[string]interface{}) {
-		log.Printf("Handler fired: %s", res)
+		// log.Printf("Handler fired: %s", res)
 		r <- true
 	}
 
@@ -41,7 +41,7 @@ func (c *Conn) writePump() {
 	for {
 		select {
 		case message, ok := <-c.send:
-			log.Printf("writePump(): sending: %v", message)
+			// log.Printf("writePump(): sending: %v", message)
 			if !ok {
 				c.write(websocket.CloseMessage, []byte{})
 				return
