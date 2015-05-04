@@ -468,18 +468,5 @@ func main() {
 
 	bus.Export(introspect.NewIntrospectable(n), "/com/devicehive/bluetooth", "org.freedesktop.DBus.Introspectable")
 
-	macs := []string{"bc6a29abdb7a", "20c38ff549b4", "d03972bc5041", "bc6a29abd973"}
-	go func() {
-		for {
-			for _, mac := range macs {
-				_, err := w.Connect(mac, false)
-				if err != nil {
-					log.Printf("Trying to connect: %s", err.Error())
-				}
-				time.Sleep(1 * time.Second)
-			}
-		}
-	}()
-
 	select {}
 }
