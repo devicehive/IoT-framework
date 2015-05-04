@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	ConnectionTimeout = 10 // Connection timeout in seconds.
+	ConnectionTimeout = 1 // Connection timeout in seconds.
 )
 
 type BleDbusWrapper struct {
@@ -100,22 +100,8 @@ func (w *BleDbusWrapper) OnInit(dev gatt.Device, s gatt.State) {
 }
 
 func (w *BleDbusWrapper) OnPeripheralConnected(p gatt.Peripheral, err error) {
-	// wrapper.sync.Lock()
-	// defer wrapper.sync.Unlock()
-
 	id, _ := normalizeHex(p.ID())
-	log.Printf("PeripheralConnected: %s", id)
-
-	if dev, ok := w.devicesDiscovered[id]; ok {
-		dev.connected = true
-		dev.peripheral = p
-		if !dev.connectedOnce {
-			dev.characteristics = make(map[string]*gatt.Characteristic)
-			dev.explorePeripheral(dev.peripheral)
-		}
-		dev.connectedOnce = true
-		dev.ready = true
-	}
+	w.devicesDiscovered[id].peripheral = p
 	w.connChan <- true
 }
 
@@ -230,6 +216,16 @@ func (w *BleDbusWrapper) Connect(mac string, random bool) (bool, *dbus.Error) {
 		w.device.Connect(val.peripheral)
 		select {
 		case <-w.connChan:
+			id, _ := normalizeHex(mac)
+			log.Printf("PeripheralConnected: %s", id)
+			val.connected = true
+			if !val.connectedOnce {
+				val.characteristics = make(map[string]*gatt.Characteristic)
+				val.explorePeripheral(val.peripheral)
+			}
+			val.connectedOnce = true
+			val.ready = true
+
 		case <-time.After(ConnectionTimeout * time.Second):
 			w.device.CancelConnection(val.peripheral)
 			return false, newDHError("BLE connection timed out")
@@ -377,7 +373,9 @@ func (w *BleDbusWrapper) GattIndications(mac string, uuid string, enable bool) *
 }
 
 func (b *DiscoveredDeviceInfo) explorePeripheral(p gatt.Peripheral) error {
+	log.Print("Begin explorePeripheral()")
 	ss, err := p.DiscoverServices(nil)
+	log.Print("End explorePeripheral()")
 	if err != nil {
 		log.Printf("Failed to discover services, err: %s\n", err)
 		return err
@@ -474,7 +472,7 @@ func main() {
 	go func() {
 		for {
 			for _, mac := range macs {
-				_, err := w.Connect(mac)
+				_, err := w.Connect(mac, false)
 				if err != nil {
 					log.Printf("Trying to connect: %s", err.Error())
 				}
