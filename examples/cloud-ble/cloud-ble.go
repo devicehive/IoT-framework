@@ -4,12 +4,11 @@ import (
 	"container/heap"
 	"encoding/json"
 	"fmt"
+	"github.com/godbus/dbus"
 	"log"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/godbus/dbus"
 )
 
 const QueueCapacity = 2048
