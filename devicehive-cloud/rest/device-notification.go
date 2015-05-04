@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -28,8 +29,15 @@ func deviceNotificationFromInterface(o interface{}) (dn DeviceNotification, err 
 	}()
 
 	m := o.(map[string]interface{})
-	dn.Id = m["id"].(int)
-	dn.Timestamp = m["timestamp"].(string)
+
+	if id, ok := m["id"]; ok {
+		dn.Id = id.(int)
+	}
+
+	if timestamp, ok := m["timestamp"]; ok {
+		dn.Timestamp = timestamp.(string)
+	}
+
 	dn.Notification = m["notification"].(string)
 	dn.Parameters = m["parameters"]
 	return
@@ -71,6 +79,7 @@ func DeviceNotificationQuery(deviceHiveURL string, deviceGuid string, parameters
 	return
 }
 
+// Need to test
 func DeviceNotificationGet(deviceHiveURL string, deviceGuid string, deviceId int) (n DeviceNotification, err error) {
 	resp, err := http.Get(fmt.Sprintf("%s/device/%s/notification/%d", deviceHiveURL, deviceGuid, deviceId))
 	if err != nil {
@@ -89,4 +98,114 @@ func DeviceNotificationGet(deviceHiveURL string, deviceGuid string, deviceId int
 	}
 
 	return deviceNotificationFromInterface(rawNote)
+}
+
+// Need to test
+func DeviceNotificationInsert(deviceHiveURL string, deviceGuid, notification string, parameters interface{}) (n DeviceNotification, err error) {
+
+	n.Notification = notification
+	n.Parameters = parameters
+
+	url := fmt.Sprintf("%s/device/%s/notification", deviceHiveURL, deviceGuid)
+	jsonData := map[string]interface{}{"notification": notification}
+	if parameters != nil {
+		jsonData["parameters"] = parameters
+	}
+	jsonStr, err := json.Marshal(jsonData)
+	if err != nil {
+		return
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+	//req.Header.Set("X-Custom-Header", "myvalue")
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+
+	var rawSemiNote interface{}
+	if err = json.Unmarshal(body, rawSemiNote); err != nil {
+		return
+	}
+
+	return deviceNotificationFromInterface(rawSemiNote)
+
+}
+
+type PollingCtx chan struct{}
+
+func newPollingCtx() PollingCtx {
+	return PollingCtx(make(chan struct{}, 1))
+}
+
+func (p PollingCtx) Cancel() {
+	p <- struct{}{}
+}
+
+// Need to test
+func DeviceNotificationPollAsync(deviceHiveURL string, deviceGuid string, parameters []Parameter,
+	completion func(n DeviceNotification, err error, interrupted bool)) (ctx PollingCtx, err error) {
+
+	type answer struct {
+		n DeviceNotification
+		e error
+	}
+
+	ctx = newPollingCtx()
+
+	requestURL, err := url.Parse(fmt.Sprintf("%s/device/%s/notification/poll", deviceHiveURL, deviceGuid))
+	if err != nil {
+		return
+	}
+	IntegrateGetParameters(requestURL, parameters)
+
+	req, err := http.NewRequest("GET", requestURL.String(), nil)
+	if err != nil {
+		return
+	}
+	tr := &http.Transport{}
+	client := &http.Client{Transport: tr}
+
+	serverChan := make(chan answer, 1)
+
+	go func() {
+		resp, e := client.Do(req)
+		if e != nil {
+			serverChan <- answer{e: e}
+			return
+		}
+		defer resp.Body.Close()
+
+		body, e := ioutil.ReadAll(resp.Body)
+		if e != nil {
+			return
+		}
+
+		var rawNote interface{}
+		if e = json.Unmarshal(body, rawNote); e != nil {
+			return
+		}
+
+		n, e := deviceNotificationFromInterface(rawNote)
+		serverChan <- answer{n, e}
+	}()
+
+	go func() {
+		select {
+		case <-ctx:
+			tr.CancelRequest(req)
+			completion(DeviceNotification{}, nil, true)
+		case ans := <-serverChan:
+			completion(ans.n, ans.e, false)
+		}
+	}()
+	return
 }
