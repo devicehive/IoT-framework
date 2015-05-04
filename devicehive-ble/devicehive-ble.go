@@ -200,7 +200,7 @@ func (w *BleDbusWrapper) ScanStop() *dbus.Error {
 	return nil
 }
 
-func (w *BleDbusWrapper) Connect(mac string) (bool, *dbus.Error) {
+func (w *BleDbusWrapper) Connect(mac string, random bool) (bool, *dbus.Error) {
 	w.sync.Lock()
 	defer w.sync.Unlock()
 
@@ -215,7 +215,7 @@ func (w *BleDbusWrapper) Connect(mac string) (bool, *dbus.Error) {
 
 	if !ok {
 		b, _ := hex.DecodeString(mac)
-		p, err := w.device.GetPeripheral(b)
+		p, err := w.device.GetPeripheral(b, random)
 
 		if err != nil {
 			return false, newDHError(err.Error())

@@ -3,6 +3,7 @@ package main
 import (
 	"container/heap"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/godbus/dbus"
 	"log"
@@ -170,8 +171,8 @@ func (d *dbusWrapper) BleScanStart() error {
 	return c.Err
 }
 
-func (d *dbusWrapper) BleConnect(mac string) error {
-	c := d.call("Connect", mac)
+func (d *dbusWrapper) BleConnect(mac string, random bool) error {
+	c := d.call("Connect", mac, random)
 	return c.Err
 }
 
@@ -311,7 +312,20 @@ func main() {
 	}
 
 	cloudHandlers["connect"] = func(p map[string]interface{}) (map[string]interface{}, error) {
-		return nil, ble.BleConnect(p["mac"].(string))
+		t, found := p["type"] // public or random
+		random := false
+		if found {
+			switch {
+			case t.(string) == "random":
+				random = true
+			case t.(string) == "public":
+				random = false
+			default:
+				return nil, errors.New("Invalid type, should be random or public")
+			}
+		}
+
+		return nil, ble.BleConnect(p["mac"].(string), random)
 	}
 
 	cloudHandlers["scan/start"] = func(map[string]interface{}) (map[string]interface{}, error) {
@@ -379,7 +393,7 @@ func main() {
 		for {
 			for mac, dev := range ble.deviceMap {
 				if !dev.connected {
-					err := ble.BleConnect(mac)
+					err := ble.BleConnect(mac, false)
 					if err != nil {
 						log.Printf("Error while trying to connect: %s", err.Error())
 					}
