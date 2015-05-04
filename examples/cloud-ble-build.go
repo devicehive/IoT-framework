@@ -156,7 +156,7 @@ func (d *dbusWrapper) call(name string, args ...interface{}) *dbus.Call {
 
 func (d *dbusWrapper) SendNotification(name string, parameters interface{}) {
 	b, _ := json.Marshal(parameters)
-	// log.Printf("Sending cloud notification: %s", string(b))
+	log.Printf("Sending cloud notification: %s %s", name, string(b))
 	d.call("SendNotification", name, string(b))
 }
 
@@ -388,6 +388,10 @@ func main() {
 			log.Printf("Unhandled command: %s", command)
 		}
 	})
+
+	// ble.deviceMap = map[string]*deviceInfo{
+	// 	"d03972bc5041": &deviceInfo{t: "pod", connected: false},
+	// }
 
 	go func() {
 		for {

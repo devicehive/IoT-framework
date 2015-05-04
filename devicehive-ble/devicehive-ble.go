@@ -18,6 +18,7 @@ import (
 
 const (
 	ConnectionTimeout = 1 // Connection timeout in seconds.
+	ExploreTimeout    = 5 // Timeout to explore peripherals for a newly found device
 )
 
 type BleDbusWrapper struct {
@@ -218,11 +219,24 @@ func (w *BleDbusWrapper) Connect(mac string, random bool) (bool, *dbus.Error) {
 		case <-w.connChan:
 			id, _ := normalizeHex(mac)
 			log.Printf("PeripheralConnected: %s", id)
-			val.connected = true
 			if !val.connectedOnce {
 				val.characteristics = make(map[string]*gatt.Characteristic)
-				val.explorePeripheral(val.peripheral)
+
+				done := make(chan bool, 1)
+
+				go func() {
+					val.explorePeripheral(val.peripheral)
+					done <- true
+				}()
+
+				select {
+				case <-done:
+				case <-time.After(ExploreTimeout * time.Second):
+					return false, newDHError("BLE peripheral explore timeout")
+				}
+
 			}
+			val.connected = true
 			val.connectedOnce = true
 			val.ready = true
 
