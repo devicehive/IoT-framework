@@ -27,7 +27,7 @@ type dbusWrapper struct {
 }
 
 type deviceInfo struct {
-	t         string
+	name      string
 	connected bool
 }
 
@@ -156,7 +156,7 @@ func (d *dbusWrapper) call(name string, args ...interface{}) *dbus.Call {
 
 func (d *dbusWrapper) SendNotification(name string, parameters interface{}) {
 	b, _ := json.Marshal(parameters)
-	log.Printf("Sending cloud notification: %s %s", name, string(b))
+	// log.Printf("Sending cloud notification: %s %s", name, string(b))
 	d.call("SendNotification", name, string(b))
 }
 
@@ -207,17 +207,17 @@ func (d *dbusWrapper) BleGattIndications(mac, uuid string, enable bool) (map[str
 	return nil, c.Err
 }
 
-func (d *dbusWrapper) Init(mac, t string) error {
+func (d *dbusWrapper) Init(mac, name string) error {
 	d.deviceLock.Lock()
 	if _, ok := d.deviceMap[mac]; !ok {
-		d.deviceMap[mac] = &deviceInfo{t: t, connected: false}
+		d.deviceMap[mac] = &deviceInfo{name: name, connected: false}
 	}
 	d.deviceLock.Unlock()
 	return nil
 }
 
 func (d *dbusWrapper) SendInitCommands(mac string, dev *deviceInfo) error {
-	switch strings.ToLower(dev.t) {
+	switch strings.ToLower(dev.name) {
 	case "sensortag":
 		{
 			time.Sleep(500 * time.Millisecond)
@@ -402,8 +402,8 @@ func main() {
 						log.Printf("Error while trying to connect: %s", err.Error())
 					}
 				}
-				time.Sleep(1 * time.Second)
 			}
+			time.Sleep(10 * time.Second)
 		}
 	}()
 
