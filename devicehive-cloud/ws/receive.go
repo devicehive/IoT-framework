@@ -42,10 +42,9 @@ func (c *Conn) readPump() error {
 func (c *Conn) handleMessage(m []byte) {
 	var dat map[string]interface{}
 	m = bytes.Trim(m, "\x00")
-	// log.Printf("handleMessage(): %s", m)
 	err := json.Unmarshal(m, &dat)
 	if err != nil {
-		log.Panic(err)
+		log.Printf("invalid JSON: %s", m)
 	}
 
 	a := dat["action"]
