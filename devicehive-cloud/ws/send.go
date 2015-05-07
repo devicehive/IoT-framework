@@ -16,7 +16,6 @@ func (c *Conn) SendCommand(command map[string]interface{}) {
 	r := make(chan bool)
 
 	c.queue[c.lastCommandId] = func(res map[string]interface{}) {
-		// log.Printf("Handler fired: %s", res)
 		r <- true
 	}
 

@@ -34,6 +34,12 @@ func (c *Conn) runInternal(init func()) error {
 
 	c.ws = ws
 
+	go func() {
+		for m := range c.senderQ.Out() {
+			c.SendCommand(m)
+		}
+	}()
+
 	go c.writePump()
 	go func() {
 		for {

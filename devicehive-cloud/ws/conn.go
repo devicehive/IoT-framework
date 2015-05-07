@@ -1,6 +1,9 @@
 package ws
 
-import "github.com/gorilla/websocket"
+import (
+	"github.com/devicehive/IoT-framework/devicehive-cloud/pqueue"
+	"github.com/gorilla/websocket"
+)
 
 type ResponseHandler func(map[string]interface{})
 
@@ -18,6 +21,9 @@ type Conn struct {
 	lastCommandId int
 
 	queue map[int]ResponseHandler
+
+	//Priority Queue
+	senderQ *pqueue.PriorityQueue
 }
 
 func (c *Conn) WebSocketURL() string {
@@ -30,4 +36,23 @@ func (c *Conn) DeviceID() string {
 
 func (c *Conn) CommandReceived() ResponseHandler {
 	return c.commandReceived
+}
+
+func New(webSocketURL, deviceID string, resp ResponseHandler) (conn Conn) {
+
+	conn.webSocketURL = webSocketURL
+	conn.deviceID = deviceID
+	conn.commandReceived = resp
+
+	conn.send = make(chan []byte, maxMessageSize)
+	conn.receive = make(chan []byte, maxMessageSize)
+	conn.queue = make(map[int]ResponseHandler)
+
+	pq, err := pqueue.NewPriorityQueue(pqueue.StandardQueueCapacity, make(chan pqueue.Message))
+	if err != nil {
+		panic(err)
+	}
+	conn.senderQ = &pq
+
+	return
 }
