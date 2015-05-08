@@ -52,7 +52,7 @@ func New(webSocketURL, deviceID string, resp ResponseHandler) (conn Conn) {
 	if err != nil {
 		panic(err)
 	}
-	conn.senderQ = &pq
+	conn.senderQ = pq
 
 	return
 }

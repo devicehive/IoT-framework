@@ -27,10 +27,10 @@ func (pq *PriorityQueue) Out() chan Message {
 	return pq.out
 }
 
-func NewPriorityQueue(capacity uint64, listener chan Message) (PriorityQueue, error) {
+func NewPriorityQueue(capacity uint64, listener chan Message) (*PriorityQueue, error) {
 	pq := PriorityQueue{}
 	if listener == nil {
-		return pq, ListenerShouldNotBeNil
+		return &pq, ListenerShouldNotBeNil
 	}
 
 	pq.items = []QueueItem{}
@@ -38,21 +38,19 @@ func NewPriorityQueue(capacity uint64, listener chan Message) (PriorityQueue, er
 	pq.capacity = capacity
 	pq.out = listener
 
-	go observer(&pq)
-	return pq, nil
-}
-
-func observer(pq *PriorityQueue) {
-	defer func() { recover() }()
-	for {
-		pq.cond.L.Lock()
-		for pq.Len() == 0 {
-			pq.cond.Wait()
+	go func() {
+		defer func() { recover() }()
+		for {
+			pq.cond.L.Lock()
+			for pq.Len() == 0 {
+				pq.cond.Wait()
+			}
+			pq.cond.L.Unlock()
+			item := heap.Pop(&pq).(QueueItem)
+			pq.out <- item.Msg
 		}
-		pq.cond.L.Unlock()
-		item := heap.Pop(pq).(QueueItem)
-		pq.out <- item.Msg
-	}
+	}()
+	return &pq, nil
 }
 
 func (pq *PriorityQueue) Send(m Message, priority uint64) (removed []QueueItem) {
