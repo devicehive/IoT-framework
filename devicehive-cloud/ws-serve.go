@@ -15,6 +15,7 @@ import (
 )
 
 func wsImplementation(bus *dbus.Conn, config conf.Conf) {
+
 	var conn *ws.Conn
 	for {
 		info, err := rest.GetDHServerInfo(config.URL)

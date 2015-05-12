@@ -18,21 +18,25 @@ type Conf struct {
 	DeviceID   string `yaml:"DeviceID,omitempty"`
 	DeviceName string `yaml:"DeviceName,omitempty"`
 
-	DeviceNotifcationsReceive string `yaml:"DeviceNotifcationsReceive,omitempty"`
-
-	SendNotificatonQueueCapacity uint64 `yaml:"SendNotificatonQueueCapacity, omitempty"`
+	// Optional
+	DeviceNotifcationsReceive    string `yaml:"DeviceNotifcationsReceive,omitempty"`
+	SendNotificatonQueueCapacity uint64 `yaml:"SendNotificatonQueueCapacity,omitempty"`
 }
 
-func defaultConf() Conf {
-	return Conf{
-		DeviceNotifcationsReceive:    DeviceNotificationReceiveByWS,
-		SendNotificatonQueueCapacity: 2048,
+func (c *Conf) fix() {
+	if len(c.DeviceNotifcationsReceive) == 0 {
+		c.DeviceNotifcationsReceive = DeviceNotificationReceiveByWS
+	}
+
+	if c.SendNotificatonQueueCapacity == 0 {
+		c.SendNotificatonQueueCapacity = 2048
 	}
 }
 
 func FromArgs() (filepath string, c Conf, err error) {
 	parseArgs()
-	if len(confArgValue) == 0 {
+	filepath = confArgValue
+	if len(filepath) == 0 {
 		c = testConf()
 		return
 	}
@@ -46,18 +50,23 @@ func readConf(filepath string) (c Conf, err error) {
 		return
 	}
 	err = yaml.Unmarshal(yamlFile, &c)
+
+	if err == nil {
+		(&c).fix()
+	}
+
 	return
 }
 
 func testConf() Conf {
-	c := defaultConf()
+	c := Conf{}
 
 	c.URL = "http://dh-just-in-case.cloudapp.net:8080/dh/rest"
 	c.AccessKey = "1jwKgLYi/CdfBTI9KByfYxwyQ6HUIEfnGSgakdpFjgk="
 	c.DeviceID = "0B24431A-EC99-4887-8B4F-38C3CEAF1D03"
 	c.DeviceName = "snappy-go-gateway"
-
 	//c.DeviceNotifcationsReceive = DeviceNotificationReceiveByREST
 
+	(&c).fix()
 	return c
 }

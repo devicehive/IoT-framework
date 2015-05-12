@@ -1,5 +1,7 @@
-URL: http://52.1.250.210:8080/dh/rest
+URL: http://dh-just-in-case.cloudapp.net:8080/dh/rest
 AccessKey: 1jwKgLYi/CdfBTI9KByfYxwyQ6HUIEfnGSgakdpFjgk=
 
 DeviceID: 0B24431A-EC99-4887-8B4F-38C3CEAF1D03
 DeviceName: snappy-go-gateway
+
+SendNotificatonQueueCapacity: 2047
