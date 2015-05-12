@@ -1,4 +1,4 @@
-#Instruments to testing SendNotification priority queue
+#Instruments for testing SendNotification priority queue
 
 
 ## Parameters in source code
