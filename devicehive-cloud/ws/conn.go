@@ -38,7 +38,7 @@ func (c *Conn) CommandReceived() ResponseHandler {
 	return c.commandReceived
 }
 
-func New(webSocketURL, deviceID string, resp ResponseHandler) (conn Conn) {
+func New(webSocketURL, deviceID string, sendQCapacity uint64, resp ResponseHandler) (conn Conn) {
 
 	conn.webSocketURL = webSocketURL
 	conn.deviceID = deviceID
@@ -48,7 +48,7 @@ func New(webSocketURL, deviceID string, resp ResponseHandler) (conn Conn) {
 	conn.receive = make(chan []byte, maxMessageSize)
 	conn.queue = make(map[int]ResponseHandler)
 
-	pq, err := pqueue.NewPriorityQueue(pqueue.StandardQueueCapacity, make(chan pqueue.Message))
+	pq, err := pqueue.NewPriorityQueue(sendQCapacity, make(chan pqueue.Message))
 	if err != nil {
 		panic(err)
 	}

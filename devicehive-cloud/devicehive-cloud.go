@@ -100,11 +100,11 @@ func main() {
 	println(configFile)
 	switch {
 	case err != nil:
-		log.Fatalf("Cannot read configuration in `%s` with error: %s\n", configFile, err.Error())
+		log.Fatalf("Cannot read configuration in `%s` with error: %s", configFile, err.Error())
 	case configFile == "":
-		log.Printf("You should specify configuration file.\n Starting with test configuration: %+v\n", config)
+		log.Printf("You should specify configuration file.\n Starting with test configuration: %+v", config)
 	default:
-		log.Printf("Starting DeviceHive gateway with configuration in '%s': %+v\n", configFile, config)
+		log.Printf("Starting DeviceHive gateway with configuration in '%s': %+v", configFile, config)
 	}
 
 	if config.DeviceNotifcationsReceive == conf.DeviceNotificationReceiveByWS {

@@ -19,10 +19,15 @@ type Conf struct {
 	DeviceName string `yaml:"DeviceName,omitempty"`
 
 	DeviceNotifcationsReceive string `yaml:"DeviceNotifcationsReceive,omitempty"`
+
+	SendNotificatonQueueCapacity uint64 `yaml:"SendNotificatonQueueCapacity, omitempty"`
 }
 
 func defaultConf() Conf {
-	return Conf{DeviceNotifcationsReceive: DeviceNotificationReceiveByWS}
+	return Conf{
+		DeviceNotifcationsReceive:    DeviceNotificationReceiveByWS,
+		SendNotificatonQueueCapacity: 2048,
+	}
 }
 
 func FromArgs() (filepath string, c Conf, err error) {
