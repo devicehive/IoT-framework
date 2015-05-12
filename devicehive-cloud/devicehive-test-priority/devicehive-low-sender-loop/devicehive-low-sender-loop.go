@@ -14,7 +14,7 @@ func main() {
 	}
 
 	for {
-		c.SendNotification("TestNotification", map[string]interface{}{}, 1)
+		c.SendNotification("LowNotification", map[string]interface{}{}, 2)
 		time.Sleep(1 * time.Second)
 	}
 }

@@ -8,6 +8,9 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// For testing purposes
+const sendCommandSleeperSeconds = 0
+
 func (c *Conn) SendCommand(command map[string]interface{}) {
 	c.lastCommandId++
 	command["requestId"] = c.lastCommandId
@@ -20,6 +23,11 @@ func (c *Conn) SendCommand(command map[string]interface{}) {
 	}
 
 	<-r
+
+	if sendCommandSleeperSeconds != 0 {
+		time.Sleep(sendCommandSleeperSeconds * time.Second)
+	}
+
 }
 
 func (c *Conn) postCommand(command map[string]interface{}) {

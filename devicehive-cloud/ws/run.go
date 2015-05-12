@@ -36,7 +36,7 @@ func (c *Conn) runInternal(init func()) error {
 	go func() {
 		log.Printf("**** Starting listening from prioriorized chan...")
 		for m := range c.senderQ.Out() {
-			log.Printf("**** Message from prioriorized chan has been received...")
+			log.Printf("**** MESSAGE FROM PRIOCHAN HAS BEEN RECEIVED AND READY TO SEND: %+v", m)
 			c.SendCommand(m)
 		}
 	}()

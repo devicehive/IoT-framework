@@ -61,11 +61,11 @@ func (c *Conn) SendNotification(name string, parameters map[string]interface{}, 
 		},
 	}
 
-	log.Printf("\n**** c.senderQ.Send(name=%d, priority=%d, params=%+v)", name, priority, parameters)
+	log.Printf("\n**** SENT FROM DBUS name=%d, priority=%d, params=%+v)", name, priority, parameters)
 	removed := c.senderQ.Send(pqueue.Message(m), priority)
 
 	for _, qi := range removed {
-		log.Printf("SendNotification => Removing from queue, timestamp=%d, priority=%d, parameters=%+v\n", qi.Timestamp, qi.Priority, qi.Msg)
+		log.Printf("!!!! LAST SENT FROM DBUS => REMOVING FROM QUEUE, timestamp=%d, priority=%d, parameters=%+v\n", qi.Timestamp, qi.Priority, qi.Msg)
 	}
 }
 
