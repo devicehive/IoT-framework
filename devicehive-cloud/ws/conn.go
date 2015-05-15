@@ -1,10 +1,9 @@
 package ws
 
-import "github.com/gorilla/websocket"
-import "sync"
 import (
 	"github.com/devicehive/IoT-framework/devicehive-cloud/pqueue"
 	"github.com/gorilla/websocket"
+	"sync"
 )
 
 type ResponseHandler func(map[string]interface{})
@@ -24,7 +23,6 @@ type Conn struct {
 
 	queue     map[int]ResponseHandler
 	queueLock sync.Mutex
-	queue map[int]ResponseHandler
 
 	//Priority Queue
 	senderQ *pqueue.PriorityQueue
