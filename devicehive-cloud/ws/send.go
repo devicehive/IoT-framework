@@ -8,19 +8,33 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const CommandResponseTimeout = 5
+
 func (c *Conn) SendCommand(command map[string]interface{}) {
 	c.lastCommandId++
-	command["requestId"] = c.lastCommandId
-	c.postCommand(command)
+	requestId := c.lastCommandId
+	command["requestId"] = requestId
 
-	r := make(chan bool)
-
-	c.queue[c.lastCommandId] = func(res map[string]interface{}) {
-		// log.Printf("Handler fired: %s", res)
+	r := make(chan bool, 1)
+	c.queueLock.Lock()
+	c.queue[requestId] = func(res map[string]interface{}) {
 		r <- true
 	}
+	c.queueLock.Unlock()
 
-	<-r
+	c.postCommand(command)
+
+	select {
+	case <-time.After(CommandResponseTimeout * time.Second):
+		{
+			c.queueLock.Lock()
+			delete(c.queue, requestId)
+			c.queueLock.Unlock()
+
+			log.Printf("Timed out waiting for response to command: %+v", command)
+		}
+	case <-r:
+	}
 }
 
 func (c *Conn) postCommand(command map[string]interface{}) {
@@ -28,6 +42,7 @@ func (c *Conn) postCommand(command map[string]interface{}) {
 	if err != nil {
 		log.Panic(err)
 	}
+	// log.Printf("Post command: %+v", command)
 	c.send <- b
 }
 

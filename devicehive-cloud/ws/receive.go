@@ -40,6 +40,9 @@ func (c *Conn) readPump() error {
 }
 
 func (c *Conn) handleMessage(m []byte) {
+	c.queueLock.Lock()
+	defer c.queueLock.Unlock()
+
 	var dat map[string]interface{}
 	m = bytes.Trim(m, "\x00")
 	err := json.Unmarshal(m, &dat)
@@ -56,17 +59,23 @@ func (c *Conn) handleMessage(m []byte) {
 		r = int(requestId.(float64))
 	}
 
+	callBack, ok := c.queue[r]
+	if !ok && (a != "command/insert") {
+		log.Printf("Unhandled request id: %d", r)
+		return
+	}
+
 	switch a {
 	case "device/save":
-		c.queue[r](dat)
+		go callBack(dat)
 	case "notification/insert":
-		c.queue[r](dat)
+		go callBack(dat)
 	case "command/subscribe":
-		c.queue[r](dat)
+		go callBack(dat)
 	case "authenticate":
-		c.queue[r](dat)
+		go callBack(dat)
 	case "command/update":
-		c.queue[r](dat)
+		go callBack(dat)
 	case "command/insert":
 		// log.Printf("Command/insert")
 		command := dat["command"]

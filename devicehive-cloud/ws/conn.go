@@ -1,6 +1,7 @@
 package ws
 
 import "github.com/gorilla/websocket"
+import "sync"
 
 type ResponseHandler func(map[string]interface{})
 
@@ -17,7 +18,8 @@ type Conn struct {
 	receive       chan []byte
 	lastCommandId int
 
-	queue map[int]ResponseHandler
+	queue     map[int]ResponseHandler
+	queueLock sync.Mutex
 }
 
 func (c *Conn) WebSocketURL() string {
