@@ -37,8 +37,6 @@ func parseJSON(s string) (map[string]interface{}, error) {
 }
 
 func (w *DbusObjectWrapper) SendNotification(name, parameters string) *dbus.Error {
-	log.Printf("|| DBUS SendNotification(name='%s',params='%s')\n", name, parameters)
-
 	dat, err := parseJSON(parameters)
 
 	if err != nil {
@@ -50,7 +48,6 @@ func (w *DbusObjectWrapper) SendNotification(name, parameters string) *dbus.Erro
 }
 
 func (w *DbusObjectWrapper) UpdateCommand(id uint32, status string, result string) *dbus.Error {
-	log.Printf("|| DBUS UpdateCommand(id=%d,status='%s',result='%s')\n", id, status, result)
 	dat, err := parseJSON(result)
 
 	if err != nil {

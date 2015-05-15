@@ -21,7 +21,6 @@ func wsImplementation(bus *dbus.Conn, config conf.Conf) {
 		if err == nil {
 			c := ws.New(info.WebSocketServerUrl, config.DeviceID, func(m map[string]interface{}) {
 				//log.Printf("Successfully received command: %s", m)
-				log.Printf("|| CLOUD received Command:%v\n", m)
 
 				p := m["parameters"]
 				params := ""
@@ -34,7 +33,8 @@ func wsImplementation(bus *dbus.Conn, config conf.Conf) {
 
 					params = string(b)
 				}
-				// log.Printf("Parameters: %v", params)
+				log.Printf("Command :%s", m["command"].(string))
+				log.Printf("Parameters: %v", params)
 				bus.Emit("/com/devicehive/cloud",
 					"com.devicehive.cloud.CommandReceived",
 					uint32(m["id"].(float64)),

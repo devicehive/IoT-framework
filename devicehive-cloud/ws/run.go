@@ -29,6 +29,7 @@ func (c *Conn) runInternal(init func()) error {
 	ws, _, err := websocket.DefaultDialer.Dial(url, http.Header{"Origin": []string{origin}})
 
 	if err != nil {
+		log.Printf("Error: %s", err.Error())
 		return err
 	}
 
