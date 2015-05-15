@@ -24,16 +24,23 @@ func (c *Conn) runInternal(init func()) error {
 	origin := "http://localhost/"
 	url := c.WebSocketURL() + "/device"
 
-	log.Printf("Connecting using WS to: %v", url)
+	log.Printf("Connecting using WS to %s", url)
 
 	ws, _, err := websocket.DefaultDialer.Dial(url, http.Header{"Origin": []string{origin}})
-
 	if err != nil {
 		log.Printf("Error: %s", err.Error())
 		return err
 	}
 
 	c.ws = ws
+
+	go func() {
+		log.Printf("**** Starting listening from prioriorized chan...")
+		for m := range c.senderQ.Out() {
+			log.Printf("**** MESSAGE FROM PRIOCHAN HAS BEEN RECEIVED AND READY TO SEND: %+v", m)
+			c.SendCommand(m)
+		}
+	}()
 
 	go c.writePump()
 	go func() {

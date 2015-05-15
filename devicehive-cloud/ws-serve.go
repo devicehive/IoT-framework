@@ -15,12 +15,18 @@ import (
 )
 
 func wsImplementation(bus *dbus.Conn, config conf.Conf) {
+
 	var conn *ws.Conn
 	for {
 		info, err := rest.GetDHServerInfo(config.URL)
 		if err == nil {
+<<<<<<< HEAD
 			c := ws.New(info.WebSocketServerUrl, config.DeviceID, func(m map[string]interface{}) {
 				//log.Printf("Successfully received command: %s", m)
+=======
+			c := ws.New(info.WebSocketServerUrl, config.DeviceID, config.SendNotificatonQueueCapacity, func(m map[string]interface{}) {
+				log.Printf("|| CLOUD received Command:%v\n", m)
+>>>>>>> ea61b72b74fa157c6ce9c47bd47899e0e93d6787
 
 				p := m["parameters"]
 				params := ""
@@ -33,8 +39,11 @@ func wsImplementation(bus *dbus.Conn, config conf.Conf) {
 
 					params = string(b)
 				}
+<<<<<<< HEAD
 				log.Printf("Command :%s", m["command"].(string))
 				log.Printf("Parameters: %v", params)
+=======
+>>>>>>> ea61b72b74fa157c6ce9c47bd47899e0e93d6787
 				bus.Emit("/com/devicehive/cloud",
 					"com.devicehive.cloud.CommandReceived",
 					uint32(m["id"].(float64)),

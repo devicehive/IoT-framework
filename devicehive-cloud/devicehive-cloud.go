@@ -36,14 +36,33 @@ func parseJSON(s string) (map[string]interface{}, error) {
 	return dat, err
 }
 
+<<<<<<< HEAD
 func (w *DbusObjectWrapper) SendNotification(name, parameters string) *dbus.Error {
+=======
+// TODO: Remove it the priority queue will be tested
+// func (w *DbusObjectWrapper) SendNotification(name, parameters string) *dbus.Error {
+// 	log.Printf("|| DBUS SendNotification(name='%s',params='%s')\n", name, parameters)
+
+// 	dat, err := parseJSON(parameters)
+
+// 	if err != nil {
+// 		return newDHError(err.Error())
+// 	}
+
+// 	w.c.SendNotification(name, dat)
+// 	return nil
+// }
+
+func (w *DbusObjectWrapper) SendNotification(name, parameters string, priority uint64) *dbus.Error {
+	log.Printf("SendNotification(name='%s',params='%s',priority=%d)\n", name, parameters, priority)
+>>>>>>> ea61b72b74fa157c6ce9c47bd47899e0e93d6787
 	dat, err := parseJSON(parameters)
 
 	if err != nil {
 		return newDHError(err.Error())
 	}
 
-	w.c.SendNotification(name, dat)
+	w.c.SendNotification(name, dat, priority)
 	return nil
 }
 
@@ -85,11 +104,11 @@ func main() {
 	println(configFile)
 	switch {
 	case err != nil:
-		log.Fatalf("Cannot read configuration in `%s` with error: %s\n", configFile, err.Error())
+		log.Fatalf("Cannot read configuration in `%s` with error: %s", configFile, err.Error())
 	case configFile == "":
-		log.Printf("You should specify configuration file.\n Starting with test configuration: %+v\n", config)
+		log.Printf("You should specify configuration file.\n Starting with test configuration: %+v", config)
 	default:
-		log.Printf("Starting DeviceHive gateway with configuration in '%s': %+v\n", configFile, config)
+		log.Printf("Starting DeviceHive gateway with configuration in '%s': %+v", configFile, config)
 	}
 
 	if config.DeviceNotifcationsReceive == conf.DeviceNotificationReceiveByWS {
