@@ -17,17 +17,20 @@ import (
 )
 
 const (
-	ConnectionTimeout = 1 // Connection timeout in seconds.
+	ConnectionTimeout = 3 // Connection timeout in seconds.
 	ExploreTimeout    = 5 // Timeout to explore peripherals for a newly found device
 )
 
 type BleDbusWrapper struct {
-	bus               *dbus.Conn
-	device            gatt.Device
-	connected         bool
-	devicesDiscovered map[string]*DiscoveredDeviceInfo
-	sync              sync.Mutex
-	connChan          chan bool
+	bus                   *dbus.Conn
+	device                gatt.Device
+	connected             bool
+	devicesDiscovered     map[string]*DiscoveredDeviceInfo
+	devicesDiscoveredsync sync.Mutex
+	devicesConnected      map[string]*sync.Mutex
+	devicesConnectedsync  sync.Mutex
+	connChan              chan bool
+	connecting            bool
 }
 
 type DiscoveredDeviceInfo struct {
@@ -35,7 +38,6 @@ type DiscoveredDeviceInfo struct {
 	rssi            int
 	peripheral      gatt.Peripheral
 	characteristics map[string]*gatt.Characteristic
-	connected       bool
 	ready           bool
 	connectedOnce   bool
 }
@@ -77,6 +79,7 @@ func NewBleDbusWrapper(bus *dbus.Conn) *BleDbusWrapper {
 	wrapper := new(BleDbusWrapper)
 	wrapper.bus = bus
 	wrapper.devicesDiscovered = make(map[string]*DiscoveredDeviceInfo)
+	wrapper.devicesConnected = make(map[string]*sync.Mutex)
 	wrapper.connChan = make(chan bool, 1)
 
 	d.Handle(gatt.PeripheralDiscovered(wrapper.OnPeripheralDiscovered))
@@ -103,37 +106,44 @@ func (w *BleDbusWrapper) OnInit(dev gatt.Device, s gatt.State) {
 func (w *BleDbusWrapper) OnPeripheralConnected(p gatt.Peripheral, err error) {
 	id, _ := normalizeHex(p.ID())
 	w.devicesDiscovered[id].peripheral = p
+
+	w.devicesConnectedsync.Lock()
+	w.devicesConnected[id] = &sync.Mutex{}
+	w.devicesConnectedsync.Unlock()
+
 	w.connChan <- true
 }
 
 func (w *BleDbusWrapper) OnPeripheralDisconnected(p gatt.Peripheral, err error) {
-	// w.sync.Lock()
-	// defer w.sync.Unlock()
+	w.devicesConnectedsync.Lock()
+	defer w.devicesConnectedsync.Unlock()
 
 	id, _ := normalizeHex(p.ID())
-	log.Printf("Disconnected: %s", id)
 
-	if dev, ok := w.devicesDiscovered[id]; ok {
-		dev.connected = false
+	if _, ok := w.devicesConnected[id]; ok {
+		log.Printf("Disconnected: %s", id)
+		delete(w.devicesConnected, id)
 		w.emitPeripheralDisconnected(id)
 	}
 }
 
 func (w *BleDbusWrapper) OnPeripheralDiscovered(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
-	w.sync.Lock()
-	defer w.sync.Unlock()
+	w.devicesDiscoveredsync.Lock()
+	defer w.devicesDiscoveredsync.Unlock()
 
 	id, _ := normalizeHex(p.ID())
 	name := strings.Trim(p.Name(), "\x00")
+
 	dev, ok := w.devicesDiscovered[id]
 	if !ok {
 		w.devicesDiscovered[id] = &DiscoveredDeviceInfo{name: name, rssi: rssi, peripheral: p, ready: false, connectedOnce: false}
+		w.emitPeripheralDiscovered(id, name, int16(rssi))
 	} else {
 		if (dev.name == "") && (name != "") {
 			dev.name = name
+			w.emitPeripheralDiscovered(id, name, int16(rssi))
 		}
 	}
-	w.emitPeripheralDiscovered(id, name, int16(rssi))
 }
 
 func (w *BleDbusWrapper) emitPeripheralDiscovered(id, name string, rssi int16) {
@@ -164,16 +174,16 @@ func (w *BleDbusWrapper) ScanStart() *dbus.Error {
 	// Just let them know devices that are cached, as they might be connected and
 	// no longer advertising. Put RSSI to 0.
 	go func() {
-		w.sync.Lock()
-		defer w.sync.Unlock()
-
 		for k, v := range w.devicesDiscovered {
-			log.Printf("Retrieving from cache: %s, %s", k, v.name)
 			w.emitPeripheralDiscovered(k, v.name, int16(0))
 		}
 	}()
 
-	w.device.Scan(nil, true)
+	if w.connecting {
+		return newDHError("Unable to scan, connection is in progress")
+	}
+
+	w.device.Scan(nil, false)
 
 	return nil
 }
@@ -188,16 +198,14 @@ func (w *BleDbusWrapper) ScanStop() *dbus.Error {
 }
 
 func (w *BleDbusWrapper) Connect(mac string, random bool) (bool, *dbus.Error) {
-	w.sync.Lock()
-	defer w.sync.Unlock()
-
 	mac, err := normalizeHex(mac)
+	w.connecting = true
+	defer func() { w.connecting = false }()
 
 	if err != nil {
 		return false, newDHError("Invalid MAC provided")
 	}
 
-	log.Printf("Connecting to: %s", mac)
 	val, ok := w.devicesDiscovered[mac]
 
 	if !ok {
@@ -209,11 +217,14 @@ func (w *BleDbusWrapper) Connect(mac string, random bool) (bool, *dbus.Error) {
 		}
 
 		val = &DiscoveredDeviceInfo{name: "", rssi: 0, peripheral: p, ready: false, connectedOnce: false}
+		w.devicesDiscoveredsync.Lock()
 		w.devicesDiscovered[mac] = val
+		w.devicesDiscoveredsync.Unlock()
 	}
 
-	if !val.connected {
+	if _, ok := w.devicesConnected[mac]; !ok {
 		log.Printf("Trying to connect: %s", mac)
+		w.device.StopScanning()
 		w.device.Connect(val.peripheral)
 		select {
 		case <-w.connChan:
@@ -236,40 +247,40 @@ func (w *BleDbusWrapper) Connect(mac string, random bool) (bool, *dbus.Error) {
 				}
 
 			}
-			val.connected = true
 			val.connectedOnce = true
 			val.ready = true
+			w.emitPeripheralConnected(mac)
+			log.Printf("Connected to: %s", mac)
 
 		case <-time.After(ConnectionTimeout * time.Second):
 			w.device.CancelConnection(val.peripheral)
-			return false, newDHError("BLE connection timed out")
+			return false, newDHError(fmt.Sprintf("BLE connection timed out [%s]", mac))
 		}
-		w.emitPeripheralConnected(mac)
 	}
 
-	return val.connected, nil
+	return true, nil
 }
 
 func (w *BleDbusWrapper) Disconnect(mac string) *dbus.Error {
-	w.sync.Lock()
-	defer w.sync.Unlock()
-
 	if val, ok := w.devicesDiscovered[mac]; ok {
 		w.device.CancelConnection(val.peripheral)
-		val.connected = false
 		return nil
 	}
 
-	log.Print("MAC wasn't descovered")
-	return newDHError("MAC wasn't descovered, use Scan Start/Stop first")
+	return newDHError(fmt.Sprintf("MAC [%s] wasn't descovered, use Scan Start/Stop first", mac))
 }
 
 func (w *BleDbusWrapper) handleGattCommand(mac string, uuid string, message string, handler gattCommandHandler) (string, *dbus.Error) {
-	w.sync.Lock()
-	defer w.sync.Unlock()
-
 	mac, _ = normalizeHex(mac)
 	uuid, _ = normalizeHex(uuid)
+
+	deviceLock, ok := w.devicesConnected[mac]
+	if ok && deviceLock != nil {
+		deviceLock.Lock()
+		defer deviceLock.Unlock()
+	} else {
+		return "", newDHError(fmt.Sprintf("Device [%s] not connected", mac))
+	}
 
 	res := ""
 
@@ -279,12 +290,12 @@ func (w *BleDbusWrapper) handleGattCommand(mac string, uuid string, message stri
 			return "", newDHError("Device not ready")
 		}
 
-		if !val.connected {
+		if _, ok := w.devicesConnected[mac]; !ok {
 			log.Printf("handleGattCommand(): %s is not connected", mac)
-			return "", newDHError("Device not connected")
+			return "", newDHError(fmt.Sprintf("Device [%s] not connected", mac))
 		}
 
-		log.Printf("GATT COMMAND to mac %v char %v", mac, uuid)
+		log.Printf("Sending gatt command [mac: %s, char %s, message: %s]", mac, uuid, message)
 		var b []byte
 		var err error
 
@@ -297,9 +308,7 @@ func (w *BleDbusWrapper) handleGattCommand(mac string, uuid string, message stri
 		}
 
 		if c, ok := val.characteristics[uuid]; ok {
-			log.Printf("Enter handler for %v", val.peripheral)
 			b, err = handler(val.peripheral, c, b)
-			log.Printf("Exit handler for %v", val.peripheral)
 
 			if b != nil {
 				res = hex.EncodeToString(b)
@@ -331,6 +340,24 @@ func (w *BleDbusWrapper) GattWrite(mac string, uuid string, message string) *dbu
 
 	_, error := w.handleGattCommand(mac, uuid, message, h)
 	return error
+}
+
+func (w *BleDbusWrapper) GattWriteNoResp(mac string, uuid string, message string) *dbus.Error {
+	h := func(p gatt.Peripheral, c *gatt.Characteristic, b []byte) ([]byte, error) {
+		error := p.WriteCharacteristic(c, b, true)
+		return nil, error
+	}
+
+	_, error := w.handleGattCommand(mac, uuid, message, h)
+	return error
+}
+
+func (w *BleDbusWrapper) Connected(mac string) (bool, *dbus.Error) {
+	mac, _ = normalizeHex(mac)
+
+	_, ok := w.devicesConnected[mac]
+
+	return ok, nil
 }
 
 func (w *BleDbusWrapper) GattRead(mac string, uuid string) (string, *dbus.Error) {
@@ -387,20 +414,18 @@ func (w *BleDbusWrapper) GattIndications(mac string, uuid string, enable bool) *
 }
 
 func (b *DiscoveredDeviceInfo) explorePeripheral(p gatt.Peripheral) error {
-	log.Print("Begin explorePeripheral()")
 	ss, err := p.DiscoverServices(nil)
-	log.Print("End explorePeripheral()")
 	if err != nil {
 		log.Printf("Failed to discover services, err: %s\n", err)
 		return err
 	}
 
 	for _, s := range ss {
-		msg := "Service: " + s.UUID().String()
-		if len(s.Name()) > 0 {
-			msg += " (" + s.Name() + ")"
-		}
-		log.Println(msg)
+		// msg := "Service: " + s.UUID().String()
+		// if len(s.Name()) > 0 {
+		// 	msg += " (" + s.Name() + ")"
+		// }
+		// log.Println(msg)
 
 		// Discovery characteristics
 		cs, err := p.DiscoverCharacteristics(nil, s)
@@ -410,32 +435,31 @@ func (b *DiscoveredDeviceInfo) explorePeripheral(p gatt.Peripheral) error {
 		}
 
 		for _, c := range cs {
-			msg := "  Characteristic  " + c.UUID().String()
-			if len(c.Name()) > 0 {
-				msg += " (" + c.Name() + ")"
-			}
-			msg += "\n    properties    " + c.Properties().String()
-			log.Println(msg)
+			// msg := "  Characteristic  " + c.UUID().String()
+			// if len(c.Name()) > 0 {
+			// 	msg += " (" + c.Name() + ")"
+			// }
+			// msg += "\n    properties    " + c.Properties().String()
+			// log.Println(msg)
 
 			// Discovery descriptors
-			ds, err := p.DiscoverDescriptors(nil, c)
+			_, err := p.DiscoverDescriptors(nil, c)
 			if err != nil {
 				log.Printf("Failed to discover descriptors, err: %s\n", err)
 				continue
 			}
 
-			for _, d := range ds {
-				msg := "  Descriptor      " + d.UUID().String()
-				if len(d.Name()) > 0 {
-					msg += " (" + d.Name() + ")"
-				}
-				log.Println(msg)
-			}
+			// for _, d := range ds {
+			// 	msg := "  Descriptor      " + d.UUID().String()
+			// 	if len(d.Name()) > 0 {
+			// 		msg += " (" + d.Name() + ")"
+			// 	}
+			// 	log.Println(msg)
+			// }
 
 			id, _ := normalizeHex(c.UUID().String())
 			b.characteristics[id] = c
 		}
-		log.Println("Done exploring peripheral")
 		b.ready = true
 	}
 
