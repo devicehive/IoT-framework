@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/mibori/gopencils"
@@ -22,15 +23,22 @@ func DeviceCmdInsert(deviceHiveURL, deviceGuid, accessKey, command string, param
 	}
 	resource.Headers["Authorization"] = []string{"Bearer " + accessKey}
 
-	resource.Post(map[string]interface{}{
+	requestBody := map[string]interface{}{
 		"command": command,
-	})
+	}
 
-	// log.Printf("RESPONSE STATUS: %s", resource.Raw.Status)
-	// log.Printf("RESPONSE: %+v", resource.Response)
+	if parameters != nil {
+		requestBody["parameters"] = parameters
+	}
+
+	resource.Post(requestBody)
+
+	// log.Printf("DeviceCmdInsert RESPONSE STATUS: %s", resource.Raw.Status)
+	// log.Printf("DeviceCmdInsert RESPONSE: %+v", resource.Response)
 
 	if err == nil {
 		err = resource.ProcessedError()
 	}
+	log.Printf("DeviceCmdInsert RETURN")
 	return
 }

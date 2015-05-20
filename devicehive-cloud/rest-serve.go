@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 
 	"github.com/devicehive/IoT-framework/devicehive-cloud/conf"
@@ -46,6 +47,7 @@ func (w *DbusRestWrapper) SendNotification(name, parameters string, priority uin
 	}
 
 	rest.DeviceCmdInsert(w.URL, w.DeviceID, w.AccessKey, "SendCommand", m)
+	// log.Printf("rest.DeviceCmdInsert return")
 
 	return nil
 }
@@ -75,6 +77,7 @@ func restImplementation(bus *dbus.Conn, config conf.Conf) {
 
 	// listener from cloud & sender to bus
 	go func() {
+		// log.Println("Starting rest listener")
 		control := rest.NewPollAsync()
 		out := make(chan rest.DeviceCmdResource, 16)
 
@@ -84,12 +87,29 @@ func restImplementation(bus *dbus.Conn, config conf.Conf) {
 			select {
 			case cmd := <-out:
 				log.Printf("CMD RECEIVED FROM CLOUD: %+v", cmd)
-				bus.Emit(restObjectPath, restCommandName, uint32(cmd.Id), cmd.Command, cmd.Parameters)
+
+				parameters := ""
+				if cmd.Parameters != nil {
+					b, err := json.Marshal(cmd.Parameters)
+					if err != nil {
+						log.Printf("Error: could parse json-parameters:%v", cmd.Parameters)
+						continue
+					}
+
+					parameters = string(b)
+				}
+
+				bus.Emit(restObjectPath, restCommandName, uint32(cmd.Id), cmd.Command, parameters)
+				// log.Printf("CMD RECEIVED BUS EMIT COMPLETE")
 			}
 		}
+		// log.Println("Stopped rest listener")
 	}()
 
 	// listener from bus & sender to cloud
+	// log.Println("Starting bus listener")
 	w := NewDbusRestWrapper(config)
 	bus.Export(w, "/com/devicehive/cloud", DBusConnName)
+
+	select {}
 }

@@ -37,8 +37,8 @@ func DeviceCmdPoll(deviceHiveURL, deviceGuid, accessKey string, client *http.Cli
 
 	resource.Get()
 
-	// log.Printf("RESPONSE STATUS: %s", resource.Raw.Status)
-	// log.Printf("RESPONSE: %+v", resource.Response)
+	// log.Printf("    DeviceCmdPoll RESPONSE STATUS: %s", resource.Raw.Status)
+	// log.Printf("    DeviceCmdPoll RESPONSE: %+v", resource.Response)
 
 	if err == nil {
 		err = resource.ProcessedError()

@@ -64,6 +64,7 @@ func main() {
 	}
 
 	if config.DeviceNotifcationsReceive == conf.DeviceNotificationReceiveByREST {
+		log.Printf("Starting as rest daemon...")
 		restImplementation(bus, config)
 		return
 	}
