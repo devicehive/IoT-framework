@@ -21,6 +21,7 @@ type Conf struct {
 	// Optional
 	DeviceNotifcationsReceive    string `yaml:"DeviceNotifcationsReceive,omitempty"`
 	SendNotificatonQueueCapacity uint64 `yaml:"SendNotificatonQueueCapacity,omitempty"`
+	LoggingLevel                 string `yaml:"LoggingLevel,omitempty"`
 }
 
 func (c *Conf) fix() {
@@ -30,6 +31,10 @@ func (c *Conf) fix() {
 
 	if c.SendNotificatonQueueCapacity == 0 {
 		c.SendNotificatonQueueCapacity = 2048
+	}
+
+	if len(c.LoggingLevel) == 0 {
+		c.LoggingLevel = "info"
 	}
 }
 
