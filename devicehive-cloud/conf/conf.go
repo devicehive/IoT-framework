@@ -37,7 +37,7 @@ func FromArgs() (filepath string, c Conf, err error) {
 	parseArgs()
 	filepath = confArgValue
 	if len(filepath) == 0 {
-		c = testConf()
+		c = TestConf()
 		return
 	}
 	c, err = readConf(confArgValue)
@@ -58,10 +58,10 @@ func readConf(filepath string) (c Conf, err error) {
 	return
 }
 
-func testConf() Conf {
+func TestConf() Conf {
 	c := Conf{}
 
-	c.URL = "http://dh-just-in-case.cloudapp.net:8080/dh/rest"
+	c.URL = "http://52.6.240.235:8080/dh/rest"
 	c.AccessKey = "1jwKgLYi/CdfBTI9KByfYxwyQ6HUIEfnGSgakdpFjgk="
 	c.DeviceID = "0B24431A-EC99-4887-8B4F-38C3CEAF1D03"
 	c.DeviceName = "snappy-go-gateway"
