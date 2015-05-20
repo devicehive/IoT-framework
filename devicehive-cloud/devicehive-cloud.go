@@ -36,20 +36,6 @@ func parseJSON(s string) (map[string]interface{}, error) {
 	return dat, err
 }
 
-// TODO: Remove it the priority queue will be tested
-// func (w *DbusObjectWrapper) SendNotification(name, parameters string) *dbus.Error {
-// 	log.Printf("|| DBUS SendNotification(name='%s',params='%s')\n", name, parameters)
-
-// 	dat, err := parseJSON(parameters)
-
-// 	if err != nil {
-// 		return newDHError(err.Error())
-// 	}
-
-// 	w.c.SendNotification(name, dat)
-// 	return nil
-// }
-
 func (w *DbusObjectWrapper) SendNotification(name, parameters string, priority uint64) *dbus.Error {
 	log.Printf("SendNotification(name='%s',params='%s',priority=%d)\n", name, parameters, priority)
 	dat, err := parseJSON(parameters)

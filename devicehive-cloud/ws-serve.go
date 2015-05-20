@@ -18,7 +18,7 @@ func wsImplementation(bus *dbus.Conn, config conf.Conf) {
 
 	var conn *ws.Conn
 	for {
-		info, err := rest.GetDHServerInfo(config.URL)
+		info, err := rest.GetApiInfo(config.URL)
 		if err == nil {
 			c := ws.New(info.WebSocketServerUrl, config.DeviceID, config.SendNotificatonQueueCapacity, func(m map[string]interface{}) {
 				log.Printf("|| CLOUD received Command:%v\n", m)

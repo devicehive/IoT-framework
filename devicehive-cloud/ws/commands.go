@@ -68,15 +68,3 @@ func (c *Conn) SendNotification(name string, parameters map[string]interface{}, 
 		log.Printf("!!!! LAST SENT FROM DBUS => REMOVING FROM QUEUE, timestamp=%d, priority=%d, parameters=%+v\n", qi.Timestamp, qi.Priority, qi.Msg)
 	}
 }
-
-//TODO: delete when priority queue will be tested
-// func (c *Conn) oldSendNotification(name string, parameters map[string]interface{}) {
-// 	m := map[string]interface{}{
-// 		"action": "notification/insert",
-// 		"notification": map[string]interface{}{
-// 			"notification": name,
-// 			"parameters":   parameters,
-// 		},
-// 	}
-// 	c.SendCommand(m)
-// }
