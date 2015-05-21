@@ -3,8 +3,9 @@ package ws
 import (
 	"bytes"
 	"encoding/json"
-	"log"
 	"time"
+
+	"github.com/devicehive/IoT-framework/devicehive-cloud/say"
 )
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -23,7 +24,7 @@ func (c *Conn) readPump() error {
 	for {
 		_, r, err := c.ws.NextReader()
 		if err != nil {
-			log.Print(err)
+			say.Verbosef("readPump: could not receive c.ws.NextReader() with error: %s", err.Error())
 			return err
 		}
 
@@ -31,7 +32,7 @@ func (c *Conn) readPump() error {
 		_, err = r.Read(buf)
 
 		if err != nil {
-			log.Print(err)
+			say.Verbosef("readPump: could not read c.ws.NextReader() to the buffer (%d bytes) with error: %s", maxMessageSize, err.Error())
 			return err
 		}
 
@@ -47,7 +48,7 @@ func (c *Conn) handleMessage(m []byte) {
 	m = bytes.Trim(m, "\x00")
 	err := json.Unmarshal(m, &dat)
 	if err != nil {
-		log.Printf("invalid JSON: %s", m)
+		say.Verbosef("handleMessage: could not parse JSON in (%s) with error %s", string(m), err.Error())
 	}
 
 	a := dat["action"]
@@ -61,7 +62,7 @@ func (c *Conn) handleMessage(m []byte) {
 
 	callBack, ok := c.queue[r]
 	if !ok && (a != "command/insert") {
-		log.Printf("Unhandled request id: %d", r)
+		say.Verbosef("handleMessage: unhandled request with id=%d", r)
 		return
 	}
 
@@ -77,11 +78,10 @@ func (c *Conn) handleMessage(m []byte) {
 	case "command/update":
 		go callBack(dat)
 	case "command/insert":
-		// log.Printf("Command/insert")
 		command := dat["command"]
 		go c.CommandReceived()(command.(map[string]interface{}))
 	default:
-		log.Printf("Unknown notification: %s", a)
+		say.Verbosef("handleMessage: Unknown notification: %s", a)
 	}
 	delete(c.queue, r)
 }

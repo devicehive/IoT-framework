@@ -1,9 +1,8 @@
 package ws
 
 import (
-	"log"
-
 	"github.com/devicehive/IoT-framework/devicehive-cloud/pqueue"
+	"github.com/devicehive/IoT-framework/devicehive-cloud/say"
 )
 
 func (c *Conn) RegisterDevice(deviceID, deviceName string) {
@@ -61,22 +60,14 @@ func (c *Conn) SendNotification(name string, parameters map[string]interface{}, 
 		},
 	}
 
-	log.Printf("\n**** SENT FROM DBUS name=%d, priority=%d, params=%+v)", name, priority, parameters)
+	say.Debugf("\n   SENT FROM DBUS name=%d, priority=%d, params=%+v)", name, priority, parameters)
 	removed := c.senderQ.Send(pqueue.Message(m), priority)
 
-	for _, qi := range removed {
-		log.Printf("!!!! LAST SENT FROM DBUS => REMOVING FROM QUEUE, timestamp=%d, priority=%d, parameters=%+v\n", qi.Timestamp, qi.Priority, qi.Msg)
-	}
-}
+	say.If(say.VERBOSE, func() {
+		say.Alwaysf("VERBOSE:THROTTLING: %s^%d(%+v)", name, priority, parameters)
+		for _, qi := range removed {
+			say.Alwaysf("   => REMOVED: %d ^%d(%+v)", qi.Timestamp, qi.Priority, qi.Msg)
+		}
+	})
 
-//TODO: delete when priority queue will be tested
-// func (c *Conn) oldSendNotification(name string, parameters map[string]interface{}) {
-// 	m := map[string]interface{}{
-// 		"action": "notification/insert",
-// 		"notification": map[string]interface{}{
-// 			"notification": name,
-// 			"parameters":   parameters,
-// 		},
-// 	}
-// 	c.SendCommand(m)
-// }
+}

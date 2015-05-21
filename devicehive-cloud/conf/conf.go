@@ -21,6 +21,7 @@ type Conf struct {
 	// Optional
 	DeviceNotifcationsReceive    string `yaml:"DeviceNotifcationsReceive,omitempty"`
 	SendNotificatonQueueCapacity uint64 `yaml:"SendNotificatonQueueCapacity,omitempty"`
+	LoggingLevel                 string `yaml:"LoggingLevel,omitempty"`
 }
 
 func (c *Conf) fix() {
@@ -31,13 +32,17 @@ func (c *Conf) fix() {
 	if c.SendNotificatonQueueCapacity == 0 {
 		c.SendNotificatonQueueCapacity = 2048
 	}
+
+	if len(c.LoggingLevel) == 0 {
+		c.LoggingLevel = "info"
+	}
 }
 
 func FromArgs() (filepath string, c Conf, err error) {
 	parseArgs()
 	filepath = confArgValue
 	if len(filepath) == 0 {
-		c = testConf()
+		c = TestConf()
 		return
 	}
 	c, err = readConf(confArgValue)
@@ -58,16 +63,20 @@ func readConf(filepath string) (c Conf, err error) {
 	return
 }
 
-func testConf() Conf {
+func TestConf() Conf {
 	c := Conf{}
 
-	c.URL = "http://dh-just-in-case.cloudapp.net:8080/dh/rest"
+	c.URL = "http://52.6.240.235:8080/dh/rest"
 	c.AccessKey = "1jwKgLYi/CdfBTI9KByfYxwyQ6HUIEfnGSgakdpFjgk="
 	c.DeviceID = "0B24431A-EC99-4887-8B4F-38C3CEAF1D03"
 	c.DeviceName = "snappy-go-gateway"
 
-	//c.SendNotificatonQueueCapacity = 23
-	//c.DeviceNotifcationsReceive = DeviceNotificationReceiveByREST
+	// c.LoggingLevel = "info"
+	c.LoggingLevel = "verbose"
+	// c.LoggingLevel = "debug"
+
+	// c.SendNotificatonQueueCapacity = 23
+	// c.DeviceNotifcationsReceive = DeviceNotificationReceiveByREST
 
 	(&c).fix()
 	return c

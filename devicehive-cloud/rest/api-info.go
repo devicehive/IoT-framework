@@ -1,48 +1,20 @@
 package rest
 
-import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"net/http"
-)
+import "github.com/mibori/gopencils"
 
-type DHServerInfo struct {
-	ApiVersion         string
-	ServerTimestamp    string
-	WebSocketServerUrl string
+type ApiInfo struct {
+	ApiVersion         string `json:"apiVersion"`
+	ServerTimestamp    string `json:"serverTimestamp"`
+	WebSocketServerUrl string `json:"webSocketServerUrl"`
 }
 
-func GetDHServerInfo(deviceHiveURL string) (dh DHServerInfo, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			var ok bool
-			err, ok = r.(error)
-			if !ok {
-				err = fmt.Errorf("Could not process error %#v", r)
-			}
-		}
-	}()
+func GetApiInfo(deviceHiveURL string) (ai ApiInfo, err error) {
+	api := gopencils.Api(deviceHiveURL)
+	resp := &ai
+	resource, err := api.Res("info", resp).Get()
 
-	resp, err := http.Get(deviceHiveURL + "/info")
-	if err != nil {
-		return
+	if err == nil {
+		err = resource.ProcessedError()
 	}
-
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-
-	var dat map[string]interface{}
-	if err = json.Unmarshal(body, &dat); err != nil {
-		return
-	}
-
-	return DHServerInfo{
-		ApiVersion:         dat["apiVersion"].(string),
-		ServerTimestamp:    dat["serverTimestamp"].(string),
-		WebSocketServerUrl: dat["webSocketServerUrl"].(string),
-	}, nil
+	return
 }

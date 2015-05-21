@@ -56,7 +56,6 @@ func NewPriorityQueue(capacity uint64, listener chan Message) (*PriorityQueue, e
 func (pq *PriorityQueue) Send(m Message, priority uint64) (removed []QueueItem) {
 	for uint64(pq.Len()) > pq.capacity-1 {
 		item := heap.Remove(pq, pq.Len()-1).(QueueItem)
-		//log.Printf("Removing %+v from queue", item)
 		removed = append(removed, item)
 	}
 	heap.Push(pq, QueueItem{
