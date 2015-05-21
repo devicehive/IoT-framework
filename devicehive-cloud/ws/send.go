@@ -2,9 +2,9 @@ package ws
 
 import (
 	"encoding/json"
-	"log"
 	"time"
 
+	"github.com/devicehive/IoT-framework/devicehive-cloud/say"
 	"github.com/gorilla/websocket"
 )
 
@@ -26,13 +26,13 @@ func (c *Conn) SendCommand(command map[string]interface{}) {
 
 	select {
 	case <-time.After(CommandResponseTimeout * time.Second):
-		{
-			c.queueLock.Lock()
-			delete(c.queue, requestId)
-			c.queueLock.Unlock()
 
-			log.Printf("Timed out waiting for response to command: %+v", command)
-		}
+		c.queueLock.Lock()
+		delete(c.queue, requestId)
+		c.queueLock.Unlock()
+
+		say.Infof("Timed out waiting for response to command: %+v", command)
+
 	case <-r:
 	}
 }
@@ -40,9 +40,8 @@ func (c *Conn) SendCommand(command map[string]interface{}) {
 func (c *Conn) postCommand(command map[string]interface{}) {
 	b, err := json.Marshal(command)
 	if err != nil {
-		log.Panic(err)
+		say.Fatalf("postCommand: Could not generate JSON from %+v with error %s", command, err)
 	}
-	// log.Printf("Post command: %+v", command)
 	c.send <- b
 }
 
@@ -56,18 +55,17 @@ func (c *Conn) writePump() {
 	for {
 		select {
 		case message, ok := <-c.send:
-			// log.Printf("writePump(): sending: %v", message)
 			if !ok {
 				c.write(websocket.CloseMessage, []byte{})
 				return
 			}
 			if err := c.write(websocket.TextMessage, message); err != nil {
-				log.Print(err)
+				say.Fatalf("writePump: could not write text message %s with error: %s", string(message), err.Error())
 				return
 			}
 		case <-ticker.C:
 			if err := c.write(websocket.PingMessage, []byte{}); err != nil {
-				log.Print(err)
+				say.Fatalf("writePump: could not write ping message with error: %s", err.Error())
 				return
 			}
 		}

@@ -1,7 +1,6 @@
 package rest
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/mibori/gopencils"
@@ -39,6 +38,5 @@ func DeviceCmdInsert(deviceHiveURL, deviceGuid, accessKey, command string, param
 	if err == nil {
 		err = resource.ProcessedError()
 	}
-	log.Printf("DeviceCmdInsert RETURN")
 	return
 }

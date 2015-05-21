@@ -2,11 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"time"
 
 	"github.com/devicehive/IoT-framework/devicehive-cloud/conf"
 	"github.com/devicehive/IoT-framework/devicehive-cloud/rest"
+	"github.com/devicehive/IoT-framework/devicehive-cloud/say"
 	"github.com/devicehive/IoT-framework/devicehive-cloud/ws"
 
 	"github.com/godbus/dbus"
@@ -26,7 +26,7 @@ func NewDbusObjectWrapper(c *ws.Conn) *DbusObjectWrapper {
 }
 
 func (w *DbusObjectWrapper) SendNotification(name, parameters string, priority uint64) *dbus.Error {
-	log.Printf("SendNotification(name='%s',params='%s',priority=%d)\n", name, parameters, priority)
+	say.Verbosef("SendNotification(name='%s',params='%s',priority=%d)\n", name, parameters, priority)
 	dat, err := parseJSON(parameters)
 
 	if err != nil {
@@ -55,7 +55,6 @@ func wsImplementation(bus *dbus.Conn, config conf.Conf) {
 		info, err := rest.GetApiInfo(config.URL)
 		if err == nil {
 			c := ws.New(info.WebSocketServerUrl, config.DeviceID, config.SendNotificatonQueueCapacity, func(m map[string]interface{}) {
-				log.Printf("|| CLOUD received Command:%v\n", m)
 
 				p := m["parameters"]
 				params := ""
@@ -63,13 +62,15 @@ func wsImplementation(bus *dbus.Conn, config conf.Conf) {
 				if p != nil {
 					b, err := json.Marshal(p)
 					if err != nil {
-						log.Panic(err)
+
+						say.Fatalf("Could not generete JSON from command %+v\nWith error %s", m, err.Error())
 					}
 
 					params = string(b)
 				}
-				log.Printf("Command :%s", m["command"].(string))
-				log.Printf("Parameters: %v", params)
+
+				say.Verbosef("COMMAND %s -> %s(%v)", info.WebSocketServerUrl, m["command"].(string), params)
+
 				bus.Emit("/com/devicehive/cloud",
 					"com.devicehive.cloud.CommandReceived",
 					uint32(m["id"].(float64)),
@@ -82,7 +83,7 @@ func wsImplementation(bus *dbus.Conn, config conf.Conf) {
 				break
 			}
 		}
-		log.Print(err)
+		say.Infof("API info error: %s", err.Error())
 		time.Sleep(5 * time.Second)
 	}
 

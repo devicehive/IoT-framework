@@ -71,7 +71,11 @@ func TestConf() Conf {
 	c.DeviceID = "0B24431A-EC99-4887-8B4F-38C3CEAF1D03"
 	c.DeviceName = "snappy-go-gateway"
 
-	//c.SendNotificatonQueueCapacity = 23
+	// c.LoggingLevel = "info"
+	c.LoggingLevel = "verbose"
+	// c.LoggingLevel = "debug"
+
+	// c.SendNotificatonQueueCapacity = 23
 	// c.DeviceNotifcationsReceive = DeviceNotificationReceiveByREST
 
 	(&c).fix()

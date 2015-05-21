@@ -2,6 +2,7 @@ package say
 
 import (
 	"log"
+	"os"
 	"strings"
 )
 
@@ -31,19 +32,34 @@ func SetLevelWithConfName(name string) {
 }
 
 func Infof(format string, v ...interface{}) {
-	if Level <= INFO {
+	if Level >= INFO {
 		log.Printf("INFO:"+format, v...)
 	}
 }
 
+func Fatalf(format string, v ...interface{}) {
+	Infof(format, v...)
+	os.Exit(1)
+}
+
 func Verbosef(format string, v ...interface{}) {
-	if Level <= VERBOSE {
+	if Level >= VERBOSE {
 		log.Printf("VERBOSE:"+format, v...)
 	}
 }
 
 func Debugf(format string, v ...interface{}) {
-	if Level <= DEBUG {
+	if Level >= DEBUG {
 		log.Printf(format, v...)
 	}
+}
+
+func If(level int, action func()) {
+	if Level >= level {
+		action()
+	}
+}
+
+func Alwaysf(format string, v ...interface{}) {
+	log.Printf(format, v...)
 }

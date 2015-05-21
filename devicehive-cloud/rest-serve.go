@@ -2,10 +2,10 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 
 	"github.com/devicehive/IoT-framework/devicehive-cloud/conf"
 	"github.com/devicehive/IoT-framework/devicehive-cloud/rest"
+	"github.com/devicehive/IoT-framework/devicehive-cloud/say"
 	"github.com/godbus/dbus"
 )
 
@@ -31,7 +31,7 @@ func NewDbusRestWrapper(c conf.Conf) *DbusRestWrapper {
 }
 
 func (w *DbusRestWrapper) SendNotification(name, parameters string, priority uint64) *dbus.Error {
-	log.Printf("SendNotification(name='%s',params='%s',priority=%d)\n", name, parameters, priority)
+	say.Verbosef("SendNotification(name='%s',params='%s',priority=%d)\n", name, parameters, priority)
 	dat, err := parseJSON(parameters)
 
 	if err != nil {
@@ -47,7 +47,6 @@ func (w *DbusRestWrapper) SendNotification(name, parameters string, priority uin
 	}
 
 	rest.DeviceCmdInsert(w.URL, w.DeviceID, w.AccessKey, "SendCommand", m)
-	// log.Printf("rest.DeviceCmdInsert return")
 
 	return nil
 }
@@ -77,7 +76,6 @@ func restImplementation(bus *dbus.Conn, config conf.Conf) {
 
 	// listener from cloud & sender to bus
 	go func() {
-		// log.Println("Starting rest listener")
 		control := rest.NewPollAsync()
 		out := make(chan rest.DeviceCmdResource, 16)
 
@@ -86,28 +84,24 @@ func restImplementation(bus *dbus.Conn, config conf.Conf) {
 		for {
 			select {
 			case cmd := <-out:
-				log.Printf("CMD RECEIVED FROM CLOUD: %+v", cmd)
-
 				parameters := ""
 				if cmd.Parameters != nil {
 					b, err := json.Marshal(cmd.Parameters)
 					if err != nil {
-						log.Printf("Error: could parse json-parameters:%v", cmd.Parameters)
+						say.Infof("Could not generete JSON from parameters of command %+v\nWith error %s", cmd, err.Error())
 						continue
 					}
 
 					parameters = string(b)
 				}
 
+				say.Verbosef("COMMAND %s -> %s(%v)", config.URL, cmd.Command, parameters)
+
 				bus.Emit(restObjectPath, restCommandName, uint32(cmd.Id), cmd.Command, parameters)
-				// log.Printf("CMD RECEIVED BUS EMIT COMPLETE")
 			}
 		}
-		// log.Println("Stopped rest listener")
 	}()
 
-	// listener from bus & sender to cloud
-	// log.Println("Starting bus listener")
 	w := NewDbusRestWrapper(config)
 	bus.Export(w, "/com/devicehive/cloud", DBusConnName)
 

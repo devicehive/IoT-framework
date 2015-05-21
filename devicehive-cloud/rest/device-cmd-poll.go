@@ -75,7 +75,6 @@ func DeviceCmdPollAsync(deviceHiveURL, deviceGuid, accessKey string, out chan De
 				}
 
 				if err != nil {
-					// log.Printf("Error: %s", err.Error())
 					continue
 				}
 
@@ -95,14 +94,12 @@ func DeviceCmdPollAsync(deviceHiveURL, deviceGuid, accessKey string, out chan De
 			}
 			continue
 		case <-control:
-			// log.Printf("-> STOP CONTROL RECEIVED")
 			select {
 			case req := <-requestOut:
 				isStopped <- struct{}{}
 				tr.CancelRequest(req)
 				return
 			default:
-				// log.Printf("Warning: can't catch current request")
 			}
 		}
 	}

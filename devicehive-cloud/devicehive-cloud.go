@@ -3,9 +3,9 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"log"
 
 	"github.com/devicehive/IoT-framework/devicehive-cloud/conf"
+	"github.com/devicehive/IoT-framework/devicehive-cloud/say"
 
 	"github.com/godbus/dbus"
 )
@@ -29,12 +29,26 @@ const (
 )
 
 func main() {
+	say.SetLevelWithConfName("info")
+
+	configFile, config, err := conf.FromArgs()
+	switch {
+	case err != nil:
+		say.Fatalf("Cannot read configuration in `%s` with error: %s", configFile, err.Error())
+	case configFile == "":
+		say.Infof("You should specify configuration file. Starting with test configuration: %+v", config)
+	default:
+		say.Infof("Starting DeviceHive gateway with configuration in '%s': %+v", configFile, config)
+	}
+
+	say.SetLevelWithConfName(config.LoggingLevel)
+
 	bus, err := dbus.SystemBus()
 	if err != nil {
-		log.Printf("Cannot get system bus with error: %s\n", err.Error())
-		log.Printf("Trying to use session bus for testing purposes...\n")
+		say.Infof("Cannot get system bus with error: %s", err.Error())
+		say.Infof("Trying to use session bus for testing purposes...")
 		if bus, err = dbus.SessionBus(); err != nil {
-			log.Fatalf("Cannot get session bus with error: %s\n", err.Error())
+			say.Fatalf("Cannot get session bus with error: %s\n", err.Error())
 			return
 		}
 	}
@@ -42,29 +56,19 @@ func main() {
 	reply, err := bus.RequestName(DBusConnName, dbus.NameFlagDoNotQueue)
 	switch {
 	case err != nil:
-		log.Fatalf("Cannot request name '%s' with error: %s\n", DBusConnName, err.Error())
+		say.Fatalf("Cannot request name '%s' with error: %s\n", DBusConnName, err.Error())
 	case reply != dbus.RequestNameReplyPrimaryOwner:
-		log.Fatalf("The name '%s' already taken.", DBusConnName)
-	}
-
-	configFile, config, err := conf.FromArgs()
-	println(configFile)
-	switch {
-	case err != nil:
-		log.Fatalf("Cannot read configuration in `%s` with error: %s", configFile, err.Error())
-	case configFile == "":
-		log.Printf("You should specify configuration file.\n Starting with test configuration: %+v", config)
-	default:
-		log.Printf("Starting DeviceHive gateway with configuration in '%s': %+v", configFile, config)
+		say.Fatalf("The name '%s' already taken.", DBusConnName)
 	}
 
 	if config.DeviceNotifcationsReceive == conf.DeviceNotificationReceiveByWS {
+		say.Infof("Starting as websocket...")
 		wsImplementation(bus, config)
 		return
 	}
 
 	if config.DeviceNotifcationsReceive == conf.DeviceNotificationReceiveByREST {
-		log.Printf("Starting as rest daemon...")
+		say.Infof("Starting as rest...")
 		restImplementation(bus, config)
 		return
 	}
