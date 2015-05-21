@@ -1,7 +1,6 @@
 package main
 
 import (
-	"container/heap"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -16,15 +15,12 @@ import (
 	"time"
 )
 
-const QueueCapacity = 2048
-
 type dbusWrapper struct {
 	conn         *dbus.Conn
 	path, iface  string
-	handlers     map[string]signalHandler
+	handlers     map[string]signalHandlerFunc
 	handlersSync sync.Mutex
 
-	queue     *signalQueue
 	deviceMap map[string]*deviceInfo
 	scanMap   map[string]bool
 
@@ -40,23 +36,6 @@ type deviceInfo struct {
 
 type signalHandlerFunc func(args ...interface{})
 type cloudCommandHandler func(map[string]interface{}) (map[string]interface{}, error)
-
-type signalHandler struct {
-	handler  signalHandlerFunc
-	priority uint64
-}
-
-type signalItem struct {
-	handler   signalHandler
-	signal    *dbus.Signal
-	timestamp uint64
-}
-
-type signalQueue struct {
-	items     []signalItem
-	queueSync sync.Mutex
-	cond      *sync.Cond
-}
 
 type melody struct {
 	w *dbusWrapper
@@ -118,44 +97,6 @@ func (m *melody) Play(mac string, s string, bpm int) (err error) {
 	return nil
 }
 
-func (q signalQueue) Len() int {
-	return len(q.items)
-}
-
-func (q signalQueue) Less(i, j int) bool {
-	return q.items[i].timestamp*q.items[i].handler.priority > q.items[j].timestamp*q.items[j].handler.priority
-}
-
-func (q signalQueue) Swap(i, j int) {
-	if (i > len(q.items)-1) || (j > len(q.items)-1) || (i < 0) || (j < 0) {
-		return
-	}
-
-	q.items[i], q.items[j] = q.items[j], q.items[i]
-}
-
-func (q *signalQueue) Push(x interface{}) {
-	q.cond.L.Lock()
-	q.items = append(q.items, x.(signalItem))
-	q.cond.L.Unlock()
-	q.cond.Signal()
-}
-
-func (q *signalQueue) Pop() interface{} {
-	q.cond.L.Lock()
-
-	old := q.items
-	n := len(old)
-
-	x := old[n-1]
-	q.items = old[0 : n-1]
-
-	q.cond.L.Unlock()
-	q.cond.Signal()
-
-	return x
-}
-
 func NewdbusWrapper(path string, iface string) (*dbusWrapper, error) {
 	d := new(dbusWrapper)
 
@@ -164,15 +105,13 @@ func NewdbusWrapper(path string, iface string) (*dbusWrapper, error) {
 		log.Panic(err)
 	}
 
-	d.handlers = make(map[string]signalHandler)
+	d.handlers = make(map[string]signalHandlerFunc)
 
 	d.conn = conn
 	d.path = path
 	d.iface = iface
 	d.readingsBuffer = make(map[string]*[]float64)
 	d.scanMap = make(map[string]bool)
-	d.queue = &signalQueue{cond: &sync.Cond{L: &sync.Mutex{}}}
-	heap.Init(d.queue)
 
 	filter := fmt.Sprintf("type='signal',path='%[1]s',interface='%[2]s',sender='%[2]s'", path, iface)
 	log.Printf("Filter: %s", filter)
@@ -180,7 +119,7 @@ func NewdbusWrapper(path string, iface string) (*dbusWrapper, error) {
 	conn.Object("org.freedesktop.DBus", "/org/freedesktop/DBus").Call("org.freedesktop.DBus.AddMatch", 0, filter)
 
 	go func() {
-		ch := make(chan *dbus.Signal, 2*QueueCapacity)
+		ch := make(chan *dbus.Signal, 1)
 		conn.Signal(ch)
 		for signal := range ch {
 			if !((strings.Index(signal.Name, iface) == 0) && (string(signal.Path) == path)) {
@@ -192,8 +131,6 @@ func NewdbusWrapper(path string, iface string) (*dbusWrapper, error) {
 				mac := strings.ToLower(signal.Body[0].(string))
 				name := strings.ToLower(signal.Body[1].(string))
 
-				// log.Printf("Got PeripheralDiscovered: [mac: %s, name: %s]", mac, name)
-
 				if _, ok := d.scanMap[name]; ok {
 					if _, ok := d.deviceMap[mac]; !ok {
 						log.Printf("Discovered new device [mac: %s, name: %s]", mac, name)
@@ -204,27 +141,11 @@ func NewdbusWrapper(path string, iface string) (*dbusWrapper, error) {
 				}
 			}
 
-			if val, ok := d.handlers[signal.Name]; ok {
-				for d.queue.Len() > QueueCapacity-1 {
-					item := heap.Remove(d.queue, d.queue.Len()-1)
-					log.Printf("Removing %+v from queue", item)
-				}
-				heap.Push(d.queue, signalItem{handler: val, signal: signal, timestamp: uint64(time.Now().Unix())})
+			if handler, ok := d.handlers[signal.Name]; ok {
+				handler(signal.Body)
 			} else {
 				log.Printf("Unhandled signal: %s", signal.Name)
 			}
-		}
-	}()
-
-	go func() {
-		for {
-			d.queue.cond.L.Lock()
-			for d.queue.Len() == 0 {
-				d.queue.cond.Wait()
-			}
-			d.queue.cond.L.Unlock()
-			item := heap.Pop(d.queue).(signalItem)
-			item.handler.handler(item.signal.Body...)
 		}
 	}()
 
@@ -241,15 +162,14 @@ func (d *dbusWrapper) call(name string, args ...interface{}) *dbus.Call {
 	return c
 }
 
-func (d *dbusWrapper) SendNotification(name string, parameters interface{}) {
+func (d *dbusWrapper) SendNotification(name string, parameters interface{}, priority uint64) {
 	b, _ := json.Marshal(parameters)
-	// log.Printf("Sending cloud notification: %s %s", name, string(b))
-	d.call("SendNotification", name, string(b))
+	d.call("SendNotification", name, string(b), priority)
 }
 
-func (d *dbusWrapper) RegisterHandler(signal string, priority uint64, h signalHandlerFunc) {
+func (d *dbusWrapper) RegisterHandler(signal string, h signalHandlerFunc) {
 	d.handlersSync.Lock()
-	d.handlers[d.iface+"."+signal] = signalHandler{priority: priority, handler: h}
+	d.handlers[d.iface+"."+signal] = h
 	d.handlersSync.Unlock()
 }
 
@@ -404,15 +324,15 @@ func main() {
 
 	myMelody := NewMelody(ble)
 
-	ble.RegisterHandler("PeripheralDiscovered", 100, func(args ...interface{}) {
+	ble.RegisterHandler("PeripheralDiscovered", func(args ...interface{}) {
 		cloud.SendNotification("PeripheralDiscovered", map[string]interface{}{
 			"mac":  args[0].(string),
 			"name": args[1].(string),
 			"rssi": args[2].(int16),
-		})
+		}, 100)
 	})
 
-	ble.RegisterHandler("PeripheralConnected", 100, func(args ...interface{}) {
+	ble.RegisterHandler("PeripheralConnected", func(args ...interface{}) {
 		ble.deviceLock.Lock()
 		if v, ok := ble.deviceMap[args[0].(string)]; ok {
 			v.connected = true
@@ -422,10 +342,10 @@ func main() {
 
 		cloud.SendNotification("PeripheralConnected", map[string]interface{}{
 			"mac": args[0].(string),
-		})
+		}, 100)
 	})
 
-	ble.RegisterHandler("PeripheralDisconnected", 100, func(args ...interface{}) {
+	ble.RegisterHandler("PeripheralDisconnected", func(args ...interface{}) {
 		ble.deviceLock.Lock()
 		if v, ok := ble.deviceMap[args[0].(string)]; ok {
 			v.connected = false
@@ -434,10 +354,10 @@ func main() {
 
 		cloud.SendNotification("PeripheralDisconnected", map[string]interface{}{
 			"mac": args[0].(string),
-		})
+		}, 100)
 	})
 
-	enocean.RegisterHandler("message_received", 1, func(args ...interface{}) {
+	enocean.RegisterHandler("message_received", func(args ...interface{}) {
 		log.Printf("Enocean message_received: %+v", args)
 		v := args[0].(string)
 		var res map[string]interface{}
@@ -472,10 +392,10 @@ func main() {
 		cloud.SendNotification("EnoceanNotificationReceived", map[string]interface{}{
 			"sender": sender,
 			"state":  state,
-		})
+		}, 1)
 	})
 
-	ble.RegisterHandler("NotificationReceived", 1, func(args ...interface{}) {
+	ble.RegisterHandler("NotificationReceived", func(args ...interface{}) {
 		uuid := strings.ToLower(args[1].(string))
 		mac := strings.ToLower(args[0].(string))
 		value := strings.ToLower(args[2].(string))
@@ -491,7 +411,7 @@ func main() {
 					"mac":   mac,
 					"uuid":  uuid,
 					"value": vS,
-				})
+				}, 1)
 				// log.Printf("Variance: [S: %v, P: %v]", vS, vP)
 				ble.readingsBuffer[mac] = new([]float64)
 			} else {
@@ -505,17 +425,17 @@ func main() {
 				"mac":   mac,
 				"uuid":  uuid,
 				"value": value,
-			})
+			}, 1)
 		}
 
 	})
 
-	ble.RegisterHandler("IndicationReceived", 1, func(args ...interface{}) {
+	ble.RegisterHandler("IndicationReceived", func(args ...interface{}) {
 		cloud.SendNotification("IndicationReceived", map[string]interface{}{
 			"mac":   args[0].(string),
 			"uuid":  args[1].(string),
 			"value": args[2].(string),
-		})
+		}, 1)
 	})
 
 	cloudHandlers := make(map[string]cloudCommandHandler)
@@ -596,7 +516,7 @@ func main() {
 		return nil, myMelody.Play(mac, p["melody"].(string), int(p["bpm"].(float64)))
 	}
 
-	cloud.RegisterHandler("CommandReceived", 1, func(args ...interface{}) {
+	cloud.RegisterHandler("CommandReceived", func(args ...interface{}) {
 		id := args[0].(uint32)
 		command := args[1].(string)
 		params := args[2].(string)
