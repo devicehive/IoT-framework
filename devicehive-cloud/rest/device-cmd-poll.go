@@ -64,6 +64,7 @@ func (pa PollAsync) Stop() {
 
 func DeviceCmdPollAsync(
 	deviceHiveURL, deviceGuid, accessKey string,
+	startTimestamp string, // can be empty
 	out chan DeviceCmdResource, control PollAsync, // cannot be nil
 ) {
 	tr := &http.Transport{}
@@ -75,7 +76,13 @@ func DeviceCmdPollAsync(
 	for {
 		go func() {
 			for {
-				dcrs, err := DeviceCmdPoll(deviceHiveURL, deviceGuid, accessKey, nil, client, requestOut)
+
+				var params []param.I
+				if startTimestamp != "" {
+					params = []param.I{TimestampParam(startTimestamp)}
+				}
+
+				dcrs, err := DeviceCmdPoll(deviceHiveURL, deviceGuid, accessKey, params, client, requestOut)
 
 				select {
 				case <-isStopped:
@@ -90,6 +97,15 @@ func DeviceCmdPollAsync(
 				if len(dcrs) == 0 {
 					continue
 				}
+
+				startTimestamp = func(resources []DeviceCmdResource) (maxStamp string) {
+					for _, dcr := range resources {
+						if dcr.Timestamp >= maxStamp {
+							maxStamp = dcr.Timestamp
+						}
+					}
+					return
+				}(dcrs)
 
 				local <- dcrs
 				break

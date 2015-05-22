@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/devicehive/IoT-framework/devicehive-cloud/conf"
 	"github.com/devicehive/IoT-framework/devicehive-cloud/rest"
@@ -74,12 +75,28 @@ func (w *DbusRestWrapper) UpdateCommand(id uint32, status string, result string)
 
 func restImplementation(bus *dbus.Conn, config conf.Conf) {
 
-	// listener from cloud & sender to bus
+	var info rest.ApiInfo
+
+	for {
+		var err error
+		if info, err = rest.GetApiInfo(config.URL); err != nil {
+			say.Verbosef("API info: %+v", info)
+			break
+		}
+		say.Infof("API info error: %s", err.Error())
+		time.Sleep(5 * time.Second)
+	}
+
 	go func() {
 		control := rest.NewPollAsync()
 		out := make(chan rest.DeviceCmdResource, 16)
 
-		go rest.DeviceCmdPollAsync(config.URL, config.DeviceID, config.AccessKey, out, control)
+		go rest.DeviceCmdPollAsync(
+			config.URL, config.DeviceID, config.AccessKey,
+			info.ServerTimestamp,
+			out,
+			control,
+		)
 
 		for {
 			select {
