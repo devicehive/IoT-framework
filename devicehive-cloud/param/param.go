@@ -26,6 +26,14 @@ func UrlConcat(params []I) string {
 	return v.Encode()
 }
 
+func Map(params []I) map[string]string {
+	r := map[string]string{}
+	for _, p := range params {
+		r[p.Name()] = p.String()
+	}
+	return r
+}
+
 type Int struct {
 	Arg   string
 	Value int

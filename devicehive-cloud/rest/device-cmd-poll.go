@@ -18,7 +18,12 @@ type DeviceCmdResource struct {
 	Result     interface{} `json:"result"`
 }
 
-func DeviceCmdPoll(deviceHiveURL, deviceGuid, accessKey string, params []param.I, client *http.Client, requestOut chan *http.Request) (dcrs []DeviceCmdResource, err error) {
+func DeviceCmdPoll(
+	deviceHiveURL, deviceGuid, accessKey string,
+	params []param.I, //maybe nil
+	client *http.Client, //maybe nil
+	requestOut chan *http.Request, //maybe nil
+) (dcrs []DeviceCmdResource, err error) {
 	api := gopencils.Api(deviceHiveURL)
 	if client != nil {
 		api.SetClient(client)
@@ -36,7 +41,7 @@ func DeviceCmdPoll(deviceHiveURL, deviceGuid, accessKey string, params []param.I
 	}
 	resource.Headers["Authorization"] = []string{"Bearer " + accessKey}
 
-	resource.Get(param.UrlConcat(params))
+	resource.Get(param.Map(params))
 
 	// log.Printf("    DeviceCmdPoll RESPONSE STATUS: %s", resource.Raw.Status)
 	// log.Printf("    DeviceCmdPoll RESPONSE: %+v", resource.Response)
@@ -57,7 +62,10 @@ func (pa PollAsync) Stop() {
 	pa <- struct{}{}
 }
 
-func DeviceCmdPollAsync(deviceHiveURL, deviceGuid, accessKey string, out chan DeviceCmdResource, control PollAsync) {
+func DeviceCmdPollAsync(
+	deviceHiveURL, deviceGuid, accessKey string,
+	out chan DeviceCmdResource, control PollAsync, // cannot be nil
+) {
 	tr := &http.Transport{}
 	client := &http.Client{Transport: tr}
 
