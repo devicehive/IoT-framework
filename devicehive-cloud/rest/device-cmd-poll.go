@@ -3,6 +3,7 @@ package rest
 import (
 	"net/http"
 
+	"github.com/devicehive/IoT-framework/devicehive-cloud/param"
 	"github.com/mibori/gopencils"
 )
 
@@ -17,7 +18,7 @@ type DeviceCmdResource struct {
 	Result     interface{} `json:"result"`
 }
 
-func DeviceCmdPoll(deviceHiveURL, deviceGuid, accessKey string, client *http.Client, requestOut chan *http.Request) (dcrs []DeviceCmdResource, err error) {
+func DeviceCmdPoll(deviceHiveURL, deviceGuid, accessKey string, params []param.I, client *http.Client, requestOut chan *http.Request) (dcrs []DeviceCmdResource, err error) {
 	api := gopencils.Api(deviceHiveURL)
 	if client != nil {
 		api.SetClient(client)
@@ -35,7 +36,7 @@ func DeviceCmdPoll(deviceHiveURL, deviceGuid, accessKey string, client *http.Cli
 	}
 	resource.Headers["Authorization"] = []string{"Bearer " + accessKey}
 
-	resource.Get()
+	resource.Get(param.UrlConcat(params))
 
 	// log.Printf("    DeviceCmdPoll RESPONSE STATUS: %s", resource.Raw.Status)
 	// log.Printf("    DeviceCmdPoll RESPONSE: %+v", resource.Response)
@@ -66,7 +67,7 @@ func DeviceCmdPollAsync(deviceHiveURL, deviceGuid, accessKey string, out chan De
 	for {
 		go func() {
 			for {
-				dcrs, err := DeviceCmdPoll(deviceHiveURL, deviceGuid, accessKey, client, requestOut)
+				dcrs, err := DeviceCmdPoll(deviceHiveURL, deviceGuid, accessKey, nil, client, requestOut)
 
 				select {
 				case <-isStopped:
