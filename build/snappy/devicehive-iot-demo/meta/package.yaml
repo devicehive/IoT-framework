@@ -1,0 +1,13 @@
+name: devicehive-iot-demo
+version: 1.0.0
+type: app
+vendor: Artyom Astafurov <artyom@devicehive.com>
+icon: meta/dh.png
+architecture: [amd64, armhf]
+integration:
+    service:
+        apparmor-profile: meta/devicehive.apparmor
+services:
+    - name: service
+      description: "Combine various framworks in one demo: BLE, Cloud, EnOcean"
+      start: bin/service

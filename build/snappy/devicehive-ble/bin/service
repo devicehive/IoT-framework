@@ -1,0 +1,29 @@
+#!/bin/bash
+
+set -e
+
+SNAPP_APP_PATH=$(realpath $(dirname $0)/../)
+SNAPP_APP_DATA_PATH=/var/lib$SNAPP_APP_PATH
+
+# map platform
+PLATFORM=
+case $(uname -i) in
+  x86_64)
+    PLATFORM=x86_64
+    ;;
+  armv7l)
+    PLATFORM=armhf
+    ;;
+  *)
+    echo "Unknown platform"
+    exit 1
+    ;;
+esac
+
+# set enviroment
+export LD_LIBRARY_PATH="$SNAPP_APP_PATH/lib/$PLATFORM/:$LD_LIBRARY_PATH"
+export PATH="$SNAPP_APP_PATH/bin/$PLATFORM/:$PATH"
+mkdir -p $SNAPP_APP_DATA_PATH # system create this folder only after service has started for the first time
+
+# run
+$SNAPP_APP_PATH/bin/$PLATFORM/devicehive-ble

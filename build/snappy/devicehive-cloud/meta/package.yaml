@@ -1,0 +1,13 @@
+name: devicehive-cloud
+version: 1.0.0
+type: framework
+vendor: Nikolay Khabarov <Nikolay.Khabarov@dataart.com>
+icon: meta/dh.png
+architecture: [amd64, armhf]
+integration:
+    service:
+        apparmor-profile: meta/devicehive.apparmor
+services:
+    - name: service
+      description: "Service for DeviceHive gateway"
+      start: bin/service
