@@ -9,5 +9,5 @@ integration:
         apparmor-profile: meta/devicehive.apparmor
 services:
     - name: service
-      description: "Combine various framworks in one demo: BLE, Cloud, EnOcean"
+      description: "Combine various frameworks in one demo: BLE Cloud EnOcean"
       start: bin/service
