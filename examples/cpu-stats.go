@@ -42,7 +42,7 @@ func (d *dbusWrapper) call(name string, args ...interface{}) *dbus.Call {
 
 func (d *dbusWrapper) SendNotification(name string, parameters interface{}) {
 	b, _ := json.Marshal(parameters)
-	d.call("SendNotification", name, string(b))
+	d.call("SendNotification", name, string(b), uint64(1))
 }
 
 func main() {
