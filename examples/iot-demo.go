@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -125,7 +127,7 @@ func NewdbusWrapper(path string, iface string) (*dbusWrapper, error) {
 				continue
 			}
 			if handler, ok := d.handlers[signal.Name]; ok {
-				go handler(signal.Body)
+				go handler(signal.Body...)
 			} else {
 				log.Printf("Unhandled signal: %s", signal.Name)
 			}
@@ -237,6 +239,25 @@ func (d *dbusWrapper) Init(mac, name string) error {
 
 func (d *dbusWrapper) SendInitCommands(mac string, dev *deviceInfo) error {
 	switch strings.ToLower(dev.name) {
+	case "cc2650 sensortag":
+		{
+			time.Sleep(1000 * time.Millisecond)
+			d.BleGattWrite(mac, "F000AA8204514000b000000000000000", "3800")
+			time.Sleep(500 * time.Millisecond)
+			d.BleGattWrite(mac, "F000AA8304514000b000000000000000", "0A")
+			time.Sleep(500 * time.Millisecond)
+			d.BleGattNotifications(mac, "F000AA8104514000b000000000000000", true)
+
+			time.Sleep(500 * time.Millisecond)
+			d.BleGattWrite(mac, "F000AA7204514000b000000000000000", "01")
+			time.Sleep(500 * time.Millisecond)
+			d.BleGattNotifications(mac, "F000AA7104514000b000000000000000", true)
+
+			time.Sleep(500 * time.Millisecond)
+			d.BleGattWrite(mac, "F000AA0204514000b000000000000000", "01")
+			time.Sleep(500 * time.Millisecond)
+			d.BleGattNotifications(mac, "F000AA0104514000b000000000000000", true)
+		}
 	case "sensortag":
 		{
 			time.Sleep(1000 * time.Millisecond)
@@ -272,15 +293,36 @@ func (d *dbusWrapper) CloudUpdateCommand(id uint32, status string, result map[st
 	d.call("UpdateCommand", id, status, string(b))
 }
 
-func getAcceleration(s string) float64 {
+func getAcceleration(s, uuid string) float64 {
 	b, _ := hex.DecodeString(s)
-	i := int8(b[0])
-	j := int8(b[1])
-	k := int8(b[2])
 
-	x := float64(i) / 64.0
-	y := float64(j) / 64.0
-	z := float64(k) / -64.0
+	var x, y, z float64
+
+	// f000aa11 for old sensortag
+	if uuid == "f000aa1104514000b000000000000000" {
+		var i, j, k int8
+		i = int8(b[0])
+		j = int8(b[1])
+		k = int8(b[2])
+
+		x = float64(i) / 64.0
+		y = float64(j) / 64.0
+		z = float64(k) / -64.0
+		// f000aa81 for new sensortag
+	} else if uuid == "f000aa8104514000b000000000000000" {
+		var res [3]int16
+		var i, j, k int16
+		binary.Read(bytes.NewReader(b[6:12]), binary.LittleEndian, &res)
+		i = res[0]
+		j = res[1]
+		k = res[2]
+
+		x = float64(i) * 2.0 / 32768.0
+		y = float64(j) * 2.0 / 32768.0
+		z = float64(k) * 2.0 / 32768.0
+	} else {
+		log.Printf("Error: unknown uuid to read accelerometer data from: %s", uuid)
+	}
 
 	// log.Printf("Acceleration (%s) [%v, %v, %v]", s, x, y, z)
 
@@ -392,7 +434,8 @@ func main() {
 			ble.readingsBuffer[mac] = new([]float64)
 		}
 
-		if uuid == "f000aa1104514000b000000000000000" {
+		// f000aa11 for old sensortag, f000aa81 for new sensortag
+		if uuid == "f000aa1104514000b000000000000000" || uuid == "f000aa8104514000b000000000000000" {
 			if len(*ble.readingsBuffer[mac]) > 9 {
 				vS := stats.VarS(*ble.readingsBuffer[mac])
 				cloud.SendNotification("NotificationReceived", map[string]interface{}{
@@ -404,7 +447,7 @@ func main() {
 				ble.readingsBuffer[mac] = new([]float64)
 			} else {
 				r := *ble.readingsBuffer[mac]
-				n := append(r, getAcceleration(value))
+				n := append(r, getAcceleration(value, uuid))
 				ble.readingsBuffer[mac] = &n
 				// log.Printf("Acceleration buffer: %v", ble.readingsBuffer[mac])
 			}
@@ -532,7 +575,7 @@ func main() {
 	go func() {
 		for {
 			for mac, _ := range ble.deviceMap {
-				if ble.BleConnected(mac) {
+				if !ble.BleConnected(mac) {
 					err := ble.BleConnect(mac, false)
 					if err != nil {
 						log.Printf("Error while trying to connect: %s", err.Error())
@@ -544,7 +587,7 @@ func main() {
 	}()
 
 	// Look for pre-configured devices
-	// ble.Init("", "sensortag")
+	ble.Init("68c90b047306", "cc2650 sensortag")
 	// ble.Init("", "satechiled-0")
 	// ble.Init("", "delight")
 	// ble.Init("", "pod")
