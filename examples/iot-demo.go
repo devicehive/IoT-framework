@@ -587,7 +587,7 @@ func main() {
 	}()
 
 	// Look for pre-configured devices
-	ble.Init("68c90b047306", "cc2650 sensortag")
+	// ble.Init("68c90b047306", "cc2650 sensortag")
 	// ble.Init("", "satechiled-0")
 	// ble.Init("", "delight")
 	// ble.Init("", "pod")
