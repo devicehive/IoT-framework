@@ -8,7 +8,7 @@ import (
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
 	"github.com/godbus/dbus/prop"
-	"github.com/paypal/gatt"
+	"github.com/devicehive/gatt"
 	"log"
 	//	"net/http"
 	"strings"
