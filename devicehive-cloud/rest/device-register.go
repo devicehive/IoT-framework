@@ -6,7 +6,7 @@ import (
 	"github.com/mibori/gopencils"
 )
 
-func DeviceRegister(deviceHiveURL, deviceGuid, deviceName, accessKey string) (err error) {
+func DeviceRegisterEasy(deviceHiveURL, deviceGuid, deviceName, accessKey string) (err error) {
 	api := gopencils.Api(deviceHiveURL)
 
 	resource := api.Res("device").Id(deviceGuid)
