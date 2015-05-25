@@ -19,7 +19,7 @@ func DeviceNotificationPoll(
 	params []param.I, //maybe nil
 	client *http.Client, //maybe nil
 	requestOut chan *http.Request, //maybe nil
-) (dnrs []DeviceCmdResource, err error) {
+) (dnrs []DeviceNotificationResource, err error) {
 	api := gopencils.Api(deviceHiveURL)
 	if client != nil {
 		api.SetClient(client)
@@ -43,4 +43,72 @@ func DeviceNotificationPoll(
 		err = resource.ProcessedError()
 	}
 	return
+}
+
+func DeviceNotificationPollAsync(
+	deviceHiveURL, deviceGuid, accessKey string,
+	startTimestamp string, // can be empty
+	out chan DeviceNotificationResource, control PollAsync, // cannot be nil
+) {
+	tr := &http.Transport{}
+	client := &http.Client{Transport: tr}
+
+	requestOut := make(chan *http.Request, 1)
+	local := make(chan []DeviceNotificationResource, 1)
+	isStopped := make(chan struct{})
+	for {
+		go func() {
+			for {
+
+				var params []param.I
+				if startTimestamp != "" {
+					params = []param.I{TimestampParam(startTimestamp)}
+				}
+
+				dnrs, err := DeviceNotificationPoll(deviceHiveURL, deviceGuid, accessKey, params, client, requestOut)
+
+				select {
+				case <-isStopped:
+					return
+				default:
+				}
+
+				if err != nil {
+					continue
+				}
+
+				if len(dnrs) == 0 {
+					continue
+				}
+
+				startTimestamp = func(resources []DeviceNotificationResource) (maxStamp string) {
+					for _, dnr := range resources {
+						if dnr.Timestamp >= maxStamp {
+							maxStamp = dnr.Timestamp
+						}
+					}
+					return
+				}(dnrs)
+
+				local <- dnrs
+				break
+			}
+		}()
+
+		select {
+		case dnrs := <-local:
+			for _, dnr := range dnrs {
+				out <- dnr
+			}
+			continue
+		case <-control:
+			select {
+			case req := <-requestOut:
+				isStopped <- struct{}{}
+				tr.CancelRequest(req)
+				return
+			default:
+			}
+		}
+	}
 }
