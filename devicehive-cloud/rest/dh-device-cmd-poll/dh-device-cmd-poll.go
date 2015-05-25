@@ -10,7 +10,7 @@ import (
 func main1() {
 	c := conf.TestConf()
 
-	dcr, err := rest.DeviceCmdPoll(c.URL, c.DeviceID, c.AccessKey, nil, nil)
+	dcr, err := rest.DeviceCmdPoll(c.URL, c.DeviceID, c.AccessKey, nil, nil, nil)
 
 	if err != nil {
 		log.Printf("Error: %s", err.Error())
@@ -26,7 +26,7 @@ func main2() {
 	control := rest.NewPollAsync()
 	out := make(chan rest.DeviceCmdResource, 16)
 
-	go rest.DeviceCmdPollAsync(c.URL, c.DeviceID, c.AccessKey, out, control)
+	go rest.DeviceCmdPollAsync(c.URL, c.DeviceID, c.AccessKey, "", out, control)
 
 	for {
 		select {
