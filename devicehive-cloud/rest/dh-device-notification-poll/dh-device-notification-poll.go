@@ -11,7 +11,7 @@ import (
 func mainEasyTest() {
 	c := conf.TestConf()
 
-	dcr, err := rest.DeviceCmdPoll(c.URL, c.DeviceID, c.AccessKey, nil, nil, nil)
+	dcr, err := rest.DeviceNotificationPoll(c.URL, c.DeviceID, c.AccessKey, nil, nil, nil)
 
 	if err != nil {
 		say.Infof("Error: %s", err.Error())
@@ -24,9 +24,9 @@ func mainInfinityLoop() {
 	c := conf.TestConf()
 
 	control := rest.NewPollAsync()
-	out := make(chan rest.DeviceCmdResource, 16)
+	out := make(chan rest.DeviceNotificationResource, 16)
 
-	go rest.DeviceCmdPollAsync(c.URL, c.DeviceID, c.AccessKey, "", out, control)
+	go rest.DeviceNotificationPollAsync(c.URL, c.DeviceID, c.AccessKey, "", out, control)
 
 	for {
 		select {
@@ -40,9 +40,9 @@ func mainInfinityLoopWithInterruption() {
 	c := conf.TestConf()
 
 	control := rest.NewPollAsync()
-	out := make(chan rest.DeviceCmdResource, 16)
+	out := make(chan rest.DeviceNotificationResource, 16)
 
-	go rest.DeviceCmdPollAsync(c.URL, c.DeviceID, c.AccessKey, "", out, control)
+	go rest.DeviceNotificationPollAsync(c.URL, c.DeviceID, c.AccessKey, "", out, control)
 
 	for {
 		select {
@@ -59,7 +59,7 @@ func mainInfinityLoopWithInterruption() {
 
 func main() {
 	say.Level = say.DEBUG
-	say.Infof("POLLING COMMANDS TEST. Send command from another terminal")
+	say.Infof("POLLING NOTIFICATIONS TEST. Send notification from another terminal")
 
 	mainInfinityLoop()
 	//Choose another main function
