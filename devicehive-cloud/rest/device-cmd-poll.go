@@ -52,16 +52,6 @@ func DeviceCmdPoll(
 	return
 }
 
-type PollAsync chan struct{}
-
-func NewPollAsync() PollAsync {
-	return PollAsync(make(chan struct{}, 1))
-}
-
-func (pa PollAsync) Stop() {
-	pa <- struct{}{}
-}
-
 func DeviceCmdPollAsync(
 	deviceHiveURL, deviceGuid, accessKey string,
 	startTimestamp string, // can be empty
