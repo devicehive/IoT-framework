@@ -284,6 +284,11 @@ func (d *dbusWrapper) SendInitCommands(mac string, dev *deviceInfo) error {
 			time.Sleep(500 * time.Millisecond)
 			d.BleGattNotifications(mac, "ffb2", true)
 		}
+	case "polar-h7":
+		{
+			time.Sleep(500 * time.Millisecond)
+			d.BleGattNotifications(mac, "2a37", true)
+		}
 	}
 	return nil
 }
