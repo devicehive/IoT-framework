@@ -289,6 +289,9 @@ func (d *dbusWrapper) SendInitCommands(mac string, dev *deviceInfo) error {
 			time.Sleep(500 * time.Millisecond)
 			d.BleGattNotifications(mac, "2a37", true)
 		}
+	case "satechiled-0":
+		{
+		}
 	}
 	return nil
 }
