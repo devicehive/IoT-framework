@@ -1,0 +1,13 @@
+name: canonical-heart-pulse-demo
+version: 1.0.0
+type: app
+vendor: Loïc Minier <loic.minier@canonical.com>
+icon: meta/heart.png
+architecture: [amd64, armhf]
+integration:
+    service:
+        apparmor-profile: meta/devicehive.apparmor
+services:
+    - name: service
+      description: "Combine various frameworks in one demo: BLE Cloud EnOcean"
+      start: bin/service
