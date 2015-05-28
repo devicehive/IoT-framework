@@ -6,11 +6,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"github.com/godbus/dbus"
 	"github.com/montanaflynn/stats"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	"log"
 	"math"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -347,7 +351,56 @@ func parseHRate(s string) int {
 	return val
 }
 
+type Conf struct {
+	LedMac             string `yaml:"LedMac,omitempty"`
+	HeartRateSensorMac string `yaml:"HeartRateSensorMac,omitempty"`
+	HighHeartRate      int    `yaml:"HighHeartRate,omitempty"`
+}
+
 func main() {
+	// parse command-line args
+	confFile := ""
+	flag.StringVar(&confFile, "conf", "", "YAML configuration for this demo")
+	if !flag.Parsed() {
+		flag.Parse()
+	}
+
+	sampleConf := Conf{}
+	sampleConf.HeartRateSensorMac = "112233445566"
+	sampleConf.LedMac = "665544332211"
+	sampleConf.HighHeartRate = 75
+	sampleYaml, _ := yaml.Marshal(sampleConf)
+
+	if confFile == "" {
+		flag.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "Sample config:\n")
+		fmt.Printf("%s", sampleYaml)
+		return
+	}
+
+	conf := Conf{}
+
+	// parse config
+	yamlFile, err := ioutil.ReadFile(confFile)
+	if err != nil {
+		log.Panic(err)
+	}
+	err = yaml.Unmarshal(yamlFile, &conf)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	// set defaults
+	if conf.HighHeartRate == 0 {
+		// value above which we switch to red
+		conf.HighHeartRate = 80
+	}
+	if conf.LedMac == "" || conf.HeartRateSensorMac == ""  {
+		fmt.Fprintf(os.Stderr, "LedMac or HeartRateSensorMac not set in config; sample config:\n")
+		fmt.Printf("%s", sampleYaml)
+		return
+	}
+
 	cloud, err := NewdbusWrapper("/com/devicehive/cloud", "com.devicehive.cloud")
 	if err != nil {
 		log.Panic(err)
@@ -367,12 +420,11 @@ func main() {
 
 	myMelody := NewMelody(ble)
 
-	// pulse LED based on heart rate; default of 0 disables
+	// pulse LED based on heart rate; default of 0 disables until
+	// we find a heart rate sensor
 	heartRate := 0
-	// value above which we switch to red
-	HIGH_HEART_RATE := 75
-	ledMac := "20c38ff5566d"
-	heartSensorMac := "0022d0637b4e"
+	ledMac := conf.LedMac
+	heartSensorMac := conf.HeartRateSensorMac
 	go func() {
 		for {
 			if heartRate > 0 && ble.BleConnected(ledMac) {
@@ -383,7 +435,7 @@ func main() {
 				DIMRED := "0f0d0300ff00001e00000000000021ffff"
 				GREEN := "0f0d030000ff006400000000000067ffff"
 				DIMGREEN := "0f0d030000ff001e00000000000021ffff"
-				if (heartRate > HIGH_HEART_RATE) {
+				if (heartRate > conf.HighHeartRate) {
 					// RED
 					ble.BleGattWrite(ledMac, "fff3", RED)
 					time.Sleep(pulsePeriod * 2/3)
