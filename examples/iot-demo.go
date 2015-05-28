@@ -337,6 +337,16 @@ func getAcceleration(s, uuid string) float64 {
 	return math.Sqrt(x*x + y*y + z*z)
 }
 
+func parseHRate(s string) int {
+	b, _ := hex.DecodeString(s)
+
+	val := int(b[1])
+	if b[0] & 0x01 == 0x01 {
+		val += int(b[2] << 8)
+	}
+	return val
+}
+
 func main() {
 	cloud, err := NewdbusWrapper("/com/devicehive/cloud", "com.devicehive.cloud")
 	if err != nil {
