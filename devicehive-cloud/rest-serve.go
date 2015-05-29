@@ -53,6 +53,7 @@ func (w *DbusRestWrapper) SendNotification(name, parameters string, priority uin
 }
 
 func (w *DbusRestWrapper) UpdateCommand(id uint32, status string, result string) *dbus.Error {
+
 	dat, err := parseJSON(result)
 
 	if err != nil {
@@ -79,7 +80,8 @@ func restImplementation(bus *dbus.Conn, config conf.Conf) {
 
 	for {
 		var err error
-		if info, err = rest.GetApiInfo(config.URL); err != nil {
+		info, err = rest.GetApiInfo(config.URL)
+		if err == nil {
 			say.Verbosef("API info: %+v", info)
 			break
 		}
@@ -111,7 +113,6 @@ func restImplementation(bus *dbus.Conn, config conf.Conf) {
 
 					parameters = string(b)
 				}
-
 				say.Verbosef("COMMAND %s -> %s(%v)", config.URL, cmd.Command, parameters)
 
 				bus.Emit(restObjectPath, restCommandName, uint32(cmd.Id), cmd.Command, parameters)

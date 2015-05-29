@@ -14,7 +14,6 @@ func GetApiInfo(deviceHiveURL string) (ai ApiInfo, err error) {
 	api := gopencils.Api(deviceHiveURL)
 	resp := &ai
 	resource, err := api.Res("info", resp).Get()
-
 	if err == nil {
 		err = resource.ProcessedError()
 	}
