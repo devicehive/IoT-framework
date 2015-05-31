@@ -6,6 +6,8 @@
 # Folders
 _obj
 _test
+build/**/bin/armhf
+build/**/bin/x86_64
 
 # Architecture specific extensions/prefixes
 *.[568vq]
