@@ -10,4 +10,5 @@ integration:
 services:
     - name: service
       description: "Service for DeviceHive gateway"
+      bus-name: "com.devicehive.cloud"
       start: bin/service

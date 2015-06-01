@@ -10,4 +10,5 @@ integration:
 services:
     - name: service
       description: "Service for DeviceHive BLE gateway"
+      bus-name: "com.devicehive.bluetooth"
       start: bin/service

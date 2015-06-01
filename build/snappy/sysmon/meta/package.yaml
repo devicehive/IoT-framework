@@ -4,10 +4,14 @@ type: app
 vendor: Artyom Astafurov <artyom@devicehive.com>
 icon: meta/dh.png
 architecture: [amd64, armhf]
+frameworks:
+  - devicehive-cloud
 integration:
     service:
         apparmor-profile: meta/devicehive.apparmor
 services:
     - name: service
       description: "Monitor system stats and send them to the cloud via DeviceHive cloud framework"
-      start: bin/service
+      start: bin/service    
+      caps:
+        - devicehive-cloud_client
