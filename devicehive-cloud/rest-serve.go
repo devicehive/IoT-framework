@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/devicehive/IoT-framework/devicehive-cloud/conf"
 	"github.com/devicehive/IoT-framework/devicehive-cloud/rest"
@@ -39,15 +38,7 @@ func (w *DbusRestWrapper) SendNotification(name, parameters string, priority uin
 		return newDHError(err.Error())
 	}
 
-	m := map[string]interface{}{
-		"action": "notification/insert",
-		"notification": map[string]interface{}{
-			"notification": name,
-			"parameters":   dat,
-		},
-	}
-
-	rest.DeviceCmdInsert(w.URL, w.DeviceID, w.AccessKey, "SendCommand", m)
+	rest.DeviceNotificationInsert(w.URL, w.DeviceID, w.AccessKey, name, dat)
 
 	return nil
 }
@@ -69,6 +60,7 @@ func (w *DbusRestWrapper) UpdateCommand(id uint32, status string, result string)
 		},
 	}
 
+	//TODO: update to real method
 	rest.DeviceCmdInsert(w.URL, w.DeviceID, w.AccessKey, "SendCommand", m)
 
 	return nil
@@ -76,46 +68,41 @@ func (w *DbusRestWrapper) UpdateCommand(id uint32, status string, result string)
 
 func restImplementation(bus *dbus.Conn, config conf.Conf) {
 
-	var info rest.ApiInfo
+	// var info rest.ApiInfo
 
-	for {
-		var err error
-		info, err = rest.GetApiInfo(config.URL)
-		if err == nil {
-			say.Verbosef("API info: %+v", info)
-			break
-		}
-		say.Infof("API info error: %s", err.Error())
-		time.Sleep(5 * time.Second)
-	}
+	// for {
+	// 	var err error
+	// 	info, err = rest.GetApiInfo(config.URL)
+	// 	if err == nil {
+	// 		say.Verbosef("API info: %+v", info)
+	// 		break
+	// 	}
+	// 	say.Infof("API info error: %s", err.Error())
+	// 	time.Sleep(5 * time.Second)
+	// }
 
 	go func() {
 		control := rest.NewPollAsync()
-		out := make(chan rest.DeviceCmdResource, 16)
+		//out := make(chan rest.DeviceCmdResource, 16)
+		out := make(chan rest.DeviceNotificationResource, 16)
 
-		go rest.DeviceCmdPollAsync(
-			config.URL, config.DeviceID, config.AccessKey,
-			info.ServerTimestamp,
-			out,
-			control,
-		)
+		go rest.DeviceNotificationPollAsync(config.URL, config.DeviceID, config.AccessKey, out, control)
 
 		for {
 			select {
-			case cmd := <-out:
+			case n := <-out:
 				parameters := ""
-				if cmd.Parameters != nil {
-					b, err := json.Marshal(cmd.Parameters)
+				if n.Parameters != nil {
+					b, err := json.Marshal(n.Parameters)
 					if err != nil {
-						say.Infof("Could not generete JSON from parameters of command %+v\nWith error %s", cmd, err.Error())
+						say.Infof("Could not generate JSON from parameters of command %+v\nWith error %s", n, err.Error())
 						continue
 					}
 
 					parameters = string(b)
 				}
-				say.Verbosef("COMMAND %s -> %s(%v)", config.URL, cmd.Command, parameters)
-
-				bus.Emit(restObjectPath, restCommandName, uint32(cmd.Id), cmd.Command, parameters)
+				say.Verbosef("NOTIFICATION %s -> %s(%v)", config.URL, n.Notification, parameters)
+				bus.Emit(restObjectPath, restCommandName, uint32(n.Id), n.Notification, parameters)
 			}
 		}
 	}()
