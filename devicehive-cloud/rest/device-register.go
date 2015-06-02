@@ -3,7 +3,7 @@ package rest
 import (
 	"net/http"
 
-	"github.com/mibori/gopencils"
+	"github.com/devicehive/IoT-framework/devicehive-cloud/gopencils"
 )
 
 func DeviceRegisterEasy(deviceHiveURL, deviceGuid, deviceName, accessKey string) (err error) {

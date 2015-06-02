@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/devicehive/IoT-framework/devicehive-cloud/gopencils"
 	"github.com/devicehive/IoT-framework/devicehive-cloud/param"
 	"github.com/devicehive/IoT-framework/devicehive-cloud/say"
-	"github.com/mibori/gopencils"
 )
 
 type DeviceNotificationResource struct {

@@ -3,7 +3,7 @@ package rest
 import (
 	"net/http"
 
-	"github.com/mibori/gopencils"
+	"github.com/devicehive/IoT-framework/devicehive-cloud/gopencils"
 )
 
 type DeviceNotificationInsertResponse struct {
