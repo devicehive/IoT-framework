@@ -43,47 +43,14 @@ func (w *DbusRestWrapper) SendNotification(name, parameters string, priority uin
 	return nil
 }
 
-func (w *DbusRestWrapper) UpdateCommand(id uint32, status string, result string) *dbus.Error {
-
-	dat, err := parseJSON(result)
-
-	if err != nil {
-		return newDHError(err.Error())
-	}
-
-	m := map[string]interface{}{
-		"action":    "command/update",
-		"commandId": id,
-		"command": map[string]interface{}{
-			"status": status,
-			"result": dat,
-		},
-	}
-
-	//TODO: update to real method
-	rest.DeviceCmdInsert(w.URL, w.DeviceID, w.AccessKey, "SendCommand", m)
-
+func (w *DbusRestWrapper) UpdateCommand(id uint32, status, result string) *dbus.Error {
+	rest.DeviceCmdUpdate(w.URL, w.DeviceID, w.AccessKey, id, status, result)
 	return nil
 }
 
 func restImplementation(bus *dbus.Conn, config conf.Conf) {
-
-	// var info rest.ApiInfo
-
-	// for {
-	// 	var err error
-	// 	info, err = rest.GetApiInfo(config.URL)
-	// 	if err == nil {
-	// 		say.Verbosef("API info: %+v", info)
-	// 		break
-	// 	}
-	// 	say.Infof("API info error: %s", err.Error())
-	// 	time.Sleep(5 * time.Second)
-	// }
-
 	go func() {
 		control := rest.NewPollAsync()
-		//out := make(chan rest.DeviceCmdResource, 16)
 		out := make(chan rest.DeviceNotificationResource, 16)
 
 		go rest.DeviceNotificationPollAsync(config.URL, config.DeviceID, config.AccessKey, out, control)
