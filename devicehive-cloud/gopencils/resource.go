@@ -246,7 +246,7 @@ func (r *Resource) do(method string) (*Resource, error) {
 	defer resp.Body.Close()
 
 	err = json.NewDecoder(resp.Body).Decode(r.Response)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		return r, err
 	}
 

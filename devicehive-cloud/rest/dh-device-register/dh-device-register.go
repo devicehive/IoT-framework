@@ -9,8 +9,15 @@ import (
 func main() {
 	say.Level = say.DEBUG
 
-	c := conf.TestConf()
-	err := rest.DeviceRegisterEasy(c.URL, c.DeviceID, c.DeviceName, c.AccessKey)
+	f, c, err := conf.FromArgs()
+	if err != nil {
+		say.Infof("Load conf err: %s", err.Error())
+		return
+	}
+
+	say.Infof("Conf(%s): %+v", f, c)
+
+	err = rest.DeviceRegisterEasy(c.URL, c.DeviceID, c.DeviceName)
 
 	if err != nil {
 		say.Infof("Error: %s", err.Error())
