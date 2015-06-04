@@ -175,9 +175,11 @@
 
   # No write paths specified
 
- # dbus
+  #include <abstractions/dbus-strict>
+
+  # dbus
   /run/dbus/system_bus_socket rw,
-  #dbus (send,receive) bus=system,
+  dbus (send,receive) bus=system,
   #dbus (bind) bus=system,
 
   # Allow binding the service and receiving traffic
@@ -191,12 +193,6 @@
   dbus (bind)
     bus=system
     name="com.devicehive.cloud",
-
-  dbus (receive, send)
-    bus=system
-    path=com/devicehive/cloud
-    interface=com.devicehive.cloud,org.freedesktop.DBus.Introspectable,
-
 
   /proc/*/mounts r,
 

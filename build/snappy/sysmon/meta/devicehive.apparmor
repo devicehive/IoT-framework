@@ -179,7 +179,7 @@
   # dbus
   /run/dbus/system_bus_socket rw,
   dbus (send,receive) bus=system,
-  dbus (bind) bus=system,
+  #dbus (bind) bus=system,
 
   /proc/*/mounts r,
 
