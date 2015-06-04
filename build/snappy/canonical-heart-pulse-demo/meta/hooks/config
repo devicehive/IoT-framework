@@ -1,0 +1,4 @@
+#!/bin/bash
+SNAPP_APP_PATH=$(realpath $(dirname $0)/../../)
+SNAPP_APP_DATA_PATH=/var/lib$SNAPP_APP_PATH
+cat /dev/stdin > $SNAPP_APP_DATA_PATH/config.yaml

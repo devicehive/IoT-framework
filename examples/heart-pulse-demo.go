@@ -6,11 +6,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"github.com/godbus/dbus"
 	"github.com/montanaflynn/stats"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	"log"
 	"math"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -347,7 +351,56 @@ func parseHRate(s string) int {
 	return val
 }
 
+type Conf struct {
+	LedMac             string `yaml:"LedMac,omitempty"`
+	HeartRateSensorMac string `yaml:"HeartRateSensorMac,omitempty"`
+	HighHeartRate      int    `yaml:"HighHeartRate,omitempty"`
+}
+
 func main() {
+	// parse command-line args
+	confFile := ""
+	flag.StringVar(&confFile, "conf", "", "YAML configuration for this demo")
+	if !flag.Parsed() {
+		flag.Parse()
+	}
+
+	sampleConf := Conf{}
+	sampleConf.HeartRateSensorMac = "112233445566"
+	sampleConf.LedMac = "665544332211"
+	sampleConf.HighHeartRate = 75
+	sampleYaml, _ := yaml.Marshal(sampleConf)
+
+	if confFile == "" {
+		flag.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "Sample config:\n")
+		fmt.Printf("%s", sampleYaml)
+		return
+	}
+
+	conf := Conf{}
+
+	// parse config
+	yamlFile, err := ioutil.ReadFile(confFile)
+	if err != nil {
+		log.Panic(err)
+	}
+	err = yaml.Unmarshal(yamlFile, &conf)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	// set defaults
+	if conf.HighHeartRate == 0 {
+		// value above which we switch to red
+		conf.HighHeartRate = 80
+	}
+	if conf.LedMac == "" || conf.HeartRateSensorMac == ""  {
+		fmt.Fprintf(os.Stderr, "LedMac or HeartRateSensorMac not set in config; sample config:\n")
+		fmt.Printf("%s", sampleYaml)
+		return
+	}
+
 	cloud, err := NewdbusWrapper("/com/devicehive/cloud", "com.devicehive.cloud")
 	if err != nil {
 		log.Panic(err)
@@ -367,10 +420,47 @@ func main() {
 
 	myMelody := NewMelody(ble)
 
+	// pulse LED based on heart rate; default of 0 disables until
+	// we find a heart rate sensor
+	heartRate := 0
+	ledMac := conf.LedMac
+	heartSensorMac := conf.HeartRateSensorMac
+	go func() {
+		for {
+			if heartRate > 0 && ble.BleConnected(ledMac) {
+				log.Printf("heartRate=%d", heartRate)
+				pulsePeriod := time.Duration(60 * 1000 / heartRate) * time.Millisecond
+				//log.Printf("pulsePeriod=%s, full=%s, dim=%s", pulsePeriod, pulsePeriod * 2/3, pulsePeriod * 1/3)
+				RED := "0f0d0300ff00006400000000000067ffff"
+				DIMRED := "0f0d0300ff00001e00000000000021ffff"
+				GREEN := "0f0d030000ff006400000000000067ffff"
+				DIMGREEN := "0f0d030000ff001e00000000000021ffff"
+				if (heartRate > conf.HighHeartRate) {
+					// RED
+					ble.BleGattWrite(ledMac, "fff3", RED)
+					time.Sleep(pulsePeriod * 2/3)
+					// DIM RED
+					ble.BleGattWrite(ledMac, "fff3", DIMRED)
+					time.Sleep(pulsePeriod * 1/3)
+				} else {
+					// GREEN
+					ble.BleGattWrite(ledMac, "fff3", GREEN)
+					time.Sleep(pulsePeriod * 2/3)
+					// DIM GREEN
+					ble.BleGattWrite(ledMac, "fff3", DIMGREEN)
+					time.Sleep(pulsePeriod * 1/3)
+				}
+			} else {
+				time.Sleep(3 * time.Second)
+			}
+		}
+	}()
+
 	ble.RegisterHandler("PeripheralDiscovered", func(args ...interface{}) {
 		mac := strings.ToLower(args[0].(string))
 		name := strings.ToLower(args[1].(string))
 
+		log.Printf("Discovered new device mac: %s, name: %s", mac, name)
 		if _, ok := ble.scanMap[name]; ok {
 			if _, ok := ble.deviceMap[mac]; !ok {
 				log.Printf("Discovered new device [mac: %s, name: %s]", mac, name)
@@ -380,6 +470,7 @@ func main() {
 			}
 		}
 
+		log.Printf("PeripheralDiscovered mac=%s, name=%s", args[0].(string), args[1].(string))
 		cloud.SendNotification("PeripheralDiscovered", map[string]interface{}{
 			"mac":  args[0].(string),
 			"name": args[1].(string),
@@ -390,16 +481,19 @@ func main() {
 	ble.RegisterHandler("PeripheralConnected", func(args ...interface{}) {
 		ble.deviceLock.Lock()
 		if v, ok := ble.deviceMap[args[0].(string)]; ok {
+			log.Printf("sending init commands for mac=%s, name=%s", args[0].(string), v.name)
 			ble.SendInitCommands(args[0].(string), v)
 		}
 		ble.deviceLock.Unlock()
 
+		log.Printf("PeripheralConnected mac=%s", args[0].(string))
 		cloud.SendNotification("PeripheralConnected", map[string]interface{}{
 			"mac": args[0].(string),
 		}, 100)
 	})
 
 	ble.RegisterHandler("PeripheralDisconnected", func(args ...interface{}) {
+		log.Printf("PeripheralDisconnected mac=%s", args[0].(string))
 		cloud.SendNotification("PeripheralDisconnected", map[string]interface{}{
 			"mac": args[0].(string),
 		}, 100)
@@ -448,6 +542,8 @@ func main() {
 		mac := strings.ToLower(args[0].(string))
 		value := strings.ToLower(args[2].(string))
 
+		log.Printf("NotificationReceived mac=%s, uuid=%s, value=%s", mac, uuid, value)
+
 		if _, ok := ble.readingsBuffer[mac]; !ok {
 			ble.readingsBuffer[mac] = new([]float64)
 		}
@@ -470,6 +566,11 @@ func main() {
 				// log.Printf("Acceleration buffer: %v", ble.readingsBuffer[mac])
 			}
 		} else {
+			// heart rate measurement
+			if uuid == "2a37" {
+				heartRate = parseHRate(value)
+			}
+
 			cloud.SendNotification("NotificationReceived", map[string]interface{}{
 				"mac":   mac,
 				"uuid":  uuid,
@@ -580,6 +681,14 @@ func main() {
 		}
 	})
 
+	// do a single scan on startup
+	log.Printf("Starting scan...")
+	ble.BleScanStart()
+	time.Sleep(5 * time.Second)
+	log.Printf("Settling after scan...")
+	ble.BleScanStop()
+	time.Sleep(1 * time.Second)
+
 	// Scan for devices per
 	// go func() {
 	// 	for {
@@ -594,6 +703,7 @@ func main() {
 		for {
 			for mac, _ := range ble.deviceMap {
 				if !ble.BleConnected(mac) {
+					log.Printf("Connecting mac=%s", mac)
 					err := ble.BleConnect(mac, false)
 					if err != nil {
 						log.Printf("Error while trying to connect: %s", err.Error())
@@ -618,6 +728,20 @@ func main() {
 	// log.Printf("BleConnected: %v", r["value"].(bool))
 	// // time.Sleep(5 * time.Second)
 	// myMelody.Play(dashMac, "8cegCegCcgCceCgec", 60)
+
+	// prefix logs with short filename
+	log.SetFlags(log.Flags() | log.Lshortfile)
+
+	// connect just to this particular LED; NB: device name is actually
+	// SATECHILED-0
+	ble.Init(ledMac, "satechiled-0")
+	// this should connect to all LEDs of this type, but no
+	// PeripheralConnected is triggered in this case
+	//ble.Init("", "SATECHILED-0")
+
+	// reported device name is empty; looking manually at GAP's 0x2a00, it
+	// is "Polar H7 637B4E12"; just use polar-h7
+	ble.Init(heartSensorMac, "polar-h7")
 
 	select {}
 }

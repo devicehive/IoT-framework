@@ -7,8 +7,7 @@ import (
 )
 
 func main() {
-	name := "TestRestNotification"
-	parameters := map[string]interface{}{"key1": "value1"}
+	say.Level = say.DEBUG
 
 	f, c, err := conf.FromArgs()
 	if err != nil {
@@ -18,11 +17,11 @@ func main() {
 
 	say.Infof("Conf(%s): %+v", f, c)
 
-	dnir, err := rest.DeviceNotificationInsert(c.URL, c.DeviceID, c.AccessKey, name, parameters)
+	err = rest.DeviceRegisterEasy(c.URL, c.DeviceID, c.DeviceName)
 
 	if err != nil {
 		say.Infof("Error: %s", err.Error())
 	} else {
-		say.Infof("Ok: %+v", dnir)
+		say.Infof("Ok")
 	}
 }

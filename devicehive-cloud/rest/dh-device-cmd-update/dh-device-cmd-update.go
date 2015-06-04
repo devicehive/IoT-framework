@@ -7,8 +7,9 @@ import (
 )
 
 func main() {
-	name := "TestRestNotification"
-	parameters := map[string]interface{}{"key1": "value1"}
+	var id uint32 = 782346
+	status := "UpdateCommandTestStatus"
+	result := "UpdateCommandTestResult"
 
 	f, c, err := conf.FromArgs()
 	if err != nil {
@@ -18,11 +19,11 @@ func main() {
 
 	say.Infof("Conf(%s): %+v", f, c)
 
-	dnir, err := rest.DeviceNotificationInsert(c.URL, c.DeviceID, c.AccessKey, name, parameters)
+	err = rest.DeviceCmdUpdate(c.URL, c.DeviceID, c.AccessKey, id, status, result)
 
 	if err != nil {
 		say.Infof("Error: %s", err.Error())
 	} else {
-		say.Infof("Ok: %+v", dnir)
+		say.Infof("ok")
 	}
 }

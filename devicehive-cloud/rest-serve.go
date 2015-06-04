@@ -38,66 +38,45 @@ func (w *DbusRestWrapper) SendNotification(name, parameters string, priority uin
 		return newDHError(err.Error())
 	}
 
-	m := map[string]interface{}{
-		"action": "notification/insert",
-		"notification": map[string]interface{}{
-			"notification": name,
-			"parameters":   dat,
-		},
-	}
-
-	rest.DeviceCmdInsert(w.URL, w.DeviceID, w.AccessKey, "SendCommand", m)
+	rest.DeviceNotificationInsert(w.URL, w.DeviceID, w.AccessKey, name, dat)
 
 	return nil
 }
 
-func (w *DbusRestWrapper) UpdateCommand(id uint32, status string, result string) *dbus.Error {
-	dat, err := parseJSON(result)
-
-	if err != nil {
-		return newDHError(err.Error())
-	}
-
-	m := map[string]interface{}{
-		"action":    "command/update",
-		"commandId": id,
-		"command": map[string]interface{}{
-			"status": status,
-			"result": dat,
-		},
-	}
-
-	rest.DeviceCmdInsert(w.URL, w.DeviceID, w.AccessKey, "SendCommand", m)
-
+func (w *DbusRestWrapper) UpdateCommand(id uint32, status, result string) *dbus.Error {
+	rest.DeviceCmdUpdate(w.URL, w.DeviceID, w.AccessKey, id, status, result)
 	return nil
 }
 
 func restImplementation(bus *dbus.Conn, config conf.Conf) {
 
-	// listener from cloud & sender to bus
+	err := rest.DeviceRegisterEasy(config.URL, config.DeviceID, config.DeviceName)
+	if err != nil {
+		say.Infof("DeviceRegisterEasy error: %s", err.Error())
+		return
+	}
+
 	go func() {
 		control := rest.NewPollAsync()
-		out := make(chan rest.DeviceCmdResource, 16)
+		out := make(chan rest.DeviceNotificationResource, 16)
 
-		go rest.DeviceCmdPollAsync(config.URL, config.DeviceID, config.AccessKey, out, control)
+		go rest.DeviceNotificationPollAsync(config.URL, config.DeviceID, config.AccessKey, out, control)
 
 		for {
 			select {
-			case cmd := <-out:
+			case n := <-out:
 				parameters := ""
-				if cmd.Parameters != nil {
-					b, err := json.Marshal(cmd.Parameters)
+				if n.Parameters != nil {
+					b, err := json.Marshal(n.Parameters)
 					if err != nil {
-						say.Infof("Could not generete JSON from parameters of command %+v\nWith error %s", cmd, err.Error())
+						say.Infof("Could not generate JSON from parameters of command %+v\nWith error %s", n, err.Error())
 						continue
 					}
 
 					parameters = string(b)
 				}
-
-				say.Verbosef("COMMAND %s -> %s(%v)", config.URL, cmd.Command, parameters)
-
-				bus.Emit(restObjectPath, restCommandName, uint32(cmd.Id), cmd.Command, parameters)
+				say.Verbosef("NOTIFICATION %s -> %s(%v)", config.URL, n.Notification, parameters)
+				bus.Emit(restObjectPath, restCommandName, uint32(n.Id), n.Notification, parameters)
 			}
 		}
 	}()

@@ -3,7 +3,8 @@ package rest
 import (
 	"net/http"
 
-	"github.com/mibori/gopencils"
+	"github.com/devicehive/IoT-framework/devicehive-cloud/gopencils"
+	"github.com/devicehive/IoT-framework/devicehive-cloud/param"
 )
 
 type DeviceCmdResource struct {
@@ -17,7 +18,12 @@ type DeviceCmdResource struct {
 	Result     interface{} `json:"result"`
 }
 
-func DeviceCmdPoll(deviceHiveURL, deviceGuid, accessKey string, client *http.Client, requestOut chan *http.Request) (dcrs []DeviceCmdResource, err error) {
+func DeviceCmdPoll(
+	deviceHiveURL, deviceGuid, accessKey string,
+	params []param.I, //maybe nil
+	client *http.Client, //maybe nil
+	requestOut chan *http.Request, //maybe nil
+) (dcrs []DeviceCmdResource, err error) {
 	api := gopencils.Api(deviceHiveURL)
 	if client != nil {
 		api.SetClient(client)
@@ -35,7 +41,7 @@ func DeviceCmdPoll(deviceHiveURL, deviceGuid, accessKey string, client *http.Cli
 	}
 	resource.Headers["Authorization"] = []string{"Bearer " + accessKey}
 
-	resource.Get()
+	resource.Get(param.Map(params))
 
 	// log.Printf("    DeviceCmdPoll RESPONSE STATUS: %s", resource.Raw.Status)
 	// log.Printf("    DeviceCmdPoll RESPONSE: %+v", resource.Response)
@@ -46,17 +52,11 @@ func DeviceCmdPoll(deviceHiveURL, deviceGuid, accessKey string, client *http.Cli
 	return
 }
 
-type PollAsync chan struct{}
-
-func NewPollAsync() PollAsync {
-	return PollAsync(make(chan struct{}, 1))
-}
-
-func (pa PollAsync) Stop() {
-	pa <- struct{}{}
-}
-
-func DeviceCmdPollAsync(deviceHiveURL, deviceGuid, accessKey string, out chan DeviceCmdResource, control PollAsync) {
+func DeviceCmdPollAsync(
+	deviceHiveURL, deviceGuid, accessKey string,
+	startTimestamp string, // can be empty
+	out chan DeviceCmdResource, control PollAsync, // cannot be nil
+) {
 	tr := &http.Transport{}
 	client := &http.Client{Transport: tr}
 
@@ -66,7 +66,13 @@ func DeviceCmdPollAsync(deviceHiveURL, deviceGuid, accessKey string, out chan De
 	for {
 		go func() {
 			for {
-				dcrs, err := DeviceCmdPoll(deviceHiveURL, deviceGuid, accessKey, client, requestOut)
+
+				var params []param.I
+				if startTimestamp != "" {
+					params = []param.I{TimestampParam(startTimestamp)}
+				}
+
+				dcrs, err := DeviceCmdPoll(deviceHiveURL, deviceGuid, accessKey, params, client, requestOut)
 
 				select {
 				case <-isStopped:
@@ -81,6 +87,15 @@ func DeviceCmdPollAsync(deviceHiveURL, deviceGuid, accessKey string, out chan De
 				if len(dcrs) == 0 {
 					continue
 				}
+
+				startTimestamp = func(resources []DeviceCmdResource) (maxStamp string) {
+					for _, dcr := range resources {
+						if dcr.Timestamp >= maxStamp {
+							maxStamp = dcr.Timestamp
+						}
+					}
+					return
+				}(dcrs)
 
 				local <- dcrs
 				break

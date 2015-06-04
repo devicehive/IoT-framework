@@ -54,6 +54,7 @@ func wsImplementation(bus *dbus.Conn, config conf.Conf) {
 	for {
 		info, err := rest.GetApiInfo(config.URL)
 		if err == nil {
+			say.Verbosef("API info: %+v", info)
 			c := ws.New(info.WebSocketServerUrl, config.DeviceID, config.SendNotificatonQueueCapacity, func(m map[string]interface{}) {
 
 				p := m["parameters"]
