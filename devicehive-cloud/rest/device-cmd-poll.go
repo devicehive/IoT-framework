@@ -3,8 +3,8 @@ package rest
 import (
 	"net/http"
 
+	"github.com/devicehive/IoT-framework/devicehive-cloud/gopencils"
 	"github.com/devicehive/IoT-framework/devicehive-cloud/param"
-	"github.com/mibori/gopencils"
 )
 
 type DeviceCmdResource struct {

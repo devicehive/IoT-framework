@@ -2,9 +2,11 @@ package rest
 
 import (
 	"net/http"
+	"time"
 
+	"github.com/devicehive/IoT-framework/devicehive-cloud/gopencils"
 	"github.com/devicehive/IoT-framework/devicehive-cloud/param"
-	"github.com/mibori/gopencils"
+	"github.com/devicehive/IoT-framework/devicehive-cloud/say"
 )
 
 type DeviceNotificationResource struct {
@@ -37,7 +39,7 @@ func DeviceNotificationPoll(
 	}
 	resource.Headers["Authorization"] = []string{"Bearer " + accessKey}
 
-	resource.Get(param.Map(params))
+	_, err = resource.Get(param.Map(params))
 
 	if err == nil {
 		err = resource.ProcessedError()
@@ -47,7 +49,6 @@ func DeviceNotificationPoll(
 
 func DeviceNotificationPollAsync(
 	deviceHiveURL, deviceGuid, accessKey string,
-	startTimestamp string, // can be empty
 	out chan DeviceNotificationResource, control PollAsync, // cannot be nil
 ) {
 	tr := &http.Transport{}
@@ -60,12 +61,7 @@ func DeviceNotificationPollAsync(
 		go func() {
 			for {
 
-				var params []param.I
-				if startTimestamp != "" {
-					params = []param.I{TimestampParam(startTimestamp)}
-				}
-
-				dnrs, err := DeviceNotificationPoll(deviceHiveURL, deviceGuid, accessKey, params, client, requestOut)
+				dnrs, err := DeviceNotificationPoll(deviceHiveURL, deviceGuid, accessKey, nil, client, requestOut)
 
 				select {
 				case <-isStopped:
@@ -74,21 +70,14 @@ func DeviceNotificationPollAsync(
 				}
 
 				if err != nil {
+					say.Infof("Polling notifications error: %s", err.Error())
+					time.Sleep(time.Second)
 					continue
 				}
 
 				if len(dnrs) == 0 {
 					continue
 				}
-
-				startTimestamp = func(resources []DeviceNotificationResource) (maxStamp string) {
-					for _, dnr := range resources {
-						if dnr.Timestamp >= maxStamp {
-							maxStamp = dnr.Timestamp
-						}
-					}
-					return
-				}(dnrs)
 
 				local <- dnrs
 				break

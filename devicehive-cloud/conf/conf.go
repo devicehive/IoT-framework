@@ -68,8 +68,12 @@ func TestConf() Conf {
 
 	c.URL = "http://52.6.240.235:8080/dh/rest"
 	c.AccessKey = "1jwKgLYi/CdfBTI9KByfYxwyQ6HUIEfnGSgakdpFjgk="
+
 	c.DeviceID = "0B24431A-EC99-4887-8B4F-38C3CEAF1D03"
 	c.DeviceName = "snappy-go-gateway"
+
+	// c.DeviceID = "0B24431A-EC99-4887-8B4F-38C3CEAF1D05"
+	// c.DeviceName = "snappy-go-gateway-test2"
 
 	// c.LoggingLevel = "info"
 	c.LoggingLevel = "verbose"

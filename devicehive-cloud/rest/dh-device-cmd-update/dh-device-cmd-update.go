@@ -7,7 +7,9 @@ import (
 )
 
 func main() {
-	say.Level = say.DEBUG
+	var id uint32 = 782346
+	status := "UpdateCommandTestStatus"
+	result := "UpdateCommandTestResult"
 
 	f, c, err := conf.FromArgs()
 	if err != nil {
@@ -17,11 +19,11 @@ func main() {
 
 	say.Infof("Conf(%s): %+v", f, c)
 
-	err = rest.DeviceRegisterEasy(c.URL, c.DeviceID, c.DeviceName)
+	err = rest.DeviceCmdUpdate(c.URL, c.DeviceID, c.AccessKey, id, status, result)
 
 	if err != nil {
 		say.Infof("Error: %s", err.Error())
 	} else {
-		say.Infof("Ok")
+		say.Infof("ok")
 	}
 }

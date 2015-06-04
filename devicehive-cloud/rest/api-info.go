@@ -1,6 +1,6 @@
 package rest
 
-import "github.com/mibori/gopencils"
+import "github.com/devicehive/IoT-framework/devicehive-cloud/gopencils"
 
 type ApiInfo struct {
 	ApiVersion         string `json:"apiVersion"`
