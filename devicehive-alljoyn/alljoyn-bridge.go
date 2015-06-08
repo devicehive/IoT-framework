@@ -8,15 +8,18 @@ package main
 // #include <aj_creds.h>
 // #include "alljoyn.h"
 //
-// typedef struct _AJ_UnmarshalResult {
-//	AJ_Status status;
-//	AJ_Message msg;
-// } AJ_UnmarshalResult;
+// AJ_BusAttachment c_bus;
+// AJ_Message c_message;
 //
-// AJ_UnmarshalResult AJ_UnmarshalMsgHelper(AJ_BusAttachment* bus, uint32_t timeout) {
-// 	AJ_UnmarshalResult res;
-// 	res.status = AJ_UnmarshalMsg(bus, &res.msg, timeout);
-// 	return res;
+// uint32_t Get_AJ_Message_msgId() {
+//   return c_message.msgId;
+// }
+//
+// void * Get_AJ_Message() {
+//   return &c_message;
+// }
+// void * Get_AJ_BusAttachment() {
+//   return &c_bus;
 // }
 //
 // AJ_Object Create_AJ_Object(char* path, AJ_InterfaceDescription* interfaces, uint8_t flags, void* context) {
@@ -135,12 +138,14 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 		C.AJ_RegisterObjects(&objects[0], nil)
 		connected := false
 		var status C.AJ_Status = C.AJ_OK
-		for {
-			var msg C.AJ_Message
-			var busAttachment C.AJ_BusAttachment
+		busAttachment := C.Get_AJ_BusAttachment()
+		msg := C.Get_AJ_Message()
 
+		log.Printf("CreateAJ_BusAttachment(): %+v", busAttachment)
+
+		for {
 			if !connected {
-				status = C.AJ_StartService(&busAttachment,
+				status = C.AJ_StartService((*C.AJ_BusAttachment)(busAttachment),
 					nil,
 					60*1000, // TODO: Move connection timeout to config
 					C.FALSE,
@@ -153,59 +158,59 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 					continue
 				}
 
-				log.Printf("StartService returned %d", status)
+				log.Printf("StartService returned %d, %+v", status, busAttachment)
 
 				connected = true
 			}
 
-			var res C.AJ_UnmarshalResult
-			res = C.AJ_UnmarshalMsgHelper(&busAttachment,
+			status = C.AJ_UnmarshalMsg((*C.AJ_BusAttachment)(busAttachment), (*C.AJ_Message)(msg),
 				5*1000) // TODO: Move unmarshal timeout to config
-			status = res.status
-			msg = res.msg
 
 			if C.AJ_ERR_TIMEOUT == status {
 				continue
 			}
 
 			if C.AJ_OK == status {
-				log.Printf("Received message: %+v", msg)
-				switch msg.msgId {
-				case C.AJ_METHOD_ACCEPT_SESSION:
+
+				msgId := C.Get_AJ_Message_msgId()
+				log.Printf("Received message: %+v", msgId)
+
+				switch {
+				case msgId == C.AJ_METHOD_ACCEPT_SESSION:
 					{
 						// uint16_t port;
 						// char* joiner;
 						// uint32_t sessionId;
 
 						// AJ_UnmarshalArgs(&msg, "qus", &port, &sessionId, &joiner);
-						status = C.AJ_BusReplyAcceptSession(&msg, C.TRUE)
-						log.Printf("ACCEPT_SESSION: %+v", msg)
+						status = C.AJ_BusReplyAcceptSession((*C.AJ_Message)(msg), C.TRUE)
+						log.Printf("ACCEPT_SESSION: %+v", msgId)
 					}
 
-					// If it's a message for the app
-					// TODO: parse individual service, interace and method IDs and dispatch them to dbus
-				case (msg.msgId & 0x01000000):
-					log.Printf("Received application alljoyn message: %+v", msg)
-
-				case C.AJ_SIGNAL_SESSION_LOST_WITH_REASON:
+				case msgId == C.AJ_SIGNAL_SESSION_LOST_WITH_REASON:
 					{
 						// uint32_t id, reason;
 						// AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
 						// AJ_AlwaysPrintf(("Session lost. ID = %u, reason = %u", id, reason));
-						log.Printf("Session lost: %+v", msg)
+						log.Printf("Session lost: %+v", msgId)
+					}
+				case (uint32(msgId) & 0x01000000) != 0:
+					{
+						log.Printf("Received application alljoyn message: %+v", msgId)
 					}
 
 				default:
 					/* Pass to the built-in handlers. */
-					status = C.AJ_BusHandleBusMessage(&msg)
+					log.Printf("Passing msgIf %+v to AllJoyn", msgId)
+					status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
 				}
 			}
 
 			/* Messages MUST be discarded to free resources. */
-			C.AJ_CloseMsg(&msg)
+			C.AJ_CloseMsg((*C.AJ_Message)(msg))
 
 			if status == C.AJ_ERR_READ {
-				C.AJ_Disconnect(&busAttachment)
+				C.AJ_Disconnect((*C.AJ_BusAttachment)(busAttachment))
 				log.Print("AllJoyn disconnected, retrying")
 				connected = false
 				C.AJ_Sleep(1000 * 2) // TODO: Move sleep time to const
