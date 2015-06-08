@@ -1,7 +1,7 @@
 package main
 
 // #cgo CFLAGS: -Iajtcl/inc -Iajtcl/target/linux
-// #cgo LDFLAGS: -Lajtcl -lajtcl
+// #cgo LDFLAGS: -Llajtcl -lajtcl
 // #include <stdio.h>
 // #include <aj_debug.h>
 // #include <aj_guid.h>
@@ -22,15 +22,19 @@ import (
 	"unsafe"
 )
 
+type IntrospectProvider func(dbusService, dbusPath string) (node *introspect.Node, err error)
+
 type AllJoynBridge struct {
-	bus      *dbus.Conn
-	services map[string][]*introspect.Node
+	bus                *dbus.Conn
+	introspectProvider IntrospectProvider
+	services           map[string][]*introspect.Node
 }
 
-func NewAllJoynBridge(bus *dbus.Conn) *AllJoynBridge {
+func NewAllJoynBridge(bus *dbus.Conn, introspectProvider IntrospectProvider) *AllJoynBridge {
 	bridge := new(AllJoynBridge)
 	bridge.bus = bus
 	bridge.services = make(map[string][]*introspect.Node)
+	bridge.introspectProvider = introspectProvider
 
 	return bridge
 }
@@ -45,7 +49,6 @@ func ParseArgumentOrProperty(name, access, _type string) string {
 		s = s + "="
 	}
 	s = s + _type
-
 	return s
 }
 
@@ -58,7 +61,7 @@ func ParseArguments(args []introspect.Arg) string {
 }
 
 func ParseAllJoynInterfaces(interfaces []introspect.Interface) []C.AJ_InterfaceDescription {
-	res := make([]C.AJ_InterfaceDescription, 1)
+	res := make([]C.AJ_InterfaceDescription, 0)
 
 	for _, iface := range interfaces {
 		desc := make([]*C.char, 0)
@@ -67,21 +70,25 @@ func ParseAllJoynInterfaces(interfaces []introspect.Interface) []C.AJ_InterfaceD
 		for _, method := range iface.Methods {
 			methogString := "?" + method.Name
 			argString := ParseArguments(method.Args)
+			log.Print(methogString + argString)
 			desc = append(desc, C.CString(methogString+argString))
 		}
 
 		for _, signal := range iface.Signals {
 			signalString := "!" + signal.Name
 			argString := ParseArguments(signal.Args)
+			log.Print(signalString + argString)
 			desc = append(desc, C.CString(signalString+argString))
 		}
 
 		for _, prop := range iface.Properties {
 			propString := "@" + ParseArgumentOrProperty(prop.Name, prop.Access, prop.Type)
+			log.Print(propString)
 			desc = append(desc, C.CString(propString))
 		}
 
 		desc = append(desc, nil)
+		log.Print(desc)
 		res = append(res, (C.AJ_InterfaceDescription)(&desc[0]))
 	}
 	return append(res, nil)
@@ -100,7 +107,13 @@ func GetAllJoynObjects(services []*introspect.Node) []C.AJ_Object {
 		res = append(res, ParseAllJoynObject(service))
 	}
 
+	res = append(res, C.Create_AJ_Object(nil, nil, 0, nil))
+
 	return res
+}
+
+func PrintObjects(objects []C.AJ_Object) {
+	C.AJ_PrintXML(&objects[0])
 }
 
 func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
@@ -197,7 +210,7 @@ func (a *AllJoynBridge) addService(service string, node *introspect.Node) {
 }
 
 func (a *AllJoynBridge) AddService(dbusPath, dbusService, allJoynPath, allJoynInterface string) *dbus.Error {
-	node, err := introspect.Call(a.bus.Object(dbusService, dbus.ObjectPath(dbusPath)))
+	node, err := a.introspectProvider(dbusService, dbusPath)
 
 	if err != nil {
 		log.Printf("Error getting introspect from [%s, %s]: %s", dbusService, dbusPath, err)
@@ -219,7 +232,9 @@ func main() {
 		log.Panic(err)
 	}
 
-	allJoynBridge := NewAllJoynBridge(bus)
+	allJoynBridge := NewAllJoynBridge(bus, func(dbusService, dbusPath string) (*introspect.Node, error) {
+		return introspect.Call(bus.Object(dbusService, dbus.ObjectPath(dbusPath)))
+	})
 
 	bus.Export(allJoynBridge, "/com/devicehive/alljoyn", "com.devicehive.alljoyn")
 	select {}
