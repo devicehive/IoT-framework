@@ -24,6 +24,7 @@ _testmain.go
 *.prof
 
 devicehive-cloud/astaff.conf
-devicehive-alljoyn/ajtcl
+
+devicehive-alljoyn/libajtcl.so
 
 *.DS_Store

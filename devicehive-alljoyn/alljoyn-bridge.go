@@ -1,7 +1,7 @@
 package main
 
 // #cgo CFLAGS: -Iajtcl/inc -Iajtcl/target/linux
-// #cgo LDFLAGS: -Llajtcl -lajtcl
+// #cgo LDFLAGS: -Lajtcl -lajtcl
 // #include <stdio.h>
 // #include <aj_debug.h>
 // #include <aj_guid.h>
@@ -30,10 +30,11 @@ package main
 //
 import "C"
 import (
-	"github.com/godbus/dbus"
-	"github.com/godbus/dbus/introspect"
 	"log"
 	"unsafe"
+
+	"github.com/godbus/dbus"
+	"github.com/godbus/dbus/introspect"
 )
 
 type IntrospectProvider func(dbusService, dbusPath string) (node *introspect.Node, err error)
