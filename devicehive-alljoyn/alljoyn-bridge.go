@@ -1,7 +1,7 @@
 package main
 
 // #cgo CFLAGS: -Iajtcl/inc -Iajtcl/target/linux
-// #cgo LDFLAGS: -Llajtcl -lajtcl
+// #cgo LDFLAGS: -Lajtcl -lajtcl
 // #include <stdio.h>
 // #include <aj_debug.h>
 // #include <aj_guid.h>
