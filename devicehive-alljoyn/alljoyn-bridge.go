@@ -16,10 +16,18 @@ package main
 //
 import "C"
 import (
-	"github.com/godbus/dbus"
-	"github.com/godbus/dbus/introspect"
 	"log"
 	"unsafe"
+
+	"github.com/devicehive/IoT-framework/devicehive-alljoyn/conf"
+	"github.com/godbus/dbus"
+	"github.com/godbus/dbus/introspect"
+)
+
+var config *conf.Conf
+
+const (
+	AJSleepTimeAfterDisconnect = 1000 * 2
 )
 
 type IntrospectProvider func(dbusService, dbusPath string) (node *introspect.Node, err error)
@@ -131,9 +139,9 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 			if !connected {
 				status = C.AJ_StartService(&busAttachment,
 					nil,
-					60*1000, // TODO: Move connection timeout to config
+					C.uint32_t(config.AJServiceConnectionTimeoutMilliseconds),
 					C.FALSE,
-					25, // TODO: Move port to config
+					C.uint16_t(config.AJServiceConnectionPort),
 					C.CString(dbusService),
 					C.AJ_NAME_REQ_DO_NOT_QUEUE,
 					nil)
@@ -148,7 +156,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 
 			status = C.AJ_UnmarshalMsg(&busAttachment,
 				&msg,
-				5*1000) // TODO: Move unmarshal timeout to config
+				C.uint32_t(config.AJServiceMsgUnmarshalTimeoutMilliseconds))
 
 			if C.AJ_ERR_TIMEOUT == status {
 				continue
@@ -193,7 +201,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 				C.AJ_Disconnect(&busAttachment)
 				log.Print("AllJoyn disconnected, retrying")
 				connected = false
-				C.AJ_Sleep(1000 * 2) // TODO: Move sleep time to const
+				C.AJ_Sleep(AJSleepTimeAfterDisconnect)
 			}
 		}
 	}()
@@ -224,6 +232,19 @@ func (a *AllJoynBridge) AddService(dbusPath, dbusService, allJoynPath, allJoynIn
 }
 
 func main() {
+	var filepath string
+	var err error
+
+	filepath, config, err = conf.FromArgs()
+	if err != nil {
+		log.Fatalf("Configuration error: %s", err.Error())
+	} else {
+		if filepath == "" {
+			log.Printf("Warning: test configuration")
+		}
+	}
+	log.Printf("Current configuration: %+v", config)
+
 	bus, err := dbus.SystemBus()
 	bus.RequestName("com.devicehive.alljoyn",
 		dbus.NameFlagDoNotQueue)
