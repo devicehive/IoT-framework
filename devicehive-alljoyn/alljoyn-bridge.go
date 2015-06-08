@@ -22,8 +22,17 @@ package main
 //   return &c_bus;
 // }
 //
-// AJ_Object Create_AJ_Object(char* path, AJ_InterfaceDescription* interfaces, uint8_t flags, void* context) {
-//   AJ_Object obj = {path, interfaces, flags, context};
+// void * Allocate_AJ_Object_Array(uint32_t array_size) {
+//   return AJ_Malloc(sizeof(AJ_Object)*array_size);
+// }
+//
+//
+// void * Create_AJ_Object(uint32_t index, void * array, char* path, AJ_InterfaceDescription* interfaces, uint8_t flags, void* context) {
+//	 AJ_Object * obj = array + index * sizeof(AJ_Object);
+//   obj->path = path;
+//	 obj->interfaces = interfaces;
+//   obj->flags = flags;
+//   obj->context = context;
 //   return obj;
 // }
 //
@@ -75,7 +84,7 @@ func ParseArguments(args []introspect.Arg) string {
 	return argString
 }
 
-func ParseAllJoynInterfaces(interfaces []introspect.Interface) []C.AJ_InterfaceDescription {
+func ParseAllJoynInterfaces(interfaces []introspect.Interface) *[]C.AJ_InterfaceDescription {
 	res := make([]C.AJ_InterfaceDescription, 0)
 
 	for _, iface := range interfaces {
@@ -106,25 +115,19 @@ func ParseAllJoynInterfaces(interfaces []introspect.Interface) []C.AJ_InterfaceD
 		log.Print(desc)
 		res = append(res, (C.AJ_InterfaceDescription)(&desc[0]))
 	}
-	return append(res, nil)
+	res = append(res, nil)
+	return &res
 }
 
-func ParseAllJoynObject(service *introspect.Node) C.AJ_Object {
-	// Because of C struct alignment, we can't initialize inline and had to create accessor function
-	obj := C.Create_AJ_Object(C.CString(service.Name), &ParseAllJoynInterfaces(service.Interfaces)[0], C.uint8_t(0), unsafe.Pointer(nil))
-	return obj
-}
+func GetAllJoynObjects(services []*introspect.Node) unsafe.Pointer {
+	array := C.Allocate_AJ_Object_Array(C.uint32_t(len(services) + 1))
 
-func GetAllJoynObjects(services []*introspect.Node) []C.AJ_Object {
-	res := make([]C.AJ_Object, 0)
-
-	for _, service := range services {
-		res = append(res, ParseAllJoynObject(service))
+	for i, service := range services {
+		C.Create_AJ_Object(C.uint32_t(i), array, C.CString(service.Name), &(*ParseAllJoynInterfaces(service.Interfaces))[0], C.uint8_t(0), unsafe.Pointer(nil))
+		C.Create_AJ_Object(C.uint32_t(i+1), array, nil, nil, 0, nil)
 	}
 
-	res = append(res, C.Create_AJ_Object(nil, nil, 0, nil))
-
-	return res
+	return array
 }
 
 func PrintObjects(objects []C.AJ_Object) {
@@ -133,91 +136,92 @@ func PrintObjects(objects []C.AJ_Object) {
 
 func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 	objects := GetAllJoynObjects(a.services[dbusService])
-	go func() {
-		C.AJ_Initialize()
-		C.AJ_PrintXML(&objects[0])
-		C.AJ_RegisterObjects(&objects[0], nil)
-		connected := false
-		var status C.AJ_Status = C.AJ_OK
-		busAttachment := C.Get_AJ_BusAttachment()
-		msg := C.Get_AJ_Message()
+	// go func() {
+	C.AJ_Initialize()
+	C.AJ_RegisterObjects((*C.AJ_Object)(objects), nil)
+	C.AJ_PrintXML((*C.AJ_Object)(objects))
+	connected := false
+	var status C.AJ_Status = C.AJ_OK
+	busAttachment := C.Get_AJ_BusAttachment()
+	msg := C.Get_AJ_Message()
 
-		log.Printf("CreateAJ_BusAttachment(): %+v", busAttachment)
+	log.Printf("CreateAJ_BusAttachment(): %+v", busAttachment)
 
-		for {
-			if !connected {
-				status = C.AJ_StartService((*C.AJ_BusAttachment)(busAttachment),
-					nil,
-					60*1000, // TODO: Move connection timeout to config
-					C.FALSE,
-					25, // TODO: Move port to config
-					C.CString(dbusService),
-					C.AJ_NAME_REQ_DO_NOT_QUEUE,
-					nil)
+	for {
+		if !connected {
+			status = C.AJ_StartService((*C.AJ_BusAttachment)(busAttachment),
+				nil,
+				60*1000, // TODO: Move connection timeout to config
+				C.FALSE,
+				25, // TODO: Move port to config
+				C.CString(dbusService),
+				C.AJ_NAME_REQ_DO_NOT_QUEUE,
+				nil)
 
-				if status != C.AJ_OK {
-					continue
-				}
-
-				log.Printf("StartService returned %d, %+v", status, busAttachment)
-
-				connected = true
-			}
-
-			status = C.AJ_UnmarshalMsg((*C.AJ_BusAttachment)(busAttachment), (*C.AJ_Message)(msg),
-				5*1000) // TODO: Move unmarshal timeout to config
-
-			if C.AJ_ERR_TIMEOUT == status {
+			if status != C.AJ_OK {
 				continue
 			}
 
-			if C.AJ_OK == status {
+			log.Printf("StartService returned %d, %+v", status, busAttachment)
 
-				msgId := C.Get_AJ_Message_msgId()
-				log.Printf("Received message: %+v", msgId)
+			connected = true
+		}
 
-				switch {
-				case msgId == C.AJ_METHOD_ACCEPT_SESSION:
-					{
-						// uint16_t port;
-						// char* joiner;
-						// uint32_t sessionId;
+		status = C.AJ_UnmarshalMsg((*C.AJ_BusAttachment)(busAttachment), (*C.AJ_Message)(msg),
+			5*1000) // TODO: Move unmarshal timeout to config
+		log.Printf("AJ_UnmarshalMsg: %+v", status)
 
-						// AJ_UnmarshalArgs(&msg, "qus", &port, &sessionId, &joiner);
-						status = C.AJ_BusReplyAcceptSession((*C.AJ_Message)(msg), C.TRUE)
-						log.Printf("ACCEPT_SESSION: %+v", msgId)
-					}
+		if C.AJ_ERR_TIMEOUT == status {
+			continue
+		}
 
-				case msgId == C.AJ_SIGNAL_SESSION_LOST_WITH_REASON:
-					{
-						// uint32_t id, reason;
-						// AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
-						// AJ_AlwaysPrintf(("Session lost. ID = %u, reason = %u", id, reason));
-						log.Printf("Session lost: %+v", msgId)
-					}
-				case (uint32(msgId) & 0x01000000) != 0:
-					{
-						log.Printf("Received application alljoyn message: %+v", msgId)
-					}
+		if C.AJ_OK == status {
 
-				default:
-					/* Pass to the built-in handlers. */
-					log.Printf("Passing msgIf %+v to AllJoyn", msgId)
-					status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
+			msgId := C.Get_AJ_Message_msgId()
+			log.Printf("Received message: %+v", msgId)
+
+			switch {
+			case msgId == C.AJ_METHOD_ACCEPT_SESSION:
+				{
+					// uint16_t port;
+					// char* joiner;
+					// uint32_t sessionId;
+
+					// AJ_UnmarshalArgs(&msg, "qus", &port, &sessionId, &joiner);
+					status = C.AJ_BusReplyAcceptSession((*C.AJ_Message)(msg), C.TRUE)
+					log.Printf("ACCEPT_SESSION: %+v", msgId)
 				}
-			}
 
-			/* Messages MUST be discarded to free resources. */
-			C.AJ_CloseMsg((*C.AJ_Message)(msg))
+			case msgId == C.AJ_SIGNAL_SESSION_LOST_WITH_REASON:
+				{
+					// uint32_t id, reason;
+					// AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
+					// AJ_AlwaysPrintf(("Session lost. ID = %u, reason = %u", id, reason));
+					log.Printf("Session lost: %+v", msgId)
+				}
+			case (uint32(msgId) & 0x01000000) != 0:
+				{
+					log.Printf("Received application alljoyn message: %+v", msgId)
+				}
 
-			if status == C.AJ_ERR_READ {
-				C.AJ_Disconnect((*C.AJ_BusAttachment)(busAttachment))
-				log.Print("AllJoyn disconnected, retrying")
-				connected = false
-				C.AJ_Sleep(1000 * 2) // TODO: Move sleep time to const
+			default:
+				/* Pass to the built-in handlers. */
+				log.Printf("Passing msgIf %+v to AllJoyn", msgId)
+				status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
 			}
 		}
-	}()
+
+		/* Messages MUST be discarded to free resources. */
+		C.AJ_CloseMsg((*C.AJ_Message)(msg))
+
+		if status == C.AJ_ERR_READ {
+			C.AJ_Disconnect((*C.AJ_BusAttachment)(busAttachment))
+			log.Print("AllJoyn disconnected, retrying")
+			connected = false
+			C.AJ_Sleep(1000 * 2) // TODO: Move sleep time to const
+		}
+	}
+	// }()
 	return nil
 }
 
