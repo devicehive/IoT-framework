@@ -19,8 +19,15 @@ import (
 	"log"
 	"unsafe"
 
+	"github.com/devicehive/IoT-framework/devicehive-alljoyn/conf"
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
+)
+
+var config *conf.Conf
+
+const (
+	AJSleepTimeAfterDisconnect = 1000 * 2
 )
 
 type AllJoynBridge struct {
@@ -104,17 +111,6 @@ func GetAllJoynObjects(services []*introspect.Node) []C.AJ_Object {
 	return res
 }
 
-// TODO: make it configurable:
-const (
-	AJServiceConnectionTimeoutMilliseconds   = 60 * 1000
-	AJServiceConnectionPort                  = 25
-	AJServiceMsgUnmarshalTimeoutMilliseconds = 5 * 1000
-)
-
-const (
-	AJSleepTimeAfterDisconnect = 1000 * 2
-)
-
 func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 	objects := GetAllJoynObjects(a.services[dbusService])
 	go func() {
@@ -130,9 +126,9 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 			if !connected {
 				status = C.AJ_StartService(&busAttachment,
 					nil,
-					AJServiceConnectionTimeoutMilliseconds,
+					C.uint32_t(config.AJServiceConnectionTimeoutMilliseconds),
 					C.FALSE,
-					AJServiceConnectionPort,
+					C.uint16_t(config.AJServiceConnectionPort),
 					C.CString(dbusService),
 					C.AJ_NAME_REQ_DO_NOT_QUEUE,
 					nil)
@@ -147,7 +143,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 
 			status = C.AJ_UnmarshalMsg(&busAttachment,
 				&msg,
-				AJServiceMsgUnmarshalTimeoutMilliseconds)
+				C.uint32_t(config.AJServiceMsgUnmarshalTimeoutMilliseconds))
 
 			if C.AJ_ERR_TIMEOUT == status {
 				continue
@@ -223,6 +219,19 @@ func (a *AllJoynBridge) AddService(dbusPath, dbusService, allJoynPath, allJoynIn
 }
 
 func main() {
+	var filepath string
+	var err error
+
+	filepath, config, err = conf.FromArgs()
+	if err != nil {
+		log.Fatalf("Configuration error: %s", err.Error())
+	} else {
+		if filepath == "" {
+			log.Printf("Warning: test configuration")
+		}
+	}
+	log.Printf("Current configuration: %+v", config)
+
 	bus, err := dbus.SystemBus()
 	bus.RequestName("com.devicehive.alljoyn",
 		dbus.NameFlagDoNotQueue)
