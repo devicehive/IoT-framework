@@ -16,10 +16,11 @@ package main
 //
 import "C"
 import (
-	"github.com/godbus/dbus"
-	"github.com/godbus/dbus/introspect"
 	"log"
 	"unsafe"
+
+	"github.com/godbus/dbus"
+	"github.com/godbus/dbus/introspect"
 )
 
 type AllJoynBridge struct {
@@ -103,6 +104,17 @@ func GetAllJoynObjects(services []*introspect.Node) []C.AJ_Object {
 	return res
 }
 
+// TODO: make it configurable:
+const (
+	AJServiceConnectionTimeoutMilliseconds   = 60 * 1000
+	AJServiceConnectionPort                  = 25
+	AJServiceMsgUnmarshalTimeoutMilliseconds = 5 * 1000
+)
+
+const (
+	AJSleepTimeAfterDisconnect = 1000 * 2
+)
+
 func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 	objects := GetAllJoynObjects(a.services[dbusService])
 	go func() {
@@ -118,9 +130,9 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 			if !connected {
 				status = C.AJ_StartService(&busAttachment,
 					nil,
-					60*1000, // TODO: Move connection timeout to config
+					AJServiceConnectionTimeoutMilliseconds,
 					C.FALSE,
-					25, // TODO: Move port to config
+					AJServiceConnectionPort,
 					C.CString(dbusService),
 					C.AJ_NAME_REQ_DO_NOT_QUEUE,
 					nil)
@@ -135,7 +147,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 
 			status = C.AJ_UnmarshalMsg(&busAttachment,
 				&msg,
-				5*1000) // TODO: Move unmarshal timeout to config
+				AJServiceMsgUnmarshalTimeoutMilliseconds)
 
 			if C.AJ_ERR_TIMEOUT == status {
 				continue
@@ -180,7 +192,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 				C.AJ_Disconnect(&busAttachment)
 				log.Print("AllJoyn disconnected, retrying")
 				connected = false
-				C.AJ_Sleep(1000 * 2) // TODO: Move sleep time to const
+				C.AJ_Sleep(AJSleepTimeAfterDisconnect)
 			}
 		}
 	}()
