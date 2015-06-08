@@ -1,12 +1,23 @@
 package main
 
 // #cgo CFLAGS: -Iajtcl/inc -Iajtcl/target/linux
-// #cgo LDFLAGS: -Lajtcl -lajtcl
+// #cgo LDFLAGS: -Llajtcl -lajtcl
 // #include <stdio.h>
 // #include <aj_debug.h>
 // #include <aj_guid.h>
 // #include <aj_creds.h>
 // #include "alljoyn.h"
+//
+// typedef struct _AJ_UnmarshalResult {
+//	AJ_Status status;
+//	AJ_Message msg;
+// } AJ_UnmarshalResult;
+//
+// AJ_UnmarshalResult AJ_UnmarshalMsgHelper(AJ_BusAttachment* bus, uint32_t timeout) {
+// 	AJ_UnmarshalResult res;
+// 	res.status = AJ_UnmarshalMsg(bus, &res.msg, timeout);
+// 	return res;
+// }
 //
 // AJ_Object Create_AJ_Object(char* path, AJ_InterfaceDescription* interfaces, uint8_t flags, void* context) {
 //   AJ_Object obj = {path, interfaces, flags, context};
@@ -16,18 +27,10 @@ package main
 //
 import "C"
 import (
-	"log"
-	"unsafe"
-
-	"github.com/devicehive/IoT-framework/devicehive-alljoyn/conf"
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
-)
-
-var config *conf.Conf
-
-const (
-	AJSleepTimeAfterDisconnect = 1000 * 2
+	"log"
+	"unsafe"
 )
 
 type IntrospectProvider func(dbusService, dbusPath string) (node *introspect.Node, err error)
@@ -139,9 +142,9 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 			if !connected {
 				status = C.AJ_StartService(&busAttachment,
 					nil,
-					C.uint32_t(config.AJServiceConnectionTimeoutMilliseconds),
+					60*1000, // TODO: Move connection timeout to config
 					C.FALSE,
-					C.uint16_t(config.AJServiceConnectionPort),
+					25, // TODO: Move port to config
 					C.CString(dbusService),
 					C.AJ_NAME_REQ_DO_NOT_QUEUE,
 					nil)
@@ -151,18 +154,22 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 				}
 
 				log.Printf("StartService returned %d", status)
+
 				connected = true
 			}
 
-			status = C.AJ_UnmarshalMsg(&busAttachment,
-				&msg,
-				C.uint32_t(config.AJServiceMsgUnmarshalTimeoutMilliseconds))
+			var res C.AJ_UnmarshalResult
+			res = C.AJ_UnmarshalMsgHelper(&busAttachment,
+				5*1000) // TODO: Move unmarshal timeout to config
+			status = res.status
+			msg = res.msg
 
 			if C.AJ_ERR_TIMEOUT == status {
 				continue
 			}
 
 			if C.AJ_OK == status {
+				log.Printf("Received message: %+v", msg)
 				switch msg.msgId {
 				case C.AJ_METHOD_ACCEPT_SESSION:
 					{
@@ -201,7 +208,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 				C.AJ_Disconnect(&busAttachment)
 				log.Print("AllJoyn disconnected, retrying")
 				connected = false
-				C.AJ_Sleep(AJSleepTimeAfterDisconnect)
+				C.AJ_Sleep(1000 * 2) // TODO: Move sleep time to const
 			}
 		}
 	}()
@@ -217,7 +224,7 @@ func (a *AllJoynBridge) addService(service string, node *introspect.Node) {
 	}
 }
 
-func (a *AllJoynBridge) AddService(dbusPath, dbusService, allJoynPath, allJoynInterface string) *dbus.Error {
+func (a *AllJoynBridge) AddService(dbusPath, dbusService, allJoynPath, allJoynService string) *dbus.Error {
 	node, err := a.introspectProvider(dbusService, dbusPath)
 
 	if err != nil {
@@ -231,32 +238,19 @@ func (a *AllJoynBridge) AddService(dbusPath, dbusService, allJoynPath, allJoynIn
 	return nil
 }
 
-func main() {
-	var filepath string
-	var err error
+// func main() {
+// 	bus, err := dbus.SystemBus()
+// 	bus.RequestName("com.devicehive.alljoyn",
+// 		dbus.NameFlagDoNotQueue)
 
-	filepath, config, err = conf.FromArgs()
-	if err != nil {
-		log.Fatalf("Configuration error: %s", err.Error())
-	} else {
-		if filepath == "" {
-			log.Printf("Warning: test configuration")
-		}
-	}
-	log.Printf("Current configuration: %+v", config)
+// 	if err != nil {
+// 		log.Panic(err)
+// 	}
 
-	bus, err := dbus.SystemBus()
-	bus.RequestName("com.devicehive.alljoyn",
-		dbus.NameFlagDoNotQueue)
+// 	allJoynBridge := NewAllJoynBridge(bus, func(dbusService, dbusPath string) (*introspect.Node, error) {
+// 		return introspect.Call(bus.Object(dbusService, dbus.ObjectPath(dbusPath)))
+// 	})
 
-	if err != nil {
-		log.Panic(err)
-	}
-
-	allJoynBridge := NewAllJoynBridge(bus, func(dbusService, dbusPath string) (*introspect.Node, error) {
-		return introspect.Call(bus.Object(dbusService, dbus.ObjectPath(dbusPath)))
-	})
-
-	bus.Export(allJoynBridge, "/com/devicehive/alljoyn", "com.devicehive.alljoyn")
-	select {}
-}
+// 	bus.Export(allJoynBridge, "/com/devicehive/alljoyn", "com.devicehive.alljoyn")
+// 	select {}
+// }
