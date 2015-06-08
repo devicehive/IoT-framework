@@ -60,7 +60,6 @@ func TestIntrospect(*testing.T) {
 
 func TestGetAllJoynObjects(t *testing.T) {
 	node, err := DummyIntrospectProvider("", "")
-	t.Logf("foo")
 	if err != nil {
 		t.Fail()
 	}
