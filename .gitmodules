@@ -1,0 +1,3 @@
+[submodule "devicehive-alljoyn/ajtcl"]
+	path = devicehive-alljoyn/ajtcl
+	url = https://git.allseenalliance.org/gerrit/core/ajtcl.git
