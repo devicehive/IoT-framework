@@ -30,5 +30,16 @@ if [ ! -f "$SNAPP_APP_DATA_PATH/config.yaml" ]; then
     #TODO here we can copy default config
 fi
 
+CLOUD_CONFIG=$SNAPP_APP_DATA_PATH/config.yaml
+
+# temporary solution for initial config
+if [ ! -f $CLOUD_CONFIG ]; then
+    echo "Cloud Config was not found, using default one:"
+    cat $SNAPP_APP_PATH/config.yaml
+    #copy default config
+    cp $SNAPP_APP_PATH/config.yaml $CLOUD_CONFIG
+fi
+
+
 # run
-$SNAPP_APP_PATH/bin/$PLATFORM/devicehive-cloud -conf=$SNAPP_APP_DATA_PATH/config.yaml
+$SNAPP_APP_PATH/bin/$PLATFORM/devicehive-cloud -conf=$CLOUD_CONFIG
