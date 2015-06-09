@@ -299,7 +299,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 							C.AJ_DeliverMsgPartial((*C.AJ_Message)(reply), C.uint32_t(buf.Len()))
 							C.AJ_MarshalRaw((*C.AJ_Message)(reply), unsafe.Pointer(&buf.Bytes()[0]), C.size_t(buf.Len()))
 							C.AJ_DeliverMsg((*C.AJ_Message)(reply))
-
+							break
 						}
 					}
 				}
