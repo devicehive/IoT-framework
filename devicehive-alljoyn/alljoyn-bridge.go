@@ -26,7 +26,6 @@ package main
 //   return AJ_Malloc(sizeof(AJ_Object)*array_size);
 // }
 //
-//
 // void * Create_AJ_Object(uint32_t index, void * array, char* path, AJ_InterfaceDescription* interfaces, uint8_t flags, void* context) {
 //	 AJ_Object * obj = array + index * sizeof(AJ_Object);
 //   obj->path = path;
@@ -36,9 +35,61 @@ package main
 //   return obj;
 // }
 //
+// typedef struct _RawDecodedMsg {
+// 	void *buffer;
+// 	size_t len;
+// 	AJ_Status status;
+// } RawDecodedMsg;
 //
+// RawDecodedMsg RawDecodeMsg(AJ_Message *msg) {
+// 	RawDecodedMsg result;
+//
+// 	result.status = AJ_OK;
+// 	result.len = 2048;
+// 	result.buffer = malloc(result.len);
+//
+// 	int attempts = 1;
+// 	while(attempts) {
+// 		size_t actual = 0;
+// 		result.status = AJ_UnmarshalRaw(msg, (const void **)&(result.buffer), result.len, &actual);
+// 		switch(result.status) {
+// 			case AJ_OK: {
+// 				result.buffer = realloc(result.buffer, actual);
+// 				result.len = actual;
+// 				attempts = 0;
+// 				break;
+// 			}
+//
+// 			case AJ_ERR_UNMARSHAL: {
+// 				result.len = result.len + result.len;
+// 				result.buffer = realloc(result.buffer, result.len);
+// 				result.status = AJ_OK;
+// 				break;
+// 			}
+//
+// 			case AJ_ERR_SIGNATURE:
+// 			case AJ_ERR_READ: {
+// 				free(result.buffer);
+// 				result.buffer = NULL;
+// 				result.len = 0;
+// 				attempts = 0;
+// 				break;
+// 			}
+// 		}
+// 	}
+// 	return result;
+// }
+//
+// void FreeRawDecodedMsg(RawDecodedMsg msg) {
+// 	if(msg.buffer){
+// 		free(msg.buffer);
+// 		msg.len = 0;
+// 	}
+// }
 import "C"
+
 import (
+	"fmt"
 	"log"
 	"unsafe"
 
@@ -132,6 +183,21 @@ func GetAllJoynObjects(services []*introspect.Node) unsafe.Pointer {
 
 func PrintObjects(objects []C.AJ_Object) {
 	C.AJ_PrintXML(&objects[0])
+}
+
+func AJDbusDecodeMsgBytes(msg *C.AJ_Message) (bytes []byte, err error) {
+	rawDecoded := C.RawDecodeMsg(msg)
+	switch rawDecoded.status {
+	case C.AJ_OK:
+		bytes = C.GoBytes(rawDecoded.buffer, C.int(rawDecoded.len))
+		C.FreeRawDecodedMsg(rawDecoded)
+		return bytes, nil
+	case C.AJ_ERR_READ:
+		err = fmt.Errorf("AJ_UnmarshalRaw error: AJ_ERR_READ")
+	case C.AJ_ERR_SIGNATURE:
+		err = fmt.Errorf("AJ_UnmarshalRaw error: AJ_ERR_SIGNATURE")
+	}
+	return
 }
 
 func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
