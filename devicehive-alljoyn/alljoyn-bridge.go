@@ -15,6 +15,13 @@ package main
 //   return c_message.msgId;
 // }
 //
+// uint32_t Get_AJ_Message_bodyLen() {
+//   return c_message.hdr->bodyLen;
+// }
+//
+// const char * Get_AJ_Message_signature() {
+//    return c_message.signature;
+// }
 // void * Get_AJ_Message() {
 //   return &c_message;
 // }
@@ -25,7 +32,6 @@ package main
 // void * Allocate_AJ_Object_Array(uint32_t array_size) {
 //   return AJ_Malloc(sizeof(AJ_Object)*array_size);
 // }
-//
 //
 // void * Create_AJ_Object(uint32_t index, void * array, char* path, AJ_InterfaceDescription* interfaces, uint8_t flags, void* context) {
 //	 AJ_Object * obj = array + index * sizeof(AJ_Object);
@@ -39,11 +45,12 @@ package main
 //
 import "C"
 import (
-	"log"
-	"unsafe"
-
+	"bytes"
+	"encoding/binary"
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
+	"log"
+	"unsafe"
 )
 
 type IntrospectProvider func(dbusService, dbusPath string) (node *introspect.Node, err error)
@@ -84,7 +91,7 @@ func ParseArguments(args []introspect.Arg) string {
 	return argString
 }
 
-func ParseAllJoynInterfaces(interfaces []introspect.Interface) *[]C.AJ_InterfaceDescription {
+func ParseAllJoynInterfaces(interfaces []introspect.Interface) []C.AJ_InterfaceDescription {
 	res := make([]C.AJ_InterfaceDescription, 0)
 
 	for _, iface := range interfaces {
@@ -116,14 +123,17 @@ func ParseAllJoynInterfaces(interfaces []introspect.Interface) *[]C.AJ_Interface
 		res = append(res, (C.AJ_InterfaceDescription)(&desc[0]))
 	}
 	res = append(res, nil)
-	return &res
+	return res
 }
+
+var interfaces []C.AJ_InterfaceDescription
 
 func GetAllJoynObjects(services []*introspect.Node) unsafe.Pointer {
 	array := C.Allocate_AJ_Object_Array(C.uint32_t(len(services) + 1))
 
 	for i, service := range services {
-		C.Create_AJ_Object(C.uint32_t(i), array, C.CString(service.Name), &(*ParseAllJoynInterfaces(service.Interfaces))[0], C.uint8_t(0), unsafe.Pointer(nil))
+		interfaces = ParseAllJoynInterfaces(service.Interfaces)
+		C.Create_AJ_Object(C.uint32_t(i), array, C.CString(service.Name), &interfaces[0], C.uint8_t(0), unsafe.Pointer(nil))
 		C.Create_AJ_Object(C.uint32_t(i+1), array, nil, nil, 0, nil)
 	}
 
@@ -144,6 +154,9 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 	var status C.AJ_Status = C.AJ_OK
 	busAttachment := C.Get_AJ_BusAttachment()
 	msg := C.Get_AJ_Message()
+
+	var data uintptr
+	var actual C.size_t
 
 	log.Printf("CreateAJ_BusAttachment(): %+v", busAttachment)
 
@@ -201,9 +214,36 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 				}
 			case (uint32(msgId) & 0x01000000) != 0:
 				{
-					log.Printf("Received application alljoyn message: %+v", msgId)
-				}
+					b := make([]byte, 0)
+					signature := C.GoString(C.Get_AJ_Message_signature())
+					bodyLen := C.Get_AJ_Message_bodyLen()
+					for i := 0; i < int(bodyLen); i++ {
+						status = C.AJ_UnmarshalRaw((*C.AJ_Message)(msg), (*unsafe.Pointer)(unsafe.Pointer(&data)), C.size_t(1), (*C.size_t)(unsafe.Pointer(&actual)))
+						if status == C.AJ_OK {
+							b = append(b, C.GoBytes(unsafe.Pointer(data), C.int(actual))...)
+							log.Printf("Reading RAW message, status = %d, actual = %d", status, actual)
+						} else {
+							log.Printf("Error while reading message body, status = %d", status)
+							break
+						}
+					}
+					s, err := ParseSignature(signature)
 
+					if err != nil {
+						log.Printf("Error parsing signature: %s", err)
+						break
+					}
+
+					d := newDecoder(bytes.NewReader(b), binary.LittleEndian)
+					res, err := d.Decode(s)
+
+					if err != nil {
+						log.Printf("Error decoding message [%+v] : %s", b, err)
+						break
+					}
+
+					log.Printf("Received application alljoyn message, signature: %s, bytes: %+v, decoded: %+v", signature, b, res)
+				}
 			default:
 				/* Pass to the built-in handlers. */
 				log.Printf("Passing msgIf %+v to AllJoyn", msgId)
