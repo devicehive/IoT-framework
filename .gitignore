@@ -6,6 +6,9 @@
 # Folders
 _obj
 _test
+build/**/bin/armhf
+build/**/bin/x86_64
+*.snap
 
 # Architecture specific extensions/prefixes
 *.[568vq]
@@ -23,6 +26,8 @@ _testmain.go
 *.test
 *.prof
 
+
+*.*~
 devicehive-cloud/astaff.conf
 
 devicehive-alljoyn/libajtcl.so

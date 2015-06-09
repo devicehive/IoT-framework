@@ -1,0 +1,11 @@
+# Description: allow using devicehive-cloud
+# Usage: common
+
+#include <abstractions/dbus-strict>
+
+/run/dbus/system_bus_socket rw,
+dbus (receive, send)
+    bus=system
+    path=com/devicehive/bluetooth
+    interface=com.devicehive.bluetooth,org.freedesktop.DBus.Introspectable,
+	peer=(label=devicehive-ble_service_*),
