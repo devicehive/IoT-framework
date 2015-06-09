@@ -10,6 +10,7 @@ package main
 //
 // AJ_BusAttachment c_bus;
 // AJ_Message c_message;
+// AJ_Message c_reply;
 //
 // uint32_t Get_AJ_Message_msgId() {
 //   return c_message.msgId;
@@ -22,6 +23,27 @@ package main
 // const char * Get_AJ_Message_signature() {
 //    return c_message.signature;
 // }
+//
+// const char * Get_AJ_Message_objPath() {
+//    return c_message.objPath;
+// }
+//
+// const char * Get_AJ_Message_iface() {
+//    return c_message.iface;
+// }
+//
+// const char * Get_AJ_Message_member() {
+//    return c_message.member;
+// }
+//
+// const char * Get_AJ_Message_destination() {
+//    return c_message.destination;
+// }
+//
+// void * Get_AJ_ReplyMessage() {
+// 	return &c_reply;
+// }
+//
 // void * Get_AJ_Message() {
 //   return &c_message;
 // }
@@ -55,16 +77,23 @@ import (
 
 type IntrospectProvider func(dbusService, dbusPath string) (node *introspect.Node, err error)
 
+type AllJoynBindingInfo struct {
+	allJoynService string
+	allJoynPath    string
+	dbusPath       string
+	introspectData *introspect.Node
+}
+
 type AllJoynBridge struct {
 	bus                *dbus.Conn
 	introspectProvider IntrospectProvider
-	services           map[string][]*introspect.Node
+	services           map[string][]*AllJoynBindingInfo
 }
 
 func NewAllJoynBridge(bus *dbus.Conn, introspectProvider IntrospectProvider) *AllJoynBridge {
 	bridge := new(AllJoynBridge)
 	bridge.bus = bus
-	bridge.services = make(map[string][]*introspect.Node)
+	bridge.services = make(map[string][]*AllJoynBindingInfo)
 	bridge.introspectProvider = introspectProvider
 
 	return bridge
@@ -128,20 +157,16 @@ func ParseAllJoynInterfaces(interfaces []introspect.Interface) []C.AJ_InterfaceD
 
 var interfaces []C.AJ_InterfaceDescription
 
-func GetAllJoynObjects(services []*introspect.Node) unsafe.Pointer {
+func GetAllJoynObjects(services []*AllJoynBindingInfo) unsafe.Pointer {
 	array := C.Allocate_AJ_Object_Array(C.uint32_t(len(services) + 1))
 
 	for i, service := range services {
-		interfaces = ParseAllJoynInterfaces(service.Interfaces)
-		C.Create_AJ_Object(C.uint32_t(i), array, C.CString(service.Name), &interfaces[0], C.uint8_t(0), unsafe.Pointer(nil))
+		interfaces = ParseAllJoynInterfaces(service.introspectData.Interfaces)
+		C.Create_AJ_Object(C.uint32_t(i), array, C.CString(service.introspectData.Name), &interfaces[0], C.uint8_t(0), unsafe.Pointer(nil))
 		C.Create_AJ_Object(C.uint32_t(i+1), array, nil, nil, 0, nil)
 	}
 
 	return array
-}
-
-func PrintObjects(objects []C.AJ_Object) {
-	C.AJ_PrintXML(&objects[0])
 }
 
 func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
@@ -154,6 +179,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 	var status C.AJ_Status = C.AJ_OK
 	busAttachment := C.Get_AJ_BusAttachment()
 	msg := C.Get_AJ_Message()
+	reply := C.Get_AJ_ReplyMessage()
 
 	var data uintptr
 	var actual C.size_t
@@ -243,10 +269,43 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 					}
 
 					log.Printf("Received application alljoyn message, signature: %s, bytes: %+v, decoded: %+v", signature, b, res)
+
+					objPath := C.GoString(C.Get_AJ_Message_objPath())
+					member := C.GoString(C.Get_AJ_Message_member())
+					destination := C.GoString(C.Get_AJ_Message_destination())
+					iface := C.GoString(C.Get_AJ_Message_iface())
+
+					log.Printf("Message [objPath, member, iface, destination]: %s, %s, %s, %s", objPath, member, iface, destination)
+
+					for _, service := range a.services[dbusService] {
+						if (service.allJoynPath == objPath) && (service.allJoynService == destination) {
+							remote := a.bus.Object(dbusService, dbus.ObjectPath(service.dbusPath))
+							res := remote.Call(iface+"."+member, 0, res...)
+
+							if res.Err != nil {
+								log.Printf("Error calling dbus method (%s): %s", iface+"."+member, res.Err)
+								return dbus.NewError(res.Err.Error(), nil)
+							}
+
+							C.AJ_MarshalReplyMsg((*C.AJ_Message)(msg), (*C.AJ_Message)(reply))
+							buf := new(bytes.Buffer)
+							enc := newEncoder(buf, binary.LittleEndian)
+							err = enc.Encode(res.Body...)
+							if err != nil {
+								log.Printf("Error encoding result: %s", err)
+								break
+							}
+							log.Printf("Encoded reply: %+v", buf.Bytes())
+							C.AJ_DeliverMsgPartial((*C.AJ_Message)(reply), C.uint32_t(buf.Len()))
+							C.AJ_MarshalRaw((*C.AJ_Message)(reply), unsafe.Pointer(&buf.Bytes()[0]), C.size_t(buf.Len()))
+							C.AJ_DeliverMsg((*C.AJ_Message)(reply))
+
+						}
+					}
 				}
 			default:
 				/* Pass to the built-in handlers. */
-				log.Printf("Passing msgIf %+v to AllJoyn", msgId)
+				log.Printf("Passing msgId %+v to AllJoyn", msgId)
 				status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
 			}
 		}
@@ -265,12 +324,12 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 	return nil
 }
 
-func (a *AllJoynBridge) addService(service string, node *introspect.Node) {
+func (a *AllJoynBridge) addService(service string, info *AllJoynBindingInfo) {
 	services, ok := a.services[service]
 	if ok {
-		a.services[service] = append(services, node)
+		a.services[service] = append(services, info)
 	} else {
-		a.services[service] = []*introspect.Node{node}
+		a.services[service] = []*AllJoynBindingInfo{info}
 	}
 }
 
@@ -281,26 +340,26 @@ func (a *AllJoynBridge) AddService(dbusPath, dbusService, allJoynPath, allJoynSe
 		log.Printf("Error getting introspect from [%s, %s]: %s", dbusService, dbusPath, err)
 	}
 
-	a.addService(dbusService, node)
+	a.addService(dbusService, &AllJoynBindingInfo{allJoynService, allJoynPath, dbusPath, node})
 
 	log.Printf("Received introspect: %+v", node)
 
 	return nil
 }
 
-// func main() {
-// 	bus, err := dbus.SystemBus()
-// 	bus.RequestName("com.devicehive.alljoyn",
-// 		dbus.NameFlagDoNotQueue)
+func main() {
+	bus, err := dbus.SystemBus()
+	bus.RequestName("com.devicehive.alljoyn.bridge",
+		dbus.NameFlagDoNotQueue)
 
-// 	if err != nil {
-// 		log.Panic(err)
-// 	}
+	if err != nil {
+		log.Panic(err)
+	}
 
-// 	allJoynBridge := NewAllJoynBridge(bus, func(dbusService, dbusPath string) (*introspect.Node, error) {
-// 		return introspect.Call(bus.Object(dbusService, dbus.ObjectPath(dbusPath)))
-// 	})
+	allJoynBridge := NewAllJoynBridge(bus, func(dbusService, dbusPath string) (*introspect.Node, error) {
+		return introspect.Call(bus.Object(dbusService, dbus.ObjectPath(dbusPath)))
+	})
 
-// 	bus.Export(allJoynBridge, "/com/devicehive/alljoyn", "com.devicehive.alljoyn")
-// 	select {}
-// }
+	bus.Export(allJoynBridge, "/com/devicehive/alljoyn/bridge", "com.devicehive.alljoyn.bridge")
+	select {}
+}

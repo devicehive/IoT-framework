@@ -33,9 +33,9 @@ func DummyIntrospectProvider(dbusService, dbusPath string) (*introspect.Node, er
 	return &node, nil
 }
 
-func main() {
-	allJoynBridge := NewAllJoynBridge(nil, DummyIntrospectProvider)
-	allJoynBridge.AddService("/com/devicehive/alljoyn/test", "org.alljoyn.Bus.sample", "/sample", "org.alljoyn.Bus.sample")
-	allJoynBridge.StartAllJoyn("org.alljoyn.Bus.sample")
-	select {}
-}
+// func main() {
+// 	allJoynBridge := NewAllJoynBridge(nil, DummyIntrospectProvider)
+// 	allJoynBridge.AddService("/com/devicehive/alljoyn/test", "org.alljoyn.Bus.sample", "/sample", "org.alljoyn.Bus.sample")
+// 	allJoynBridge.StartAllJoyn("org.alljoyn.Bus.sample")
+// 	select {}
+// }
