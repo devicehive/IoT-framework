@@ -279,6 +279,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 
 					for _, service := range a.services[dbusService] {
 						if (service.allJoynPath == objPath) && (service.allJoynService == destination) {
+							log.Print("Found matching dbus service: %+v", service)
 							remote := a.bus.Object(dbusService, dbus.ObjectPath(service.dbusPath))
 							res := remote.Call(iface+"."+member, 0, res...)
 
