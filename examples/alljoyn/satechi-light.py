@@ -18,12 +18,13 @@ DBusGMainLoop(set_as_default=True)
 # import json
 
 SATECHI_NAMES = ['DELIGHT', 'SATECHI-1']
+SATECHI_COLOR_CHAR = 'fff3'
 
 DBUS_BLE_NAME = 'com.devicehive.bluetooth'
 DBUS_BLE_PATH = '/com/devicehive/bluetooth'
 
-DBUS_BUS_NAME = "com.devicehive.alljoyn.allseen.LSF.LampService"
-DBUS_BUS_PATH = "/com/devicehive/alljoyn/allseen/LSF/Lamp"
+DBUS_BUS_NAME = 'com.devicehive.alljoyn.allseen.LSF.LampService'
+DBUS_BUS_PATH = '/com/devicehive/alljoyn/allseen/LSF/Lamp'
 
 LAMP_SERVICE_IFACE = 'org.allseen.LSF.LampService'
 LAMP_PARAMETERS_IFACE = 'org.allseen.LSF.LampParameters'
@@ -33,8 +34,9 @@ LAMP_STATE_IFACE = 'org.allseen.LSF.LampState'
 LAMPS = {}
 
 class LampService(dbus.service.Object):
-    def __init__(self, mac):
+    def __init__(self, mac, ble):
         self.mac = mac        
+        self.ble = ble
         self.m_service_path = DBUS_BUS_PATH + '/' + mac
         bus_name = dbus.service.BusName(DBUS_BUS_NAME, dbus.SystemBus())   
         dbus.service.Object.__init__(self, bus_name, self.m_service_path)
@@ -50,7 +52,21 @@ class LampService(dbus.service.Object):
 
     @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature='ssv')
     def Set(self, interface, prop, value):
-        pass
+        if interface == LAMP_SERVICE_IFACE:
+            pass
+        elif interface == LAMP_PARAMETERS_IFACE:
+            pass
+        elif interface == LAMP_DETAILS_IFACE:
+            pass
+        elif interface == LAMP_STATE_IFACE:
+            if prop == 'OnOff':
+                if value:
+                    self.ble.GattWrite(self.mac, SATECHI_COLOR_CHAR, '0f0d0300ffffffc800c800c8000059ffff')
+                else:
+                    self.ble.GattWrite(self.mac, SATECHI_COLOR_CHAR, '0f0d0300ffffff0000c800c8000091ffff')   
+        else:
+            raise Exception('Unsupported property: %s.%s' % (interface, prop))
+      
 
     @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature='s', out_signature='a{sv}')
     def GetAll(self, interface):
@@ -193,11 +209,12 @@ class Lamp:
     def __init__(self, mac, name):
         self.mac = mac
         self.name = name
+        self.ble = None
         self.status = 'DISCOVERED'
 
     def connect(self):
         self.status = 'CONNECTED'
-        self._dbus = LampService(self.mac)
+        self._dbus = LampService(self.mac, self.ble)
 
     def destroy(self):
         if self.status == 'CONNECTED':
@@ -248,6 +265,7 @@ def worker(run_event):
             for mac, lamp in LAMPS.items():
                 if lamp.status == 'DISCOVERED':
                     try:
+                        lamp.ble = ble
                         lamp.status = 'CONNECTING'
                         print('Connecting to %s' % mac)
                         ble.Connect(lamp.mac, False)
