@@ -69,10 +69,11 @@ import "C"
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/godbus/dbus"
-	"github.com/godbus/dbus/introspect"
 	"log"
 	"unsafe"
+
+	"github.com/godbus/dbus"
+	"github.com/godbus/dbus/introspect"
 )
 
 type IntrospectProvider func(dbusService, dbusPath string) (node *introspect.Node, err error)
@@ -382,6 +383,19 @@ func main() {
 		return introspect.Call(bus.Object(dbusService, dbus.ObjectPath(dbusPath)))
 	})
 
-	bus.Export(allJoynBridge, "/com/devicehive/alljoyn/bridge", "com.devicehive.alljoyn.bridge")
+	bus.Export(allJoynBridge, dbus.ObjectPath("/com/devicehive/alljoyn/bridge"), "com.devicehive.alljoyn.bridge")
+
+	// Introspectable
+	n := &introspect.Node{
+		Interfaces: []introspect.Interface{
+			{
+				Name:    "com.devicehive.alljoyn.bridge",
+				Methods: introspect.Methods(allJoynBridge),
+			},
+		},
+	}
+
+	bus.Export(introspect.NewIntrospectable(n), dbus.ObjectPath("/com/devicehive/alljoyn/bridge"), "org.freedesktop.DBus.Introspectable")
+
 	select {}
 }

@@ -23,8 +23,15 @@ SATECHI_COLOR_CHAR = 'fff3'
 DBUS_BLE_NAME = 'com.devicehive.bluetooth'
 DBUS_BLE_PATH = '/com/devicehive/bluetooth'
 
+DBUS_BRIDGE_NAME = 'com.devicehive.alljoyn.bridge'
+DBUS_BRIDGE_PATH = '/com/devicehive/alljoyn/bridge'
+
+
 DBUS_BUS_NAME = 'com.devicehive.alljoyn.allseen.LSF.LampService'
 DBUS_BUS_PATH = '/com/devicehive/alljoyn/allseen/LSF/Lamp'
+
+ALLJOYN_LIGHT_PATH = 'org.allseen.LSF.LampService'
+ALLJOYN_LIGHT_NAME = '/org/allseen/LSF/Lamp'
 
 LAMP_SERVICE_IFACE = 'org.allseen.LSF.LampService'
 LAMP_PARAMETERS_IFACE = 'org.allseen.LSF.LampParameters'
@@ -38,6 +45,7 @@ class LampService(dbus.service.Object):
         self.mac = mac        
         self.ble = ble
         self.m_service_path = DBUS_BUS_PATH + '/' + mac
+        self.m_service_name = DBUS_BUS_NAME
         bus_name = dbus.service.BusName(DBUS_BUS_NAME, dbus.SystemBus())   
         dbus.service.Object.__init__(self, bus_name, self.m_service_path)
         self.init()
@@ -216,6 +224,13 @@ class Lamp:
         self.status = 'CONNECTED'
         self._dbus = LampService(self.mac, self.ble)
 
+        # expose to alljoyn 
+        bus = dbus.SystemBus()
+        bridge = dbus.Interface(bus.get_object(DBUS_BRIDGE_NAME, DBUS_BRIDGE_PATH), dbus_interface='com.devicehive.alljoyn.bridge')
+        bridge.AddService(self._dbus.m_service_path, self._dbus.m_service_name, ALLJOYN_LIGHT_PATH, ALLJOYN_LIGHT_NAME)
+        bridge.StartService(self._dbus.m_service_name)
+
+
     def destroy(self):
         if self.status == 'CONNECTED':
             self._dbus.deinit()
@@ -262,7 +277,7 @@ def worker(run_event):
             ble.ScanStop()
 
             # connect
-            for mac, lamp in LAMPS.items():
+            for mac, lamp in LAMPS.copy().items():
                 if lamp.status == 'DISCOVERED':
                     try:
                         lamp.ble = ble
