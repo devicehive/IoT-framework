@@ -15,7 +15,13 @@ func NewAboutService(bus *dbus.Conn) *BasicService {
 	return bridge
 }
 
-// Only one for now, for testing purposes only
+func (a *BasicService) GetAboutData(languageTag string) (aboutData map[string]dbus.Variant, err *dbus.Error) {
+	aboutData = make(map[string]dbus.Variant)
+	aboutData["DeviceName"] = dbus.MakeVariant("Golang-device")
+	err = nil
+	return
+}
+
 func (a *BasicService) Cat(inStr1, inStr2 string) (res string, err *dbus.Error) {
 	return inStr1 + " Dear " + inStr2, nil
 }

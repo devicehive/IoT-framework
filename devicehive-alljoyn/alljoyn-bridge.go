@@ -171,6 +171,8 @@ func GetAllJoynObjects(services []*AllJoynBindingInfo) unsafe.Pointer {
 	return array
 }
 
+// func (a *AllJoynBridge) forwardAboutRequest(dbusService string)
+
 func (a *AllJoynBridge) forwardAllJoynMessage(dbusService string, msgId uint32) (err error) {
 	msg := C.Get_AJ_Message()
 	reply := C.Get_AJ_ReplyMessage()
@@ -315,7 +317,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 					a.forwardAllJoynMessage(dbusService, uint32(msgId))
 				}
 			default:
-				if (uint32(msgId) & 0x00FF0000) == 0x00050000 {
+				if (uint32(msgId) & 0xFFFF0000) == 0x00050000 {
 					if uint32(msgId) == 0x00050102 {
 						log.Printf("Passing About.GetObjectDescription %+v to AllJoyn", msgId)
 						status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
