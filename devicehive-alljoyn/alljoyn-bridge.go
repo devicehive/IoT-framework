@@ -105,6 +105,8 @@ func ParseArgumentOrProperty(name, access, _type string) string {
 		s = s + "<"
 	} else if access == "out" || access == "read" {
 		s = s + ">"
+	} else if access == "" {
+		s = s + ">" // For signals
 	} else {
 		s = s + "="
 	}
@@ -162,14 +164,88 @@ func GetAllJoynObjects(services []*AllJoynBindingInfo) unsafe.Pointer {
 
 	for i, service := range services {
 		interfaces = ParseAllJoynInterfaces(service.introspectData.Interfaces)
-		C.Create_AJ_Object(C.uint32_t(i), array, C.CString(service.introspectData.Name), &interfaces[0], C.uint8_t(0), unsafe.Pointer(nil))
+		C.Create_AJ_Object(C.uint32_t(i), array, C.CString(service.introspectData.Name), &interfaces[0], C.AJ_OBJ_FLAG_ANNOUNCED, unsafe.Pointer(nil))
 		C.Create_AJ_Object(C.uint32_t(i+1), array, nil, nil, 0, nil)
 	}
 
 	return array
 }
 
+func (a *AllJoynBridge) forwardAllJoynMessage(dbusService string, msgId uint32) (err error) {
+	msg := C.Get_AJ_Message()
+	reply := C.Get_AJ_ReplyMessage()
+
+	var data uintptr
+	var actual C.size_t
+
+	b := make([]byte, 0)
+	signature := C.GoString(C.Get_AJ_Message_signature())
+	bodyLen := C.Get_AJ_Message_bodyLen()
+	for i := 0; i < int(bodyLen); i++ {
+		status := C.AJ_UnmarshalRaw((*C.AJ_Message)(msg), (*unsafe.Pointer)(unsafe.Pointer(&data)), C.size_t(1), (*C.size_t)(unsafe.Pointer(&actual)))
+		if status == C.AJ_OK {
+			b = append(b, C.GoBytes(unsafe.Pointer(data), C.int(actual))...)
+			log.Printf("Reading RAW message, status = %d, actual = %d", status, actual)
+		} else {
+			log.Printf("Error while reading message body, status = %d", status)
+			break
+		}
+	}
+	s, err := ParseSignature(signature)
+
+	if err != nil {
+		log.Printf("Error parsing signature: %s", err)
+		return err
+	}
+
+	d := newDecoder(bytes.NewReader(b), binary.LittleEndian)
+	res, err := d.Decode(s)
+
+	if err != nil {
+		log.Printf("Error decoding message [%+v] : %s", b, err)
+		return err
+	}
+
+	log.Printf("Received application alljoyn message, signature: %s, bytes: %+v, decoded: %+v", signature, b, res)
+
+	objPath := C.GoString(C.Get_AJ_Message_objPath())
+	member := C.GoString(C.Get_AJ_Message_member())
+	destination := C.GoString(C.Get_AJ_Message_destination())
+	iface := C.GoString(C.Get_AJ_Message_iface())
+
+	log.Printf("Message [objPath, member, iface, destination]: %s, %s, %s, %s", objPath, member, iface, destination)
+
+	for _, service := range a.services[dbusService] {
+		if service.allJoynPath == objPath {
+			log.Print("Found matching dbus service: %+v", service)
+			remote := a.bus.Object(dbusService, dbus.ObjectPath(service.dbusPath))
+			res := remote.Call(iface+"."+member, 0, res...)
+
+			if res.Err != nil {
+				log.Printf("Error calling dbus method (%s): %s", iface+"."+member, res.Err)
+				return res.Err
+			}
+
+			C.AJ_MarshalReplyMsg((*C.AJ_Message)(msg), (*C.AJ_Message)(reply))
+			buf := new(bytes.Buffer)
+			enc := newEncoder(buf, binary.LittleEndian)
+			err = enc.Encode(res.Body...)
+			if err != nil {
+				log.Printf("Error encoding result: %s", err)
+				break
+			}
+			log.Printf("Encoded reply: %+v", buf.Bytes())
+			C.AJ_DeliverMsgPartial((*C.AJ_Message)(reply), C.uint32_t(buf.Len()))
+			C.AJ_MarshalRaw((*C.AJ_Message)(reply), unsafe.Pointer(&buf.Bytes()[0]), C.size_t(buf.Len()))
+			C.AJ_DeliverMsg((*C.AJ_Message)(reply))
+			break
+		}
+	}
+	return nil
+}
+
 func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
+	service := a.services[dbusService]
 	objects := GetAllJoynObjects(a.services[dbusService])
 	// go func() {
 	C.AJ_Initialize()
@@ -179,10 +255,6 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 	var status C.AJ_Status = C.AJ_OK
 	busAttachment := C.Get_AJ_BusAttachment()
 	msg := C.Get_AJ_Message()
-	reply := C.Get_AJ_ReplyMessage()
-
-	var data uintptr
-	var actual C.size_t
 
 	log.Printf("CreateAJ_BusAttachment(): %+v", busAttachment)
 
@@ -193,7 +265,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 				60*1000, // TODO: Move connection timeout to config
 				C.FALSE,
 				25, // TODO: Move port to config
-				C.CString(dbusService),
+				C.CString(service[0].allJoynService),
 				C.AJ_NAME_REQ_DO_NOT_QUEUE,
 				nil)
 
@@ -240,74 +312,21 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 				}
 			case (uint32(msgId) & 0x01000000) != 0:
 				{
-					b := make([]byte, 0)
-					signature := C.GoString(C.Get_AJ_Message_signature())
-					bodyLen := C.Get_AJ_Message_bodyLen()
-					for i := 0; i < int(bodyLen); i++ {
-						status = C.AJ_UnmarshalRaw((*C.AJ_Message)(msg), (*unsafe.Pointer)(unsafe.Pointer(&data)), C.size_t(1), (*C.size_t)(unsafe.Pointer(&actual)))
-						if status == C.AJ_OK {
-							b = append(b, C.GoBytes(unsafe.Pointer(data), C.int(actual))...)
-							log.Printf("Reading RAW message, status = %d, actual = %d", status, actual)
-						} else {
-							log.Printf("Error while reading message body, status = %d", status)
-							break
-						}
-					}
-					s, err := ParseSignature(signature)
-
-					if err != nil {
-						log.Printf("Error parsing signature: %s", err)
-						break
-					}
-
-					d := newDecoder(bytes.NewReader(b), binary.LittleEndian)
-					res, err := d.Decode(s)
-
-					if err != nil {
-						log.Printf("Error decoding message [%+v] : %s", b, err)
-						break
-					}
-
-					log.Printf("Received application alljoyn message, signature: %s, bytes: %+v, decoded: %+v", signature, b, res)
-
-					objPath := C.GoString(C.Get_AJ_Message_objPath())
-					member := C.GoString(C.Get_AJ_Message_member())
-					destination := C.GoString(C.Get_AJ_Message_destination())
-					iface := C.GoString(C.Get_AJ_Message_iface())
-
-					log.Printf("Message [objPath, member, iface, destination]: %s, %s, %s, %s", objPath, member, iface, destination)
-
-					for _, service := range a.services[dbusService] {
-						if (service.allJoynPath == objPath) && (service.allJoynService == destination) {
-							log.Print("Found matching dbus service: %+v", service)
-							remote := a.bus.Object(dbusService, dbus.ObjectPath(service.dbusPath))
-							res := remote.Call(iface+"."+member, 0, res...)
-
-							if res.Err != nil {
-								log.Printf("Error calling dbus method (%s): %s", iface+"."+member, res.Err)
-								return dbus.NewError(res.Err.Error(), nil)
-							}
-
-							C.AJ_MarshalReplyMsg((*C.AJ_Message)(msg), (*C.AJ_Message)(reply))
-							buf := new(bytes.Buffer)
-							enc := newEncoder(buf, binary.LittleEndian)
-							err = enc.Encode(res.Body...)
-							if err != nil {
-								log.Printf("Error encoding result: %s", err)
-								break
-							}
-							log.Printf("Encoded reply: %+v", buf.Bytes())
-							C.AJ_DeliverMsgPartial((*C.AJ_Message)(reply), C.uint32_t(buf.Len()))
-							C.AJ_MarshalRaw((*C.AJ_Message)(reply), unsafe.Pointer(&buf.Bytes()[0]), C.size_t(buf.Len()))
-							C.AJ_DeliverMsg((*C.AJ_Message)(reply))
-							break
-						}
-					}
+					a.forwardAllJoynMessage(dbusService, uint32(msgId))
 				}
 			default:
-				/* Pass to the built-in handlers. */
-				log.Printf("Passing msgId %+v to AllJoyn", msgId)
-				status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
+				if (uint32(msgId) & 0x00FF0000) == 0x00050000 {
+					if uint32(msgId) == 0x00050102 {
+						log.Printf("Passing About.GetObjectDescription %+v to AllJoyn", msgId)
+						status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
+					} else {
+						a.forwardAllJoynMessage(dbusService, uint32(msgId))
+					}
+				} else {
+					/* Pass to the built-in handlers. */
+					log.Printf("Passing msgId %+v to AllJoyn", msgId)
+					status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
+				}
 			}
 		}
 
