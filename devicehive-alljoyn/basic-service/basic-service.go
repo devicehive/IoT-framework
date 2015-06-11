@@ -56,6 +56,7 @@ func main() {
 
 	aboutService := NewAboutService(bus)
 
+	bus.Export(aboutService, "/com/devicehive/alljoyn/test/basic", "org.alljoyn.About")
 	bus.Export(aboutService, "/com/devicehive/alljoyn/test/basic", "org.alljoyn.Bus.sample")
 	bus.Export(aboutService, "/com/devicehive/alljoyn/test/basic", "org.freedesktop.DBus.Introspectable")
 
