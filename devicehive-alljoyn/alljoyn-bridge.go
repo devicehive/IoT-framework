@@ -11,6 +11,12 @@ package main
 // AJ_BusAttachment c_bus;
 // AJ_Message c_message;
 // AJ_Message c_reply;
+// void * c_propGetter;
+//
+// void Init_PropGetter(void * propGetter) {
+//  printf("Init_PropGetter()\n");
+// 	c_propGetter = propGetter;
+// }
 //
 // uint32_t Get_AJ_Message_msgId() {
 //   return c_message.msgId;
@@ -64,22 +70,34 @@ package main
 //   return obj;
 // }
 //
+// AJ_Status MyAboutPropGetter(AJ_Message* reply, const char* language) {
+//	 printf("MyAboutPropGetter()");
+//   AJ_AboutPropGetter p = (AJ_AboutPropGetter)c_propGetter;
+//	 return p(reply, language);
+// }
+//
+// static void RegisterAboutPropGetter() {
+//	printf("RegisterAboutPropGetter %p \n", MyAboutPropGetter);
+//   AJ_AboutRegisterPropStoreGetter(MyAboutPropGetter);
+// }
+//
 //
 import "C"
 import (
 	"bytes"
 	"encoding/binary"
-	"log"
-	"unsafe"
-
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
+	"log"
+	"unsafe"
 )
 
 /* Gloabal variables to preserve from garbage collection to pass safely to cgo */
 var interfaces []C.AJ_InterfaceDescription
+var myPropGetterFunction PropGetterFunction
 
 type IntrospectProvider func(dbusService, dbusPath string) (node *introspect.Node, err error)
+type PropGetterFunction func(reply *C.AJ_Message, language *C.char) C.AJ_Status
 
 type AllJoynBindingInfo struct {
 	allJoynService string
@@ -184,10 +202,30 @@ func GetAllJoynObjects(services []*AllJoynBindingInfo) unsafe.Pointer {
 }
 
 func (m *AllJoynMessenger) forwardAboutRequest(reply *C.AJ_Message, language *C.char) C.AJ_Status {
-	err := m.callRemoteMethod(reply, m.binding.dbusPath, "org.AllJoyn.About.GetAboutData", C.GoString(language))
-	if err != nil {
+	// Find about path for the bindibg
+	var aboutInterface *introspect.Interface
+	var aboutInterfacePath string
+	for _, b := range m.binding {
+		for _, iface := range b.introspectData.Interfaces {
+			if iface.Name == "org.AllJoyn.About" {
+				aboutInterfacePath = b.dbusPath
+				aboutInterface = &iface
+				break
+			}
+		}
+	}
+
+	if aboutInterface == nil {
+		log.Printf("No org.AllJoyn.About interface found for %+v", m.binding)
 		return C.AJ_ERR_NO_MATCH
 	}
+
+	err := m.callRemoteMethod(reply, aboutInterfacePath, "org.AllJoyn.About.GetAboutData", C.GoString(language))
+	if err != nil {
+		log.Printf("Error calling org.AllJoyn.About for [%+v]: %s", m.binding, err)
+		return C.AJ_ERR_NO_MATCH
+	}
+
 	return C.AJ_OK
 }
 
@@ -205,8 +243,9 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 	err = enc.Encode(res.Body...)
 	if err != nil {
 		log.Printf("Error encoding result: %s", err)
-		break
+		return err
 	}
+
 	log.Printf("Encoded reply: %+v", buf.Bytes())
 	C.AJ_DeliverMsgPartial((*C.AJ_Message)(message), C.uint32_t(buf.Len()))
 	C.AJ_MarshalRaw((*C.AJ_Message)(message), unsafe.Pointer(&buf.Bytes()[0]), C.size_t(buf.Len()))
@@ -291,17 +330,21 @@ func (m *AllJoynMessenger) forwardAllJoynMessage(msgId uint32) (err error) {
 func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 	service := a.services[dbusService]
 	objects := GetAllJoynObjects(a.services[dbusService])
-	// go func() {
+
+	messenger := NewAllJoynMessenger(dbusService, a.bus, a.services[dbusService])
+	myPropGetterFunction = messenger.forwardAboutRequest
+
 	C.AJ_Initialize()
-	C.AJ_AboutRegisterPropStoreGetter( /*pass callback to aboutPropGetter*/ )
 	C.AJ_RegisterObjects((*C.AJ_Object)(objects), nil)
+
+	C.Init_PropGetter(unsafe.Pointer(&myPropGetterFunction))
+	C.RegisterAboutPropGetter()
+
 	C.AJ_PrintXML((*C.AJ_Object)(objects))
 	connected := false
 	var status C.AJ_Status = C.AJ_OK
 	busAttachment := C.Get_AJ_BusAttachment()
 	msg := C.Get_AJ_Message()
-
-	messenger := NewAllJoynMessenger(dbusService, a.bus, a.services[dbusService])
 
 	log.Printf("CreateAJ_BusAttachment(): %+v", busAttachment)
 
@@ -427,19 +470,6 @@ func main() {
 		return introspect.Call(bus.Object(dbusService, dbus.ObjectPath(dbusPath)))
 	})
 
-	bus.Export(allJoynBridge, dbus.ObjectPath("/com/devicehive/alljoyn/bridge"), "com.devicehive.alljoyn.bridge")
-
-	// Introspectable
-	n := &introspect.Node{
-		Interfaces: []introspect.Interface{
-			{
-				Name:    "com.devicehive.alljoyn.bridge",
-				Methods: introspect.Methods(allJoynBridge),
-			},
-		},
-	}
-
-	bus.Export(introspect.NewIntrospectable(n), dbus.ObjectPath("/com/devicehive/alljoyn/bridge"), "org.freedesktop.DBus.Introspectable")
-
+	bus.Export(allJoynBridge, "/com/devicehive/alljoyn/bridge", "com.devicehive.alljoyn.bridge")
 	select {}
 }
