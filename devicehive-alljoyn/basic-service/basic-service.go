@@ -9,17 +9,16 @@ type BasicService struct {
 	bus *dbus.Conn
 }
 
-func NewAboutService(bus *dbus.Conn) *BasicService {
+func NewBasicService(bus *dbus.Conn) *BasicService {
 	bridge := new(BasicService)
 	bridge.bus = bus
 	return bridge
 }
 
 func (a *BasicService) GetAboutData(languageTag string) (aboutData map[string]dbus.Variant, err *dbus.Error) {
-	aboutData = make(map[string]dbus.Variant)
-	aboutData["DeviceName"] = dbus.MakeVariant("Golang-device")
-	err = nil
-	return
+	data := make(map[string]dbus.Variant)
+	data["DeviceName"] = dbus.MakeVariant("Golang-device")
+	return data, nil
 }
 
 func (a *BasicService) Cat(inStr1, inStr2 string) (res string, err *dbus.Error) {
@@ -54,11 +53,11 @@ func main() {
 		log.Panic(err)
 	}
 
-	aboutService := NewAboutService(bus)
+	basicService := NewBasicService(bus)
 
-	bus.Export(aboutService, "/com/devicehive/alljoyn/test/basic", "org.alljoyn.About")
-	bus.Export(aboutService, "/com/devicehive/alljoyn/test/basic", "org.alljoyn.Bus.sample")
-	bus.Export(aboutService, "/com/devicehive/alljoyn/test/basic", "org.freedesktop.DBus.Introspectable")
+	bus.Export(basicService, "/com/devicehive/alljoyn/test/basic", "org.alljoyn.About")
+	bus.Export(basicService, "/com/devicehive/alljoyn/test/basic", "org.alljoyn.Bus.sample")
+	bus.Export(basicService, "/com/devicehive/alljoyn/test/basic", "org.freedesktop.DBus.Introspectable")
 
 	// Now try to register ourself in AllJoyn via dbus
 	go func() {

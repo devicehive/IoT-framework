@@ -1,87 +1,29 @@
 package main
 
-// #cgo CFLAGS: -Iajtcl/inc -Iajtcl/target/linux
-// #cgo LDFLAGS: -Lajtcl -lajtcl
-// #include <stdio.h>
-// #include <aj_debug.h>
-// #include <aj_guid.h>
-// #include <aj_creds.h>
-// #include "alljoyn.h"
-//
-// AJ_BusAttachment c_bus;
-// AJ_Message c_message;
-// AJ_Message c_reply;
-// void * c_propGetter;
-//
-// void Init_PropGetter(void * propGetter) {
-//  printf("Init_PropGetter()\n");
-// 	c_propGetter = propGetter;
-// }
-//
-// uint32_t Get_AJ_Message_msgId() {
-//   return c_message.msgId;
-// }
-//
-// uint32_t Get_AJ_Message_bodyLen() {
-//   return c_message.hdr->bodyLen;
-// }
-//
-// const char * Get_AJ_Message_signature() {
-//    return c_message.signature;
-// }
-//
-// const char * Get_AJ_Message_objPath() {
-//    return c_message.objPath;
-// }
-//
-// const char * Get_AJ_Message_iface() {
-//    return c_message.iface;
-// }
-//
-// const char * Get_AJ_Message_member() {
-//    return c_message.member;
-// }
-//
-// const char * Get_AJ_Message_destination() {
-//    return c_message.destination;
-// }
-//
-// void * Get_AJ_ReplyMessage() {
-// 	return &c_reply;
-// }
-//
-// void * Get_AJ_Message() {
-//   return &c_message;
-// }
-// void * Get_AJ_BusAttachment() {
-//   return &c_bus;
-// }
-//
-// void * Allocate_AJ_Object_Array(uint32_t array_size) {
-//   return AJ_Malloc(sizeof(AJ_Object)*array_size);
-// }
-//
-// void * Create_AJ_Object(uint32_t index, void * array, char* path, AJ_InterfaceDescription* interfaces, uint8_t flags, void* context) {
-//	 AJ_Object * obj = array + index * sizeof(AJ_Object);
-//   obj->path = path;
-//	 obj->interfaces = interfaces;
-//   obj->flags = flags;
-//   obj->context = context;
-//   return obj;
-// }
-//
-// AJ_Status MyAboutPropGetter(AJ_Message* reply, const char* language) {
-//	 printf("MyAboutPropGetter()");
-//   AJ_AboutPropGetter p = (AJ_AboutPropGetter)c_propGetter;
-//	 return p(reply, language);
-// }
-//
-// static void RegisterAboutPropGetter() {
-//	printf("RegisterAboutPropGetter %p \n", MyAboutPropGetter);
-//   AJ_AboutRegisterPropStoreGetter(MyAboutPropGetter);
-// }
-//
-//
+/*
+#cgo CFLAGS: -Iajtcl/inc -Iajtcl/target/linux
+#cgo LDFLAGS: -Lajtcl -lajtcl
+#include <stdio.h>
+#include <aj_debug.h>
+#include <aj_guid.h>
+#include <aj_creds.h>
+#include "alljoyn.h"
+
+uint32_t Get_AJ_Message_msgId();
+uint32_t Get_AJ_Message_bodyLen();
+const char * Get_AJ_Message_signature();
+const char * Get_AJ_Message_objPath();
+const char * Get_AJ_Message_iface();
+const char * Get_AJ_Message_member();
+const char * Get_AJ_Message_destination();
+void * Get_AJ_ReplyMessage();
+void * Get_AJ_Message();
+void * Get_AJ_BusAttachment();
+void * Allocate_AJ_Object_Array(uint32_t array_size);
+void * Create_AJ_Object(uint32_t index, void * array, char* path, AJ_InterfaceDescription* interfaces, uint8_t flags, void* context);
+AJ_Status MyAboutPropGetter_cgo(AJ_Message* reply, const char* language);
+void * Get_Arg();
+*/
 import "C"
 import (
 	"bytes"
@@ -95,6 +37,7 @@ import (
 /* Gloabal variables to preserve from garbage collection to pass safely to cgo */
 var interfaces []C.AJ_InterfaceDescription
 var myPropGetterFunction PropGetterFunction
+var myMessenger *AllJoynMessenger
 
 type IntrospectProvider func(dbusService, dbusPath string) (node *introspect.Node, err error)
 type PropGetterFunction func(reply *C.AJ_Message, language *C.char) C.AJ_Status
@@ -201,31 +144,43 @@ func GetAllJoynObjects(services []*AllJoynBindingInfo) unsafe.Pointer {
 	return array
 }
 
-func (m *AllJoynMessenger) forwardAboutRequest(reply *C.AJ_Message, language *C.char) C.AJ_Status {
+//export MyAboutPropGetter
+func MyAboutPropGetter(reply *C.AJ_Message, language *C.char) C.AJ_Status {
+	return myMessenger.MyAboutPropGetter_member(reply, language)
+}
+
+func (m *AllJoynMessenger) MyAboutPropGetter_member(reply *C.AJ_Message, language *C.char) C.AJ_Status {
 	// Find about path for the bindibg
-	var aboutInterface *introspect.Interface
-	var aboutInterfacePath string
-	for _, b := range m.binding {
-		for _, iface := range b.introspectData.Interfaces {
-			if iface.Name == "org.AllJoyn.About" {
-				aboutInterfacePath = b.dbusPath
-				aboutInterface = &iface
-				break
-			}
-		}
-	}
+	log.Printf("MyAboutPropGetter_member(): %+v", m)
+	// var aboutInterface *introspect.Interface
+	aboutInterfacePath := m.binding[0].dbusPath
+	// for _, b := range m.binding {
+	// 	for _, iface := range b.introspectData.Interfaces {
+	// 		if iface.Name == "org.AllJoyn.About" {
+	// 			aboutInterfacePath = b.dbusPath
+	// 			aboutInterface = &iface
+	// 			break
+	// 		}
+	// 	}
+	// }
 
-	if aboutInterface == nil {
-		log.Printf("No org.AllJoyn.About interface found for %+v", m.binding)
-		return C.AJ_ERR_NO_MATCH
-	}
+	// if aboutInterface == nil {
+	// 	log.Printf("No org.AllJoyn.About interface found for %+v", m.binding)
+	// 	return C.AJ_ERR_NO_MATCH
+	// }
 
-	err := m.callRemoteMethod(reply, aboutInterfacePath, "org.AllJoyn.About.GetAboutData", C.GoString(language))
+	log.Printf("About interface path: %s", aboutInterfacePath)
+	C.AJ_MarshalContainer(reply, (*C.AJ_Arg)(unsafe.Pointer(C.Get_Arg())), C.AJ_ARG_ARRAY)
+	C.AJ_MarshalCloseContainer(reply, (*C.AJ_Arg)(unsafe.Pointer(C.Get_Arg())))
+	reply.sigOffset = reply.sigOffset - 5
+
+	err := m.callRemoteMethod(reply, aboutInterfacePath, "org.alljoyn.About.GetAboutData", C.GoString(language))
 	if err != nil {
-		log.Printf("Error calling org.AllJoyn.About for [%+v]: %s", m.binding, err)
+		log.Printf("Error calling org.alljoyn.About for [%+v]: %s", m.binding, err)
 		return C.AJ_ERR_NO_MATCH
 	}
 
+	log.Printf("About message signature, offset: %s, %d", C.GoString(reply.signature), reply.sigOffset)
 	return C.AJ_OK
 }
 
@@ -241,6 +196,7 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 	buf := new(bytes.Buffer)
 	enc := newEncoder(buf, binary.LittleEndian)
 	err = enc.Encode(res.Body...)
+	log.Printf("Got reply: %+v", res.Body)
 	if err != nil {
 		log.Printf("Error encoding result: %s", err)
 		return err
@@ -331,14 +287,13 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 	service := a.services[dbusService]
 	objects := GetAllJoynObjects(a.services[dbusService])
 
-	messenger := NewAllJoynMessenger(dbusService, a.bus, a.services[dbusService])
-	myPropGetterFunction = messenger.forwardAboutRequest
+	myMessenger = NewAllJoynMessenger(dbusService, a.bus, a.services[dbusService])
+
+	log.Printf("StartAllJoyn: %+v", myMessenger)
 
 	C.AJ_Initialize()
 	C.AJ_RegisterObjects((*C.AJ_Object)(objects), nil)
-
-	C.Init_PropGetter(unsafe.Pointer(&myPropGetterFunction))
-	C.RegisterAboutPropGetter()
+	C.AJ_AboutRegisterPropStoreGetter((C.AJ_AboutPropGetter)(unsafe.Pointer(C.MyAboutPropGetter_cgo)))
 
 	C.AJ_PrintXML((*C.AJ_Object)(objects))
 	connected := false
@@ -402,7 +357,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 				}
 			case (uint32(msgId) & 0x01000000) != 0:
 				{
-					messenger.forwardAllJoynMessage(uint32(msgId))
+					myMessenger.forwardAllJoynMessage(uint32(msgId))
 				}
 			default:
 				if (uint32(msgId) & 0xFFFF0000) == 0x00050000 {
@@ -410,7 +365,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 						log.Printf("Passing About.GetObjectDescription %+v to AllJoyn", msgId)
 						status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
 					} else {
-						messenger.forwardAllJoynMessage(uint32(msgId))
+						myMessenger.forwardAllJoynMessage(uint32(msgId))
 					}
 				} else {
 					/* Pass to the built-in handlers. */
