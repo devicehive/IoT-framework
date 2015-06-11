@@ -75,6 +75,9 @@ import (
 	"unsafe"
 )
 
+/* Gloabal variables to preserve from garbage collection to pass safely to cgo */
+var interfaces []C.AJ_InterfaceDescription
+
 type IntrospectProvider func(dbusService, dbusPath string) (node *introspect.Node, err error)
 
 type AllJoynBindingInfo struct {
@@ -88,6 +91,16 @@ type AllJoynBridge struct {
 	bus                *dbus.Conn
 	introspectProvider IntrospectProvider
 	services           map[string][]*AllJoynBindingInfo
+}
+
+type AllJoynMessenger struct {
+	dbusService string
+	bus         *dbus.Conn
+	binding     []*AllJoynBindingInfo
+}
+
+func NewAllJoynMessenger(dbusService string, bus *dbus.Conn, binding []*AllJoynBindingInfo) *AllJoynMessenger {
+	return &AllJoynMessenger{dbusService, bus, binding}
 }
 
 func NewAllJoynBridge(bus *dbus.Conn, introspectProvider IntrospectProvider) *AllJoynBridge {
@@ -157,8 +170,6 @@ func ParseAllJoynInterfaces(interfaces []introspect.Interface) []C.AJ_InterfaceD
 	return res
 }
 
-var interfaces []C.AJ_InterfaceDescription
-
 func GetAllJoynObjects(services []*AllJoynBindingInfo) unsafe.Pointer {
 	array := C.Allocate_AJ_Object_Array(C.uint32_t(len(services) + 1))
 
@@ -171,9 +182,37 @@ func GetAllJoynObjects(services []*AllJoynBindingInfo) unsafe.Pointer {
 	return array
 }
 
-// func (a *AllJoynBridge) forwardAboutRequest(dbusService string)
+func (m *AllJoynMessenger) forwardAboutRequest(reply *C.AJ_Message, language *C.char) C.AJ_Status {
+	err := m.callRemoteMethod(reply, m.binding.dbusPath, "org.AllJoyn.About.GetAboutData", C.GoString(language))
+	if err != nil {
+		return C.AJ_ERR_NO_MATCH
+	}
+	return C.AJ_OK
+}
 
-func (a *AllJoynBridge) forwardAllJoynMessage(dbusService string, msgId uint32) (err error) {
+func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member string, arguments ...interface{}) (err error) {
+	remote := m.bus.Object(m.dbusService, dbus.ObjectPath(path))
+	res := remote.Call(member, 0, arguments...)
+
+	if res.Err != nil {
+		log.Printf("Error calling dbus method (%s): %s", member, res.Err)
+		return res.Err
+	}
+
+	buf := new(bytes.Buffer)
+	enc := newEncoder(buf, binary.LittleEndian)
+	err = enc.Encode(res.Body...)
+	if err != nil {
+		log.Printf("Error encoding result: %s", err)
+		break
+	}
+	log.Printf("Encoded reply: %+v", buf.Bytes())
+	C.AJ_DeliverMsgPartial((*C.AJ_Message)(message), C.uint32_t(buf.Len()))
+	C.AJ_MarshalRaw((*C.AJ_Message)(message), unsafe.Pointer(&buf.Bytes()[0]), C.size_t(buf.Len()))
+	return nil
+}
+
+func (m *AllJoynMessenger) forwardAllJoynMessage(msgId uint32) (err error) {
 	msg := C.Get_AJ_Message()
 	reply := C.Get_AJ_ReplyMessage()
 
@@ -217,28 +256,30 @@ func (a *AllJoynBridge) forwardAllJoynMessage(dbusService string, msgId uint32) 
 
 	log.Printf("Message [objPath, member, iface, destination]: %s, %s, %s, %s", objPath, member, iface, destination)
 
-	for _, service := range a.services[dbusService] {
+	for _, service := range m.binding {
 		if service.allJoynPath == objPath {
 			log.Print("Found matching dbus service: %+v", service)
-			remote := a.bus.Object(dbusService, dbus.ObjectPath(service.dbusPath))
-			res := remote.Call(iface+"."+member, 0, res...)
-
-			if res.Err != nil {
-				log.Printf("Error calling dbus method (%s): %s", iface+"."+member, res.Err)
-				return res.Err
-			}
-
 			C.AJ_MarshalReplyMsg((*C.AJ_Message)(msg), (*C.AJ_Message)(reply))
-			buf := new(bytes.Buffer)
-			enc := newEncoder(buf, binary.LittleEndian)
-			err = enc.Encode(res.Body...)
-			if err != nil {
-				log.Printf("Error encoding result: %s", err)
-				break
-			}
-			log.Printf("Encoded reply: %+v", buf.Bytes())
-			C.AJ_DeliverMsgPartial((*C.AJ_Message)(reply), C.uint32_t(buf.Len()))
-			C.AJ_MarshalRaw((*C.AJ_Message)(reply), unsafe.Pointer(&buf.Bytes()[0]), C.size_t(buf.Len()))
+			m.callRemoteMethod((*C.AJ_Message)(reply), service.dbusPath, iface+"."+member, res)
+			// remote := m.bus.Object(dbusService, dbus.ObjectPath(service.dbusPath))
+			// res := remote.Call(iface+"."+member, 0, res...)
+
+			// if res.Err != nil {
+			// 	log.Printf("Error calling dbus method (%s): %s", iface+"."+member, res.Err)
+			// 	return res.Err
+			// }
+
+			// C.AJ_MarshalReplyMsg((*C.AJ_Message)(msg), (*C.AJ_Message)(reply))
+			// buf := new(bytes.Buffer)
+			// enc := newEncoder(buf, binary.LittleEndian)
+			// err = enc.Encode(res.Body...)
+			// if err != nil {
+			// 	log.Printf("Error encoding result: %s", err)
+			// 	break
+			// }
+			// log.Printf("Encoded reply: %+v", buf.Bytes())
+			// C.AJ_DeliverMsgPartial((*C.AJ_Message)(reply), C.uint32_t(buf.Len()))
+			// C.AJ_MarshalRaw((*C.AJ_Message)(reply), unsafe.Pointer(&buf.Bytes()[0]), C.size_t(buf.Len()))
 			C.AJ_DeliverMsg((*C.AJ_Message)(reply))
 			break
 		}
@@ -251,12 +292,15 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 	objects := GetAllJoynObjects(a.services[dbusService])
 	// go func() {
 	C.AJ_Initialize()
+	C.AJ_AboutRegisterPropStoreGetter( /*pass callback to aboutPropGetter*/ )
 	C.AJ_RegisterObjects((*C.AJ_Object)(objects), nil)
 	C.AJ_PrintXML((*C.AJ_Object)(objects))
 	connected := false
 	var status C.AJ_Status = C.AJ_OK
 	busAttachment := C.Get_AJ_BusAttachment()
 	msg := C.Get_AJ_Message()
+
+	messenger := NewAllJoynMessenger(dbusService, a.bus, a.services[dbusService])
 
 	log.Printf("CreateAJ_BusAttachment(): %+v", busAttachment)
 
@@ -314,7 +358,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 				}
 			case (uint32(msgId) & 0x01000000) != 0:
 				{
-					a.forwardAllJoynMessage(dbusService, uint32(msgId))
+					messenger.forwardAllJoynMessage(uint32(msgId))
 				}
 			default:
 				if (uint32(msgId) & 0xFFFF0000) == 0x00050000 {
@@ -322,7 +366,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 						log.Printf("Passing About.GetObjectDescription %+v to AllJoyn", msgId)
 						status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
 					} else {
-						a.forwardAllJoynMessage(dbusService, uint32(msgId))
+						messenger.forwardAllJoynMessage(uint32(msgId))
 					}
 				} else {
 					/* Pass to the built-in handlers. */
