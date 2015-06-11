@@ -5,11 +5,11 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
+	"log"
+
+	"github.com/devicehive/gatt"
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
-	"github.com/godbus/dbus/prop"
-	"github.com/devicehive/gatt"
-	"log"
 	//	"net/http"
 	"strings"
 	"sync"
@@ -119,6 +119,10 @@ func (w *BleDbusWrapper) OnPeripheralDisconnected(p gatt.Peripheral, err error) 
 	defer w.devicesConnectedsync.Unlock()
 
 	id, _ := normalizeHex(p.ID())
+
+	if _, ok := w.devicesDiscovered[id]; ok {
+		delete(w.devicesDiscovered, id)
+	}
 
 	if _, ok := w.devicesConnected[id]; ok {
 		log.Printf("Disconnected: %s", id)
@@ -489,22 +493,41 @@ func main() {
 	}
 
 	w := NewBleDbusWrapper(bus)
-	bus.Export(w, "/com/devicehive/bluetooth", "com.devicehive.bluetooth")
+	bus.Export(w, dbus.ObjectPath("/com/devicehive/bluetooth"), "com.devicehive.bluetooth")
 
 	// Introspectable
 	n := &introspect.Node{
-		Name: "/com/devicehive/bluetooth",
 		Interfaces: []introspect.Interface{
-			introspect.IntrospectData,
-			prop.IntrospectData,
 			{
 				Name:    "com.devicehive.bluetooth",
 				Methods: introspect.Methods(w),
+				Signals: []introspect.Signal{
+					introspect.Signal{
+						Name: "PeripheralDiscovered",
+						Args: []introspect.Arg{{"id", "s", "out"}, {"name", "s", "out"}, {"rssi", "i", "out"}},
+					},
+					introspect.Signal{
+						Name: "PeripheralConnected",
+						Args: []introspect.Arg{{"id", "s", "out"}},
+					},
+					introspect.Signal{
+						Name: "PeripheralDisconnected",
+						Args: []introspect.Arg{{"id", "s", "out"}},
+					},
+					introspect.Signal{
+						Name: "NotificationReceived",
+						Args: []introspect.Arg{{"mac", "s", "out"}, {"uuid", "s", "out"}, {"value", "s", "out"}},
+					},
+					introspect.Signal{
+						Name: "IndicationReceived",
+						Args: []introspect.Arg{{"mac", "s", "out"}, {"uuid", "s", "out"}, {"value", "s", "out"}},
+					},
+				},
 			},
 		},
 	}
 
-	bus.Export(introspect.NewIntrospectable(n), "/com/devicehive/bluetooth", "org.freedesktop.DBus.Introspectable")
+	bus.Export(introspect.NewIntrospectable(n), dbus.ObjectPath("/com/devicehive/bluetooth"), "org.freedesktop.DBus.Introspectable")
 
 	select {}
 }
