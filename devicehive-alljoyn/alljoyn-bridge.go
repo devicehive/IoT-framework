@@ -23,6 +23,7 @@ void * Allocate_AJ_Object_Array(uint32_t array_size);
 void * Create_AJ_Object(uint32_t index, void * array, char* path, AJ_InterfaceDescription* interfaces, uint8_t flags, void* context);
 AJ_Status MyAboutPropGetter_cgo(AJ_Message* reply, const char* language);
 void * Get_Arg();
+AJ_Status AJ_MarshalArgs_cgo(AJ_Message* msg, char * a, char * b, char * c, char * d);
 */
 import "C"
 import (
@@ -170,10 +171,7 @@ func (m *AllJoynMessenger) MyAboutPropGetter_member(reply *C.AJ_Message, languag
 	// }
 
 	log.Printf("About interface path: %s", aboutInterfacePath)
-	C.AJ_MarshalContainer(reply, (*C.AJ_Arg)(unsafe.Pointer(C.Get_Arg())), C.AJ_ARG_ARRAY)
-	C.AJ_MarshalCloseContainer(reply, (*C.AJ_Arg)(unsafe.Pointer(C.Get_Arg())))
-	reply.sigOffset = reply.sigOffset - 5
-
+	// reply.sigOffset = reply.sigOffset - 5
 	err := m.callRemoteMethod(reply, aboutInterfacePath, "org.alljoyn.About.GetAboutData", C.GoString(language))
 	if err != nil {
 		log.Printf("Error calling org.alljoyn.About for [%+v]: %s", m.binding, err)
@@ -194,7 +192,7 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 	}
 
 	buf := new(bytes.Buffer)
-	enc := newEncoder(buf, binary.LittleEndian)
+	enc := dbus.NewEncoder(buf, binary.LittleEndian)
 	err = enc.Encode(res.Body...)
 	log.Printf("Got reply: %+v", res.Body)
 	if err != nil {
@@ -202,8 +200,12 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 		return err
 	}
 
-	log.Printf("Encoded reply: %+v", buf.Bytes())
+	log.Printf("Encoded reply, len: %+v, %d", buf.Bytes(), buf.Len())
 	C.AJ_DeliverMsgPartial((*C.AJ_Message)(message), C.uint32_t(buf.Len()))
+	// log.Printf("BodyBytes, hdr.BodyLen: %d, %d", message.bodyBytes, message.hdr.bodyLen)
+	// message.bodyBytes += C.uint16_t(buf.Len())
+	// message.hdr.bodyLen = C.uint32_t(message.bodyBytes)
+	// message.hdr = nil
 	C.AJ_MarshalRaw((*C.AJ_Message)(message), unsafe.Pointer(&buf.Bytes()[0]), C.size_t(buf.Len()))
 	return nil
 }
@@ -228,14 +230,14 @@ func (m *AllJoynMessenger) forwardAllJoynMessage(msgId uint32) (err error) {
 			break
 		}
 	}
-	s, err := ParseSignature(signature)
+	s, err := dbus.ParseSignature(signature)
 
 	if err != nil {
 		log.Printf("Error parsing signature: %s", err)
 		return err
 	}
 
-	d := newDecoder(bytes.NewReader(b), binary.LittleEndian)
+	d := dbus.NewDecoder(bytes.NewReader(b), binary.LittleEndian)
 	res, err := d.Decode(s)
 
 	if err != nil {
