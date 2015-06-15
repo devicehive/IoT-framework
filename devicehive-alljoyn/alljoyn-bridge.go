@@ -201,17 +201,19 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 	}
 
 	log.Printf("Encoded reply, len: %+v, %d", buf.Bytes(), buf.Len())
-	message.hdr.bodyLen = (C.uint32_t)(message.bodyBytes + C.uint16_t(buf.Len()))
-	message.bodyBytes = (C.uint16_t)(message.hdr.bodyLen) + (C.uint16_t)(buf.Len())
-	oldHeader := C.BackupMsgHeader(message.hdr)
-	message.hdr = nil
-	// C.AJ_DeliverMsgPartial((*C.AJ_Message)(message), C.uint32_t(buf.Len()))
+	log.Printf("Length before: %d", message.bodyBytes)
+	// message.hdr.bodyLen = (C.uint32_t)(message.bodyBytes + C.uint16_t(buf.Len()))
+	// message.bodyBytes = (C.uint16_t)(message.hdr.bodyLen) + (C.uint16_t)(buf.Len())
+	// oldHeader := C.BackupMsgHeader(message.hdr)
+	// message.hdr = nil
+	C.AJ_DeliverMsgPartial((*C.AJ_Message)(message), C.uint32_t(buf.Len()))
+	// log.Printf("Length before: %d", message.hdr.bodyLen)
 	// log.Printf("BodyBytes, hdr.BodyLen: %d, %d", message.bodyBytes, message.hdr.bodyLen)
 	// message.bodyBytes += C.uint16_t(buf.Len())
 	// message.hdr.bodyLen = C.uint32_t(message.bodyBytes)
 	// message.hdr = nil
 	C.AJ_MarshalRaw((*C.AJ_Message)(message), unsafe.Pointer(&buf.Bytes()[0]), C.size_t(buf.Len()))
-	message.hdr = oldHeader
+	// message.hdr = oldHeader
 	return nil
 }
 
