@@ -12,6 +12,15 @@ AJ_Message c_message;
 AJ_Message c_reply;
 void * c_propGetter;
 AJ_Arg c_arg;
+AJ_MsgHeader c_msgHeader;
+
+void * Get_MsgHeader() {
+	return &c_msgHeader;
+}
+
+AJ_MsgHeader * BackupMsgHeader(AJ_MsgHeader * src) {
+	return memcpy(Get_MsgHeader(), src, sizeof(AJ_MsgHeader));
+}
 
 void * Get_Arg() {
 	return &c_arg;

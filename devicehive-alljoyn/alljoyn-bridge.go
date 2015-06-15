@@ -24,6 +24,7 @@ void * Create_AJ_Object(uint32_t index, void * array, char* path, AJ_InterfaceDe
 AJ_Status MyAboutPropGetter_cgo(AJ_Message* reply, const char* language);
 void * Get_Arg();
 AJ_Status AJ_MarshalArgs_cgo(AJ_Message* msg, char * a, char * b, char * c, char * d);
+AJ_MsgHeader * BackupMsgHeader(AJ_MsgHeader * src);
 */
 import "C"
 import (
@@ -171,7 +172,6 @@ func (m *AllJoynMessenger) MyAboutPropGetter_member(reply *C.AJ_Message, languag
 	// }
 
 	log.Printf("About interface path: %s", aboutInterfacePath)
-	// reply.sigOffset = reply.sigOffset - 5
 	err := m.callRemoteMethod(reply, aboutInterfacePath, "org.alljoyn.About.GetAboutData", C.GoString(language))
 	if err != nil {
 		log.Printf("Error calling org.alljoyn.About for [%+v]: %s", m.binding, err)
@@ -201,12 +201,17 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 	}
 
 	log.Printf("Encoded reply, len: %+v, %d", buf.Bytes(), buf.Len())
-	C.AJ_DeliverMsgPartial((*C.AJ_Message)(message), C.uint32_t(buf.Len()))
+	message.hdr.bodyLen = (C.uint32_t)(message.bodyBytes + C.uint16_t(buf.Len()))
+	message.bodyBytes = (C.uint16_t)(message.hdr.bodyLen) + (C.uint16_t)(buf.Len())
+	oldHeader := C.BackupMsgHeader(message.hdr)
+	message.hdr = nil
+	// C.AJ_DeliverMsgPartial((*C.AJ_Message)(message), C.uint32_t(buf.Len()))
 	// log.Printf("BodyBytes, hdr.BodyLen: %d, %d", message.bodyBytes, message.hdr.bodyLen)
 	// message.bodyBytes += C.uint16_t(buf.Len())
 	// message.hdr.bodyLen = C.uint32_t(message.bodyBytes)
 	// message.hdr = nil
 	C.AJ_MarshalRaw((*C.AJ_Message)(message), unsafe.Pointer(&buf.Bytes()[0]), C.size_t(buf.Len()))
+	message.hdr = oldHeader
 	return nil
 }
 
