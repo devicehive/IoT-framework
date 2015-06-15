@@ -423,11 +423,20 @@ func (a *AllJoynBridge) AddService(dbusPath, dbusService, allJoynPath, allJoynSe
 
 func main() {
 	bus, err := dbus.SystemBus()
-	bus.RequestName("com.devicehive.alljoyn.bridge",
-		dbus.NameFlagDoNotQueue)
 
 	if err != nil {
 		log.Panic(err)
+	}
+
+	res, err := bus.RequestName("com.devicehive.alljoyn.bridge",
+		dbus.NameFlagDoNotQueue)
+
+	if err != nil {
+		log.Panicf("Failed to request dbus name: %s", err)
+	}
+
+	if res != dbus.RequestNameReplyPrimaryOwner {
+		log.Panicf("Failed to request dbus name: %+v", res)
 	}
 
 	allJoynBridge := NewAllJoynBridge(bus, func(dbusService, dbusPath string) (*introspect.Node, error) {
