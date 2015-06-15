@@ -1,0 +1,29 @@
+#!/usr/bin/python3
+
+# Python GPIO to DBUS simple client
+
+import dbus
+import time
+import sys
+
+def main():
+    if len(sys.argv) < 2:
+        print("Choose one of this port: ", [str(x) for x in
+            dbus.SystemBus().get_object("com.devicehive.gpio", 
+                "/com/devicehive/gpio").list(
+                dbus_interface='com.devicehive.gpio.GpioService')])
+        return
+    for i in range(1, len(sys.argv)):
+        pin = dbus.Interface(dbus.SystemBus().get_object("com.devicehive.gpio",
+            "/com/devicehive/gpio/{}".format(sys.argv[i])), dbus_interface='com.devicehive.gpio.GpioPin')
+        pin.init("out")
+        for _x in range(0, 5):
+            pin.set()
+            time.sleep(0.05)
+            pin.clear()
+            time.sleep(0.1)
+        pin.deinit()
+
+
+if __name__ == "__main__":
+    main()
