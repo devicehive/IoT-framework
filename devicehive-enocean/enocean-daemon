@@ -1,0 +1,107 @@
+#!/usr/bin/python3
+
+from enocean.consolelogger import init_logging
+from enocean.communicators.serialcommunicator import SerialCommunicator
+from enocean.protocol.packet import Packet
+from enocean.protocol.constants import PACKET, RORG
+
+import dbus.service
+from dbus.mainloop.glib import DBusGMainLoop
+from gi.repository import GObject
+import threading
+import traceback
+import sys
+import json
+
+try:
+    import queue
+except ImportError:
+    import Queue as queue
+
+DBUS_BUS_NAME = "com.devicehive.enocean"
+DBUS_BUS_PATH = "/com/devicehive/enocean"
+
+
+class EnoceanService(dbus.service.Object):
+    def __init__(self, port='/dev/ttyUSB0'):
+        self.m_service_path = DBUS_BUS_PATH
+        self.m_poll_thread = None
+        self.m_port = port
+        bus_name = dbus.service.BusName(DBUS_BUS_NAME, dbus.SystemBus())
+        dbus.service.Object.__init__(self, bus_name, self.m_service_path)
+        self.init()
+
+    # send when pin state changed
+    @dbus.service.signal(DBUS_BUS_NAME)
+    def message_received(self, value):
+        pass
+
+    # pin state poller
+    def poller(self):
+        p = Packet(PACKET.COMMON_COMMAND, [0x08])
+
+        self.m_communicator.start()
+        self.m_communicator.send(p)
+
+        while self.m_communicator.is_alive():
+            try:
+                # Loop to empty the queue...
+                p = self.m_communicator.receive.get(block=True, timeout=1)
+                res = None
+
+                if p.type == PACKET.RADIO:
+                    res = {"sender": p.sender_hex}
+
+                if p.type == PACKET.RADIO and p.rorg == RORG.BS4:
+                    for k in p.parse_eep(0x02, 0x05):
+                        res[k] = p.parsed[k]
+                if p.type == PACKET.RADIO and p.rorg == RORG.BS1:
+                    for k in p.parse_eep(0x00, 0x01):
+                        res[k] = p.parsed[k]
+                if p.type == PACKET.RADIO and p.rorg == RORG.RPS:
+                    for k in p.parse_eep(0x02, 0x04):
+                        res[k] = p.parsed[k]
+
+                if (res):
+                    s = json.dumps(res)
+                    print(s)
+                    self.message_received(json.dumps(res))
+
+            except queue.Empty:
+                continue
+            except (KeyboardInterrupt, SystemExit):
+                sys.exit()
+            except Exception:
+                traceback.print_exc(file=sys.stdout)
+                break
+
+    # init
+    # @dbus.service.method(DBUS_BUS_NAME)
+    def init(self):
+        init_logging()
+        self.m_communicator = SerialCommunicator(self.m_port)
+        self.m_poll_flag = True
+        self.m_poll_thread = threading.Thread(target=self.poller)
+        self.m_poll_thread.start()
+
+    # free all resources
+    # @dbus.service.method(DBUS_BUS_NAME)
+    def deinit(self):
+        if self.m_communicator.is_alive():
+            self.m_communicator.stop()
+        self.m_poll_thread.join()
+
+def main():
+    # init d-bus
+    DBusGMainLoop(set_as_default=True)
+    # create root element
+    enocean_root_service = EnoceanService()
+    # start mainloop
+    try:
+        GObject.MainLoop().run()
+    except (KeyboardInterrupt, SystemExit):
+        enocean_root_service.deinit()
+        sys.exit()
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,112 @@
+#!/usr/bin/python3
+
+# Python GPIO to DBUS simple client switch
+
+import dbus
+
+import os
+import yaml
+import sys
+from dbus.mainloop.glib import DBusGMainLoop
+from gi.repository import GObject
+
+def update_state():
+    global leds
+    global state
+    for x in range(0, 8):
+        if x == state:
+            leds[x].clear(dbus_interface='com.devicehive.gpio.GpioPin');
+        else:
+            leds[x].set(dbus_interface='com.devicehive.gpio.GpioPin');
+
+
+def right_click(port, value):
+    global state
+    if value == "0":
+        return
+    if state == 7:
+        state = 0
+    else:
+        state += 1
+    update_state()
+
+
+def left_click(port, value):
+    global state
+    if value == "0":
+        return
+    if state == 0:
+        state = 7
+    else:
+        state -= 1
+    update_state()
+
+
+def get_led(led_pin):
+    led = dbus.SystemBus().get_object("com.devicehive.gpio.GpioPin",
+        "/com/devicehive/gpio/{}".format(led_pin))
+    led.init("out", dbus_interface='com.devicehive.gpio.GpioPin')
+    return led
+
+
+def get_button(button_pin, cb):
+    button = dbus.SystemBus().get_object("com.devicehive.gpio.GpioPin",
+        "/com/devicehive/gpio/{}".format(button_pin))
+    button.init("both", dbus_interface='com.devicehive.gpio.GpioPin')
+    button.connect_to_signal("pin_value_changed", cb)
+    return button
+
+
+def main():
+    global leds
+    global state
+    DBusGMainLoop(set_as_default=True)
+
+    pdir = os.path.realpath(__file__) + "-profiles"
+    control = dbus.SystemBus().get_object("com.devicehive.gpio",
+        "/com/devicehive/gpio")    
+
+    try:
+        with open("/sys/firmware/devicetree/base/model", 'r') as hwid:
+            model = str(hwid.read()).rstrip("\0")
+            yamlpath = os.path.join(pdir, "{}.yaml".format(model))
+
+            try:
+                with open(yamlpath) as yf:
+                    try:
+                        pin_map = yaml.load(yf)
+                        if not pin_map:
+                            raise yaml.scanner.ScannerError("Empty file")
+                        else:
+                            control.clear(dbus_interface='com.devicehive.gpio')
+                            control.add_profile(pin_map, dbus_interface='com.devicehive.gpio')
+                    except yaml.scanner.ScannerError:
+                        raise SyntaxError("File does not contain yaml profile.")        
+            except FileExistsError:
+                raise
+            except IOError:
+                raise FileNotFoundError("Profile file for {} not found.".format(model))                
+
+    except IOError:
+        raise SystemError("Board not found.")
+
+
+    button_1 = get_button("BUTTON1", left_click)
+    button_2 = get_button("BUTTON2", right_click)
+
+    leds = list()
+    state = 0
+    for x in range(1, 9):
+        leds.append(get_led("LED{}".format(x)))
+    update_state()
+    try:
+        GObject.MainLoop().run()
+    except KeyboardInterrupt:
+        for led in leds:
+            led.deinit()
+        button_1.deinit(dbus_interface='com.devicehive.gpio.GpioPin')
+        button_2.deinit(dbus_interface='com.devicehive.gpio.GpioPin')
+
+
+if __name__ == "__main__":
+    main()
