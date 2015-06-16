@@ -11,20 +11,6 @@ AJ_BusAttachment c_bus;
 AJ_Message c_message;
 AJ_Message c_reply;
 void * c_propGetter;
-AJ_Arg c_arg;
-AJ_MsgHeader c_msgHeader;
-
-void * Get_MsgHeader() {
-	return &c_msgHeader;
-}
-
-AJ_MsgHeader * BackupMsgHeader(AJ_MsgHeader * src) {
-	return memcpy(Get_MsgHeader(), src, sizeof(AJ_MsgHeader));
-}
-
-void * Get_Arg() {
-	return &c_arg;
-}
 
 uint32_t Get_AJ_Message_msgId() {
 	return c_message.msgId;
@@ -81,10 +67,6 @@ void * Create_AJ_Object(uint32_t index, void * array, char* path, AJ_InterfaceDe
 AJ_Status MyAboutPropGetter_cgo(AJ_Message* reply, const char* language) {
 	printf("C.MyAboutPropGetter_cgo() called\n");
 	return MyAboutPropGetter(reply, language);
-}
-
-AJ_Status AJ_MarshalArgs_cgo(AJ_Message* msg, char * a, char * b, char * c, char * d) {
-	return AJ_MarshalArgs(msg, a, b, c, d);
 }
 */
 import "C"

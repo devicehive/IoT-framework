@@ -24,16 +24,16 @@ void * Create_AJ_Object(uint32_t index, void * array, char* path, AJ_InterfaceDe
 AJ_Status MyAboutPropGetter_cgo(AJ_Message* reply, const char* language);
 void * Get_Arg();
 AJ_Status AJ_MarshalArgs_cgo(AJ_Message* msg, char * a, char * b, char * c, char * d);
-AJ_MsgHeader * BackupMsgHeader(AJ_MsgHeader * src);
 */
 import "C"
 import (
-	"github.com/devicehive/IoT-framework/devicehive-alljoyn/ajmarshal"
 	"bytes"
 	"encoding/binary"
+	"github.com/devicehive/IoT-framework/devicehive-alljoyn/ajmarshal"
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
 	"log"
+	"reflect"
 	"unsafe"
 )
 
@@ -153,27 +153,11 @@ func MyAboutPropGetter(reply *C.AJ_Message, language *C.char) C.AJ_Status {
 }
 
 func (m *AllJoynMessenger) MyAboutPropGetter_member(reply *C.AJ_Message, language *C.char) C.AJ_Status {
-	// Find about path for the bindibg
 	log.Printf("MyAboutPropGetter_member(): %+v", m)
-	// var aboutInterface *introspect.Interface
 	aboutInterfacePath := m.binding[0].dbusPath
-	// for _, b := range m.binding {
-	// 	for _, iface := range b.introspectData.Interfaces {
-	// 		if iface.Name == "org.AllJoyn.About" {
-	// 			aboutInterfacePath = b.dbusPath
-	// 			aboutInterface = &iface
-	// 			break
-	// 		}
-	// 	}
-	// }
-
-	// if aboutInterface == nil {
-	// 	log.Printf("No org.AllJoyn.About interface found for %+v", m.binding)
-	// 	return C.AJ_ERR_NO_MATCH
-	// }
 
 	log.Printf("About interface path: %s", aboutInterfacePath)
-	err := m.callRemoteMethod(reply, aboutInterfacePath, "org.alljoyn.About.GetAboutData", C.GoString(language))
+	err := m.callRemoteMethod(reply, aboutInterfacePath, "org.alljoyn.About.GetAboutData", []interface{}{C.GoString(language)})
 	if err != nil {
 		log.Printf("Error calling org.alljoyn.About for [%+v]: %s", m.binding, err)
 		return C.AJ_ERR_NO_MATCH
@@ -183,8 +167,9 @@ func (m *AllJoynMessenger) MyAboutPropGetter_member(reply *C.AJ_Message, languag
 	return C.AJ_OK
 }
 
-func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member string, arguments ...interface{}) (err error) {
+func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member string, arguments []interface{}) (err error) {
 	remote := m.bus.Object(m.dbusService, dbus.ObjectPath(path))
+	log.Printf("Argument[0] %+v", reflect.ValueOf(arguments[0]).Type())
 	res := remote.Call(member, 0, arguments...)
 
 	if res.Err != nil {
@@ -201,26 +186,10 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 		return err
 	}
 
-	C.AJ_MarshalContainer((*C.AJ_Message)(message), (*C.AJ_Arg)(C.Get_Arg()), C.AJ_ARG_ARRAY)
-
-	C.AJ_MarshalArgs_cgo((*C.AJ_Message)(message), C.CString("{sv}"), C.CString("DeviceName"), C.CString("s"), C.CString("Golang-device"))
-
-	C.AJ_MarshalCloseContainer((*C.AJ_Message)(message), (*C.AJ_Arg)(C.Get_Arg()))
-
 	log.Printf("Encoded reply, len: %+v, %d", buf.Bytes(), buf.Len())
 	log.Printf("Length before: %d", message.bodyBytes)
-	// message.hdr.bodyLen = (C.uint32_t)(message.bodyBytes + C.uint16_t(buf.Len()))
-	// message.bodyBytes = (C.uint16_t)(message.hdr.bodyLen) + (C.uint16_t)(buf.Len())
-	// oldHeader := C.BackupMsgHeader(message.hdr)
-	// message.hdr = nil
-	//C.AJ_DeliverMsgPartial((*C.AJ_Message)(message), C.uint32_t(buf.Len()))
-	// log.Printf("Length before: %d", message.hdr.bodyLen)
-	// log.Printf("BodyBytes, hdr.BodyLen: %d, %d", message.bodyBytes, message.hdr.bodyLen)
-	// message.bodyBytes += C.uint16_t(buf.Len())
-	// message.hdr.bodyLen = C.uint32_t(message.bodyBytes)
-	// message.hdr = nil
-	//C.AJ_MarshalRaw((*C.AJ_Message)(message), unsafe.Pointer(&buf.Bytes()[0]), C.size_t(buf.Len()))
-	// message.hdr = oldHeader
+	C.AJ_DeliverMsgPartial((*C.AJ_Message)(message), C.uint32_t(buf.Len()))
+	C.AJ_MarshalRaw((*C.AJ_Message)(message), unsafe.Pointer(&buf.Bytes()[0]), C.size_t(buf.Len()))
 	return nil
 }
 
@@ -251,7 +220,7 @@ func (m *AllJoynMessenger) forwardAllJoynMessage(msgId uint32) (err error) {
 		return err
 	}
 
-	d := devicehivealljoyn.NewDecoder(bytes.NewReader(b), binary.LittleEndian)
+	d := dbus.NewDecoder(bytes.NewReader(b), binary.LittleEndian)
 	res, err := d.Decode(s)
 
 	if err != nil {
@@ -273,25 +242,6 @@ func (m *AllJoynMessenger) forwardAllJoynMessage(msgId uint32) (err error) {
 			log.Print("Found matching dbus service: %+v", service)
 			C.AJ_MarshalReplyMsg((*C.AJ_Message)(msg), (*C.AJ_Message)(reply))
 			m.callRemoteMethod((*C.AJ_Message)(reply), service.dbusPath, iface+"."+member, res)
-			// remote := m.bus.Object(dbusService, dbus.ObjectPath(service.dbusPath))
-			// res := remote.Call(iface+"."+member, 0, res...)
-
-			// if res.Err != nil {
-			// 	log.Printf("Error calling dbus method (%s): %s", iface+"."+member, res.Err)
-			// 	return res.Err
-			// }
-
-			// C.AJ_MarshalReplyMsg((*C.AJ_Message)(msg), (*C.AJ_Message)(reply))
-			// buf := new(bytes.Buffer)
-			// enc := newEncoder(buf, binary.LittleEndian)
-			// err = enc.Encode(res.Body...)
-			// if err != nil {
-			// 	log.Printf("Error encoding result: %s", err)
-			// 	break
-			// }
-			// log.Printf("Encoded reply: %+v", buf.Bytes())
-			// C.AJ_DeliverMsgPartial((*C.AJ_Message)(reply), C.uint32_t(buf.Len()))
-			// C.AJ_MarshalRaw((*C.AJ_Message)(reply), unsafe.Pointer(&buf.Bytes()[0]), C.size_t(buf.Len()))
 			C.AJ_DeliverMsg((*C.AJ_Message)(reply))
 			break
 		}
@@ -379,6 +329,12 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 				if (uint32(msgId) & 0xFFFF0000) == 0x00050000 {
 					if uint32(msgId) == 0x00050102 {
 						log.Printf("Passing About.GetObjectDescription %+v to AllJoyn", msgId)
+						status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
+					} else if uint32(msgId) == 0x00050101 {
+						log.Printf("Passing About.GetAboutData %+v to AllJoyn", msgId)
+						status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
+					} else if uint32(msgId) == 0x00050000 {
+						log.Printf("Passing Properties.Get %+v to AllJoyn", msgId)
 						status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
 					} else {
 						myMessenger.forwardAllJoynMessage(uint32(msgId))
