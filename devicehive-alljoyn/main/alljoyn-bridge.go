@@ -1,8 +1,8 @@
 package main
 
 /*
-#cgo CFLAGS: -Iajtcl/inc -Iajtcl/target/linux
-#cgo LDFLAGS: -Lajtcl -lajtcl
+#cgo CFLAGS: -I../ajtcl/inc -I../ajtcl/target/linux
+#cgo LDFLAGS: -L../ajtcl -lajtcl
 #include <stdio.h>
 #include <aj_debug.h>
 #include <aj_guid.h>
@@ -28,6 +28,7 @@ AJ_MsgHeader * BackupMsgHeader(AJ_MsgHeader * src);
 */
 import "C"
 import (
+	"IoT-framework/devicehive-alljoyn/ajmarshal"
 	"bytes"
 	"encoding/binary"
 	"github.com/godbus/dbus"
@@ -192,7 +193,7 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 	}
 
 	buf := new(bytes.Buffer)
-	enc := dbus.NewEncoder(buf, binary.LittleEndian)
+	enc := devicehivealljoyn.NewEncoder(buf, binary.LittleEndian)
 	err = enc.Encode(res.Body...)
 	log.Printf("Got reply: %+v", res.Body)
 	if err != nil {
@@ -200,19 +201,25 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 		return err
 	}
 
+	C.AJ_MarshalContainer((*C.AJ_Message)(message), (*C.AJ_Arg)(C.Get_Arg()), C.AJ_ARG_ARRAY)
+
+	C.AJ_MarshalArgs_cgo((*C.AJ_Message)(message), C.CString("{sv}"), C.CString("DeviceName"), C.CString("s"), C.CString("Golang-device"))
+
+	C.AJ_MarshalCloseContainer((*C.AJ_Message)(message), (*C.AJ_Arg)(C.Get_Arg()))
+
 	log.Printf("Encoded reply, len: %+v, %d", buf.Bytes(), buf.Len())
 	log.Printf("Length before: %d", message.bodyBytes)
 	// message.hdr.bodyLen = (C.uint32_t)(message.bodyBytes + C.uint16_t(buf.Len()))
 	// message.bodyBytes = (C.uint16_t)(message.hdr.bodyLen) + (C.uint16_t)(buf.Len())
 	// oldHeader := C.BackupMsgHeader(message.hdr)
 	// message.hdr = nil
-	C.AJ_DeliverMsgPartial((*C.AJ_Message)(message), C.uint32_t(buf.Len()))
+	//C.AJ_DeliverMsgPartial((*C.AJ_Message)(message), C.uint32_t(buf.Len()))
 	// log.Printf("Length before: %d", message.hdr.bodyLen)
 	// log.Printf("BodyBytes, hdr.BodyLen: %d, %d", message.bodyBytes, message.hdr.bodyLen)
 	// message.bodyBytes += C.uint16_t(buf.Len())
 	// message.hdr.bodyLen = C.uint32_t(message.bodyBytes)
 	// message.hdr = nil
-	C.AJ_MarshalRaw((*C.AJ_Message)(message), unsafe.Pointer(&buf.Bytes()[0]), C.size_t(buf.Len()))
+	//C.AJ_MarshalRaw((*C.AJ_Message)(message), unsafe.Pointer(&buf.Bytes()[0]), C.size_t(buf.Len()))
 	// message.hdr = oldHeader
 	return nil
 }
@@ -244,7 +251,7 @@ func (m *AllJoynMessenger) forwardAllJoynMessage(msgId uint32) (err error) {
 		return err
 	}
 
-	d := dbus.NewDecoder(bytes.NewReader(b), binary.LittleEndian)
+	d := devicehivealljoyn.NewDecoder(bytes.NewReader(b), binary.LittleEndian)
 	res, err := d.Decode(s)
 
 	if err != nil {
