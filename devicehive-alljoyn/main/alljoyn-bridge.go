@@ -28,7 +28,7 @@ AJ_MsgHeader * BackupMsgHeader(AJ_MsgHeader * src);
 */
 import "C"
 import (
-	"IoT-framework/devicehive-alljoyn/ajmarshal"
+	"github.com/devicehive/IoT-framework/devicehive-alljoyn/ajmarshal"
 	"bytes"
 	"encoding/binary"
 	"github.com/godbus/dbus"
