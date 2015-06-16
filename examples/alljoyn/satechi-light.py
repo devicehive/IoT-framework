@@ -5,6 +5,7 @@ import threading
 import traceback
 import sys
 import os
+import socket
 
 import dbus.service
 from dbus.mainloop.glib import DBusGMainLoop
@@ -33,6 +34,7 @@ DBUS_BUS_PATH = '/com/devicehive/alljoyn/allseen/LSF/Lamp'
 ALLJOYN_LIGHT_PATH = 'org.allseen.LSF.LampService'
 ALLJOYN_LIGHT_NAME = '/org/allseen/LSF/Lamp'
 
+ABOUT_IFACE = 'org.alljoyn.About'
 LAMP_SERVICE_IFACE = 'org.allseen.LSF.LampService'
 LAMP_PARAMETERS_IFACE = 'org.allseen.LSF.LampParameters'
 LAMP_DETAILS_IFACE = 'org.allseen.LSF.LampDetails'
@@ -56,10 +58,18 @@ class LampService(dbus.service.Object):
 
     @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature='ss', out_signature='v')
     def Get(self, interface, prop):
-        return ''
+        if interface == ABOUT_IFACE:
+            if prop == 'Version'
+                return '1.0.0'
+            else:
+                raise Exception('Unsupported property: %s.%s' % (interface, prop))
+        else
+            return ''
 
     @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature='ssv')
     def Set(self, interface, prop, value):
+        if interface == ABOUT_IFACE:
+            pass
         if interface == LAMP_SERVICE_IFACE:
             pass
         elif interface == LAMP_PARAMETERS_IFACE:
@@ -89,10 +99,43 @@ class LampService(dbus.service.Object):
                 'The Foo object does not implement the %s interface' % interface_name)
 
 
+    ## org.alljoyn.About Interface
+
+    @dbus.service.method(ABOUT_IFACE, in_signature='s', out_signature='a{sv}')
+    def GetAboutData(self, languageTag):
+        return {
+            'AppId': '8e01a0b4-2331-45c8-b359-21fdf41dd3bc',
+            'DefaultLanguage': 'en',
+            'DeviceId': socket.gethostname(),
+            'AppName': 'SatchiLight',
+            'Manufacturer': 'DeviceHive',
+            'ModelNumber': '1',
+            'SupportedLanguages': ['en'],
+            'Description': 'Description',
+            'SoftwareVersion': '1.0.0',
+            'AJSoftwareVersion': '1.0.0'
+
+
+        }
+
+    @dbus.service.method(ABOUT_IFACE, in_signature='', out_signature='a(oas)')
+    def GetObjectDescription(self):
+        return {}
+
+
+    @dbus.service.signal(ABOUT_IFACE, signature='qqa(oas)a{sv}')
+    def Announce(self, version, port, objectDescription, metaData):
+        pass
+
+
+    ## org.allseen.LSF.LampService Interface
+
     @dbus.service.method(LAMP_SERVICE_IFACE, in_signature='u', out_signature='uu')
     def ClearLampFault(self, LampFaultCode):
         pass
 
+
+    ## org.allseen.LSF.LampState Interface
 
     @dbus.service.signal(LAMP_STATE_IFACE, signature='s')
     def LampStateChanged(self, LampID):
@@ -114,92 +157,112 @@ class LampService(dbus.service.Object):
         return """
 <node name="/org/allseen/LSF/Lamp" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 xsi:noNamespaceSchemaLocation="https://allseenalliance.org/schemas/introspect.xsd">
-  <interface name="org.freedesktop.DBus.Introspectable">
-    <method name="Introspect">
-      <arg direction="out" type="s" />
-    </method>
-  </interface>
-<interface name="org.freedesktop.DBus.Properties">
- <method name="Get">
- <arg type="s" direction="in"/>
- <arg type="s" direction="in"/>
- <arg type="v" direction="out"/>
- </method>
- <method name="Set">
- <arg type="s" direction="in"/>
- <arg type="s" direction="in"/>
- <arg type="v" direction="in"/>
- </method>
- <method name="GetAll">
- <arg type="s" direction="in"/>
- <arg type="a{sv}" direction="out"/>
- </method>
-</interface>
-<interface name="org.allseen.LSF.LampService">
- <property name="Version" type="u" access="read"/>
- <property name="LampServiceVersion" type="u" access="read"/>
- <method name="ClearLampFault">
- <arg name="LampFaultCode" type="u" direction="in"/>
- <arg name="LampResponseCode" type="u" direction="out"/>
- <arg name="LampFaultCode" type="u" direction="out"/>
- </method>
- <property name="LampFaults" type="au" access="read"/>
-</interface>
-<interface name="org.allseen.LSF.LampParameters">
- <property name="Version" type="u" access="read"/>
- <property name="Energy_Usage_Milliwatts" type="u" access="read"/>
- <property name="Brightness_Lumens" type="u" access="read"/>
-</interface>
-<interface name="org.allseen.LSF.LampDetails">
- <property name="Version" type="u" access="read"/>
- <property name="Make" type="u" access="read"/>
- <property name="Model" type="u" access="read"/>
- <property name="Type" type="u" access="read"/>
- <property name="LampType" type="u" access="read"/>
- <property name="LampBaseType" type="u" access="read"/>
- <property name="LampBeamAngle" type="u" access="read"/>
- <property name="Dimmable" type="b" access="read"/>
- <property name="Color" type="b" access="read"/>
- <property name="VariableColorTemp" type="b" access="read"/>
- <property name="HasEffects" type="b" access="read"/>
- <property name="MinVoltage" type="u" access="read"/>
- <property name="MaxVoltage" type="u" access="read"/>
- <property name="Wattage" type="u" access="read"/>
- <property name="IncandescentEquivalent" type="u" access="read"/>
- <property name="MaxLumens" type="u" access="read"/>
- <property name="MinTemperature" type="u" access="read"/>
- <property name="MaxTemperature" type="u" access="read"/>
- <property name="ColorRenderingIndex" type="u" access="read"/>
- <property name="LampID" type="s" access="read"/>
-</interface>
-<interface name="org.allseen.LSF.LampState">
- <property name="Version" type="u" access="read"/>
- <method name="TransitionLampState">
- <arg name="Timestamp" type="t" direction="in"/>
- <arg name="NewState" type="a{sv}" direction="in"/>
- <arg name="TransitionPeriod" type="u" direction="in"/>
- <arg name="LampResponseCode" type="u" direction="out"/>
- </method>
- <method name="ApplyPulseEffect">
- <arg name="FromState" type="a{sv}" direction="in"/>
- <arg name="ToState" type="a{sv}" direction="in"/>
- <arg name="period" type="u" direction="in"/>
- <arg name="duration" type="u" direction="in"/>
- <arg name="numPulses" type="u" direction="in"/>
- <arg name="timestamp" type="t" direction="in"/>
- <arg name="LampResponseCode" type="u" direction="out"/>
- </method>
- <signal name="LampStateChanged">
- <arg name="LampID" type="s"/>
- </signal>
- <property name="OnOff" type="b" access="readwrite"/>
- <property name="Hue" type="u" access="readwrite"/>
- <property name="Saturation" type="u" access="readwrite"/>
- <property name="ColorTemp" type="u" access="readwrite"/>
- <property name="Brightness" type="u" access="readwrite"/>
-</interface>
+    <interface name="org.freedesktop.DBus.Introspectable">
+      <method name="Introspect">
+        <arg direction="out" type="s" />
+      </method>
+    </interface>
+    <interface name="org.freedesktop.DBus.Properties">
+     <method name="Get">
+     <arg type="s" direction="in"/>
+     <arg type="s" direction="in"/>
+     <arg type="v" direction="out"/>
+     </method>
+     <method name="Set">
+     <arg type="s" direction="in"/>
+     <arg type="s" direction="in"/>
+     <arg type="v" direction="in"/>
+     </method>
+     <method name="GetAll">
+     <arg type="s" direction="in"/>
+     <arg type="a{sv}" direction="out"/>
+     </method>
+    </interface>
+    <interface name="org.allseen.LSF.LampService">
+     <property name="Version" type="u" access="read"/>
+     <property name="LampServiceVersion" type="u" access="read"/>
+     <method name="ClearLampFault">
+     <arg name="LampFaultCode" type="u" direction="in"/>
+     <arg name="LampResponseCode" type="u" direction="out"/>
+     <arg name="LampFaultCode" type="u" direction="out"/>
+     </method>
+     <property name="LampFaults" type="au" access="read"/>
+    </interface>
+    <interface name="org.allseen.LSF.LampParameters">
+     <property name="Version" type="u" access="read"/>
+     <property name="Energy_Usage_Milliwatts" type="u" access="read"/>
+     <property name="Brightness_Lumens" type="u" access="read"/>
+    </interface>
+    <interface name="org.allseen.LSF.LampDetails">
+     <property name="Version" type="u" access="read"/>
+     <property name="Make" type="u" access="read"/>
+     <property name="Model" type="u" access="read"/>
+     <property name="Type" type="u" access="read"/>
+     <property name="LampType" type="u" access="read"/>
+     <property name="LampBaseType" type="u" access="read"/>
+     <property name="LampBeamAngle" type="u" access="read"/>
+     <property name="Dimmable" type="b" access="read"/>
+     <property name="Color" type="b" access="read"/>
+     <property name="VariableColorTemp" type="b" access="read"/>
+     <property name="HasEffects" type="b" access="read"/>
+     <property name="MinVoltage" type="u" access="read"/>
+     <property name="MaxVoltage" type="u" access="read"/>
+     <property name="Wattage" type="u" access="read"/>
+     <property name="IncandescentEquivalent" type="u" access="read"/>
+     <property name="MaxLumens" type="u" access="read"/>
+     <property name="MinTemperature" type="u" access="read"/>
+     <property name="MaxTemperature" type="u" access="read"/>
+     <property name="ColorRenderingIndex" type="u" access="read"/>
+     <property name="LampID" type="s" access="read"/>
+    </interface>
+    <interface name="org.allseen.LSF.LampState">
+     <property name="Version" type="u" access="read"/>
+     <method name="TransitionLampState">
+     <arg name="Timestamp" type="t" direction="in"/>
+     <arg name="NewState" type="a{sv}" direction="in"/>
+     <arg name="TransitionPeriod" type="u" direction="in"/>
+     <arg name="LampResponseCode" type="u" direction="out"/>
+     </method>
+     <method name="ApplyPulseEffect">
+     <arg name="FromState" type="a{sv}" direction="in"/>
+     <arg name="ToState" type="a{sv}" direction="in"/>
+     <arg name="period" type="u" direction="in"/>
+     <arg name="duration" type="u" direction="in"/>
+     <arg name="numPulses" type="u" direction="in"/>
+     <arg name="timestamp" type="t" direction="in"/>
+     <arg name="LampResponseCode" type="u" direction="out"/>
+     </method>
+     <signal name="LampStateChanged">
+     <arg name="LampID" type="s"/>
+     </signal>
+     <property name="OnOff" type="b" access="readwrite"/>
+     <property name="Hue" type="u" access="readwrite"/>
+     <property name="Saturation" type="u" access="readwrite"/>
+     <property name="ColorTemp" type="u" access="readwrite"/>
+     <property name="Brightness" type="u" access="readwrite"/>
+    </interface>
 </node> 
         """
+
+
+# """
+#     <interface name="org.alljoyn.About">
+#       <property name="Version" type="q" access="read"/>
+#       <method name="GetAboutData">
+#          <arg name="languageTag" type="s" direction="in"/>
+#          <arg name="aboutData" type="a{sv}" direction="out"/>
+#       </method>
+#       <method name="GetObjectDescription">
+#          <arg name="objectDescription" type="a(oas)" direction="out"/>
+#       </method>
+#       <signal name="Announce">
+#          <arg name="version" type="q"/>
+#          <arg name="port" type="q"/>
+#          <arg name="objectDescription" type="a(oas)"/>
+#          <arg name="metaData" type="a{sv}"/>
+#       </signal>
+#     </interface>
+# """
 
 
     # init
