@@ -14,11 +14,7 @@ from gi.repository import GObject
 
 DBUS_SERVICE_INTERFACE = "com.devicehive.gpio.GpioService"
 DBUS_PIN_INTERFACE = "com.devicehive.gpio.GpioPin"
-
 OBJECT_MANAGER_INTERFACE = "org.freedesktop.DBus.ObjectManager"
-
-DBUS_INFO_INTERFACE = "com.devicehive.gpio.Info"
-DBUS_CONTROL_INTERFACE = "com.devicehive.gpio.Control"
 
 DBUS_PATH = "/com/devicehive/gpio"
 
@@ -293,7 +289,7 @@ def main():
     profileLoaded = False
     try:
         if len(sys.argv) == 1:
-            patharg = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../profiles")
+            patharg = os.path.join(os.path.dirname(os.path.realpath(__file__)), "profiles")
         else:
             patharg = sys.argv[1]
 

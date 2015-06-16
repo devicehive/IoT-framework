@@ -7,14 +7,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/godbus/dbus"
-	"github.com/montanaflynn/stats"
 	"log"
 	"math"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/godbus/dbus"
+	"github.com/montanaflynn/stats"
 )
 
 type dbusWrapper struct {
@@ -241,6 +242,7 @@ func (d *dbusWrapper) SendInitCommands(mac string, dev *deviceInfo) error {
 	switch strings.ToLower(dev.name) {
 	case "cc2650 sensortag":
 		{
+			// Accelerometer
 			time.Sleep(1000 * time.Millisecond)
 			d.BleGattWrite(mac, "F000AA8204514000b000000000000000", "3800")
 			time.Sleep(500 * time.Millisecond)
@@ -248,18 +250,28 @@ func (d *dbusWrapper) SendInitCommands(mac string, dev *deviceInfo) error {
 			time.Sleep(500 * time.Millisecond)
 			d.BleGattNotifications(mac, "F000AA8104514000b000000000000000", true)
 
+			// Light
 			time.Sleep(500 * time.Millisecond)
 			d.BleGattWrite(mac, "F000AA7204514000b000000000000000", "01")
 			time.Sleep(500 * time.Millisecond)
 			d.BleGattNotifications(mac, "F000AA7104514000b000000000000000", true)
 
+			// IR Temperature
 			time.Sleep(500 * time.Millisecond)
 			d.BleGattWrite(mac, "F000AA0204514000b000000000000000", "01")
 			time.Sleep(500 * time.Millisecond)
 			d.BleGattNotifications(mac, "F000AA0104514000b000000000000000", true)
+
+			// Humidity
+			time.Sleep(500 * time.Millisecond)
+			d.BleGattWrite(mac, "F000AA2204514000b000000000000000", "01")
+			time.Sleep(500 * time.Millisecond)
+			d.BleGattNotifications(mac, "F000AA2104514000b000000000000000", true)
+
 		}
 	case "sensortag":
 		{
+			// Acceletarometer
 			time.Sleep(1000 * time.Millisecond)
 			d.BleGattWrite(mac, "F000AA1204514000b000000000000000", "01")
 			time.Sleep(500 * time.Millisecond)
@@ -267,15 +279,24 @@ func (d *dbusWrapper) SendInitCommands(mac string, dev *deviceInfo) error {
 			time.Sleep(500 * time.Millisecond)
 			d.BleGattNotifications(mac, "F000AA1104514000b000000000000000", true)
 
+			// Light
 			time.Sleep(500 * time.Millisecond)
 			d.BleGattWrite(mac, "F000AA7204514000b000000000000000", "01")
 			time.Sleep(500 * time.Millisecond)
 			d.BleGattNotifications(mac, "F000AA7104514000b000000000000000", true)
 
+			// IR Temperature
 			time.Sleep(500 * time.Millisecond)
 			d.BleGattWrite(mac, "F000AA0204514000b000000000000000", "01")
 			time.Sleep(500 * time.Millisecond)
 			d.BleGattNotifications(mac, "F000AA0104514000b000000000000000", true)
+
+			// Humidity
+			time.Sleep(500 * time.Millisecond)
+			d.BleGattWrite(mac, "F000AA2204514000b000000000000000", "01")
+			time.Sleep(500 * time.Millisecond)
+			d.BleGattNotifications(mac, "F000AA2104514000b000000000000000", true)
+
 		}
 	case "pod":
 		{
@@ -341,7 +362,7 @@ func parseHRate(s string) int {
 	b, _ := hex.DecodeString(s)
 
 	val := int(b[1])
-	if b[0] & 0x01 == 0x01 {
+	if b[0]&0x01 == 0x01 {
 		val += int(b[2] << 8)
 	}
 	return val
