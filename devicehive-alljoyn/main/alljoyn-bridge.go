@@ -183,7 +183,8 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 	buf := new(bytes.Buffer)
 	buf.Write(make([]byte, (int)(message.bodyBytes)))
 	enc := devicehivealljoyn.NewEncoderAtOffset(buf, (int)(message.bodyBytes), binary.LittleEndian)
-	err = enc.Encode(res.Body...)
+	pad, err := enc.Encode(res.Body...)
+	log.Printf("Padding of the encoded buffer: %d", pad)
 	log.Printf("Got reply: %+v", res.Body)
 	if err != nil {
 		log.Printf("Error encoding result: %s", err)
@@ -199,8 +200,8 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 	log.Printf("Encoded reply, len: %+v, %d", buf.Bytes(), buf.Len())
 	log.Printf("Length before: %d", message.bodyBytes)
 
-	newBuf := buf.Bytes()[(int)(message.bodyBytes):]
-	log.Printf("Encoded reply, len: %+v, %d", newBuf, len(newBuf))
+	newBuf := buf.Bytes()[(int)(message.bodyBytes)+pad:]
+	log.Printf("Buffer to write into AllJoyn: %+v, %d", newBuf, len(newBuf))
 	C.AJ_DeliverMsgPartial((*C.AJ_Message)(message), C.uint32_t(len(newBuf)))
 	//newBuf := append(bytes.Repeat([]byte{0}, 8-(int)(message.bodyBytes)%8), buf.Bytes()...)
 	//log.Printf("New buff reply, len: %+v, %d", newBuf, len(newBuf))

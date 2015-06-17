@@ -93,8 +93,8 @@ func NewEncoderAtOffset(out io.Writer, offset int, order binary.ByteOrder) *enco
 }
 
 // Aligns the next output to be on a multiple of n. Panics on write errors.
-func (enc *encoder) align(n int) {
-	pad := enc.padding(0, n)
+func (enc *encoder) align(n int) (pad int) {
+	pad = enc.padding(0, n)
 	if pad > 0 {
 		empty := make([]byte, pad)
 		if _, err := enc.out.Write(empty); err != nil {
@@ -102,6 +102,7 @@ func (enc *encoder) align(n int) {
 		}
 		enc.pos += pad
 	}
+	return
 }
 
 // pad returns the number of bytes of padding, based on current position and additional offset.
@@ -124,20 +125,25 @@ func (enc *encoder) binwrite(v interface{}) {
 
 // Encode encodes the given values to the underyling reader. All written values
 // are aligned properly as required by the D-Bus spec.
-func (enc *encoder) Encode(vs ...interface{}) (err error) {
+// (pad int) is the padding of the first element to compensate for
+// cases for writing into AllJoyn using ajtcl's AJ_DeliverMsgPartial
+func (enc *encoder) Encode(vs ...interface{}) (pad int, err error) {
 	defer func() {
 		err, _ = recover().(error)
 	}()
-	for _, v := range vs {
-		enc.encode(reflect.ValueOf(v), 0)
+	for i, v := range vs {
+		p := enc.encode(reflect.ValueOf(v), 0)
+		if i == 0 {
+			pad = p
+		}
 	}
-	return nil
+	return pad, nil
 }
 
 // encode encodes the given value to the writer and panics on error. depth holds
 // the depth of the container nesting.
-func (enc *encoder) encode(v reflect.Value, depth int) {
-	enc.align(alignment(v.Type()))
+func (enc *encoder) encode(v reflect.Value, depth int) (pad int) {
+	pad = enc.align(alignment(v.Type()))
 	switch v.Kind() {
 	case reflect.Uint8:
 		var b [1]byte
@@ -267,4 +273,5 @@ func (enc *encoder) encode(v reflect.Value, depth int) {
 	default:
 		panic(dbus.InvalidTypeError{v.Type()})
 	}
+	return pad
 }
