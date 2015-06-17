@@ -62,7 +62,7 @@ func main() {
 	// Now try to register ourself in AllJoyn via dbus
 	go func() {
 		bridge := bus.Object("com.devicehive.alljoyn.bridge", dbus.ObjectPath("/com/devicehive/alljoyn/bridge"))
-		res := bridge.Call("com.devicehive.alljoyn.bridge.AddService", 0, "/com/devicehive/alljoyn/test/basic", "com.devicehive.alljoyn.test.basic", "/sample", "org.alljoyn.Bus.sample")
+		res := bridge.Call("com.devicehive.alljoyn.bridge.AddService", 0, "/com/devicehive/alljoyn/test/basic", "com.devicehive.alljoyn.test.basic", "/sample", "org.alljoyn.Bus.sample", "")
 		log.Printf("Result: %+v", res)
 		res = bridge.Call("com.devicehive.alljoyn.bridge.StartAllJoyn", 0, "com.devicehive.alljoyn.test.basic")
 	}()

@@ -29,11 +29,13 @@ import "C"
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/xml"
 	"github.com/devicehive/IoT-framework/devicehive-alljoyn/ajmarshal"
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
 	"log"
 	"reflect"
+	"strings"
 	"unsafe"
 )
 
@@ -285,95 +287,96 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 
 	log.Printf("CreateAJ_BusAttachment(): %+v", busAttachment)
 
-	for {
-		if !connected {
-			status = C.AJ_StartService((*C.AJ_BusAttachment)(busAttachment),
-				nil,
-				60*1000, // TODO: Move connection timeout to config
-				C.FALSE,
-				25, // TODO: Move port to config
-				C.CString(service[0].allJoynService),
-				C.AJ_NAME_REQ_DO_NOT_QUEUE,
-				nil)
+	go func() {
+		for {
+			if !connected {
+				status = C.AJ_StartService((*C.AJ_BusAttachment)(busAttachment),
+					nil,
+					60*1000, // TODO: Move connection timeout to config
+					C.FALSE,
+					25, // TODO: Move port to config
+					C.CString(service[0].allJoynService),
+					C.AJ_NAME_REQ_DO_NOT_QUEUE,
+					nil)
 
-			if status != C.AJ_OK {
+				if status != C.AJ_OK {
+					continue
+				}
+
+				log.Printf("StartService returned %d, %+v", status, busAttachment)
+
+				connected = true
+			}
+
+			status = C.AJ_UnmarshalMsg((*C.AJ_BusAttachment)(busAttachment), (*C.AJ_Message)(msg),
+				5*1000) // TODO: Move unmarshal timeout to config
+			log.Printf("AJ_UnmarshalMsg: %+v", status)
+
+			if C.AJ_ERR_TIMEOUT == status {
 				continue
 			}
 
-			log.Printf("StartService returned %d, %+v", status, busAttachment)
+			if C.AJ_OK == status {
 
-			connected = true
-		}
+				msgId := C.Get_AJ_Message_msgId()
+				log.Printf("Received message: %+v", msgId)
 
-		status = C.AJ_UnmarshalMsg((*C.AJ_BusAttachment)(busAttachment), (*C.AJ_Message)(msg),
-			5*1000) // TODO: Move unmarshal timeout to config
-		log.Printf("AJ_UnmarshalMsg: %+v", status)
+				switch {
+				case msgId == C.AJ_METHOD_ACCEPT_SESSION:
+					{
+						// uint16_t port;
+						// char* joiner;
+						// uint32_t sessionId;
 
-		if C.AJ_ERR_TIMEOUT == status {
-			continue
-		}
+						// AJ_UnmarshalArgs(&msg, "qus", &port, &sessionId, &joiner);
+						status = C.AJ_BusReplyAcceptSession((*C.AJ_Message)(msg), C.TRUE)
+						log.Printf("ACCEPT_SESSION: %+v", msgId)
+					}
 
-		if C.AJ_OK == status {
-
-			msgId := C.Get_AJ_Message_msgId()
-			log.Printf("Received message: %+v", msgId)
-
-			switch {
-			case msgId == C.AJ_METHOD_ACCEPT_SESSION:
-				{
-					// uint16_t port;
-					// char* joiner;
-					// uint32_t sessionId;
-
-					// AJ_UnmarshalArgs(&msg, "qus", &port, &sessionId, &joiner);
-					status = C.AJ_BusReplyAcceptSession((*C.AJ_Message)(msg), C.TRUE)
-					log.Printf("ACCEPT_SESSION: %+v", msgId)
-				}
-
-			case msgId == C.AJ_SIGNAL_SESSION_LOST_WITH_REASON:
-				{
-					// uint32_t id, reason;
-					// AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
-					// AJ_AlwaysPrintf(("Session lost. ID = %u, reason = %u", id, reason));
-					log.Printf("Session lost: %+v", msgId)
-				}
-			case (uint32(msgId) & 0x01000000) != 0:
-				{
-					myMessenger.forwardAllJoynMessage(uint32(msgId))
-				}
-			default:
-				if (uint32(msgId) & 0xFFFF0000) == 0x00050000 {
-					if uint32(msgId) == 0x00050102 {
-						log.Printf("Passing About.GetObjectDescription %+v to AllJoyn", msgId)
-						status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
-					} else if uint32(msgId) == 0x00050101 {
-						log.Printf("Passing About.GetAboutData %+v to AllJoyn", msgId)
-						status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
-					} else if uint32(msgId) == 0x00050000 {
-						log.Printf("Passing Properties.Get %+v to AllJoyn", msgId)
-						status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
-					} else {
+				case msgId == C.AJ_SIGNAL_SESSION_LOST_WITH_REASON:
+					{
+						// uint32_t id, reason;
+						// AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
+						// AJ_AlwaysPrintf(("Session lost. ID = %u, reason = %u", id, reason));
+						log.Printf("Session lost: %+v", msgId)
+					}
+				case (uint32(msgId) & 0x01000000) != 0:
+					{
 						myMessenger.forwardAllJoynMessage(uint32(msgId))
 					}
-				} else {
-					/* Pass to the built-in handlers. */
-					log.Printf("Passing msgId %+v to AllJoyn", msgId)
-					status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
+				default:
+					if (uint32(msgId) & 0xFFFF0000) == 0x00050000 {
+						if uint32(msgId) == 0x00050102 {
+							log.Printf("Passing About.GetObjectDescription %+v to AllJoyn", msgId)
+							status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
+						} else if uint32(msgId) == 0x00050101 {
+							log.Printf("Passing About.GetAboutData %+v to AllJoyn", msgId)
+							status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
+						} else if uint32(msgId) == 0x00050000 {
+							log.Printf("Passing Properties.Get %+v to AllJoyn", msgId)
+							status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
+						} else {
+							myMessenger.forwardAllJoynMessage(uint32(msgId))
+						}
+					} else {
+						/* Pass to the built-in handlers. */
+						log.Printf("Passing msgId %+v to AllJoyn", msgId)
+						status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
+					}
 				}
 			}
-		}
 
-		/* Messages MUST be discarded to free resources. */
-		C.AJ_CloseMsg((*C.AJ_Message)(msg))
+			/* Messages MUST be discarded to free resources. */
+			C.AJ_CloseMsg((*C.AJ_Message)(msg))
 
-		if status == C.AJ_ERR_READ {
-			C.AJ_Disconnect((*C.AJ_BusAttachment)(busAttachment))
-			log.Print("AllJoyn disconnected, retrying")
-			connected = false
-			C.AJ_Sleep(1000 * 2) // TODO: Move sleep time to const
+			if status == C.AJ_ERR_READ {
+				C.AJ_Disconnect((*C.AJ_BusAttachment)(busAttachment))
+				log.Print("AllJoyn disconnected, retrying")
+				connected = false
+				C.AJ_Sleep(1000 * 2) // TODO: Move sleep time to const
+			}
 		}
-	}
-	// }()
+	}()
 	return nil
 }
 
@@ -386,8 +389,17 @@ func (a *AllJoynBridge) addService(service string, info *AllJoynBindingInfo) {
 	}
 }
 
-func (a *AllJoynBridge) AddService(dbusPath, dbusService, allJoynPath, allJoynService string) *dbus.Error {
-	node, err := a.introspectProvider(dbusService, dbusPath)
+func (a *AllJoynBridge) AddService(dbusPath, dbusService, allJoynPath, allJoynService, introspectXml string) *dbus.Error {
+	p := a.introspectProvider
+	if introspectXml != "" {
+		p = func(dbusService, dbusPath string) (*introspect.Node, error) {
+			var node introspect.Node
+			err := xml.NewDecoder(strings.NewReader(introspectXml)).Decode(&node)
+			return &node, err
+		}
+	}
+
+	node, err := p(dbusService, dbusPath)
 
 	if err != nil {
 		log.Printf("Error getting introspect from [%s, %s]: %s", dbusService, dbusPath, err)
@@ -423,5 +435,18 @@ func main() {
 	})
 
 	bus.Export(allJoynBridge, "/com/devicehive/alljoyn/bridge", "com.devicehive.alljoyn.bridge")
+
+	n := &introspect.Node{
+		Interfaces: []introspect.Interface{
+			{
+				Name:    "com.devicehive.alljoyn.bridge",
+				Methods: introspect.Methods(allJoynBridge),
+				Signals: []introspect.Signal{},
+			},
+		},
+	}
+
+	bus.Export(introspect.NewIntrospectable(n), "/com/devicehive/alljoyn/bridge", "org.freedesktop.DBus.Introspectable")
+
 	select {}
 }

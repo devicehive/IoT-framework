@@ -194,7 +194,7 @@ class LampService(dbus.service.Object):
     @dbus.service.method(ABOUT_IFACE, in_signature='s', out_signature='a{sv}')
     def GetAboutData(self, languageTag):
         return {
-            'AppId': dbus.ByteArray("8e01a0b4233145c8b35921fdf41dd3bc", variant_level=1),
+            'AppId': dbus.ByteArray(bytes.fromhex("8e01a0b4233145c8b35921fdf41dd3bc")),
             'DefaultLanguage': 'en',
             'DeviceId': socket.gethostname(),
             'AppName': 'SatchiLight',
