@@ -59,12 +59,12 @@ class LampService(dbus.service.Object):
     @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature='ss', out_signature='v')
     def Get(self, interface, prop):
         if interface == ABOUT_IFACE:
-            if prop == 'Version'
+            if prop == 'Version':
                 return '1.0.0'
             else:
                 raise Exception('Unsupported property: %s.%s' % (interface, prop))
-        else
-            return ''
+        else:
+            return
 
     @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature='ssv')
     def Set(self, interface, prop, value):
@@ -314,8 +314,8 @@ def peripheral_discovered_handler(mac, name, rssi):
 def peripheral_connected_handler(mac):
     print('BLE: Connected %s ' % mac)
     if mac in LAMPS:
-        LAMPS[mac].connect()
-
+        threading.Thread(target=LAMPS[mac].connect).start()
+        
 def peripheral_disconnected_handler(mac):
     print('BLE: Disonnected %s ' % mac)
     if mac in LAMPS:
