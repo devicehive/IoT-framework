@@ -88,6 +88,10 @@ func newEncoderAtOffset(out io.Writer, offset int, order binary.ByteOrder) *enco
 	return enc
 }
 
+func NewEncoderAtOffset(out io.Writer, offset int, order binary.ByteOrder) *encoder {
+	return newEncoderAtOffset(out, offset, order)
+}
+
 // Aligns the next output to be on a multiple of n. Panics on write errors.
 func (enc *encoder) align(n int) {
 	pad := enc.padding(0, n)
@@ -255,7 +259,7 @@ func (enc *encoder) encode(v reflect.Value, depth int) {
 		}
 		enc.encode(reflect.ValueOf(uint32(buf.Len())), depth)
 		length := buf.Len()
-		enc.align(4)
+		enc.align(8)
 		if _, err := buf.WriteTo(enc.out); err != nil {
 			panic(err)
 		}

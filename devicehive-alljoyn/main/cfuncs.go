@@ -11,6 +11,15 @@ AJ_BusAttachment c_bus;
 AJ_Message c_message;
 AJ_Message c_reply;
 void * c_propGetter;
+AJ_Arg c_arg;
+
+void * Get_Arg() {
+	return &c_arg;
+}
+
+AJ_Status AJ_MarshalArgs_cgo(AJ_Message* msg, char * a, char * b, char * c, char * d) {
+	return AJ_MarshalArgs(msg, a, b, c, d);
+}
 
 uint32_t Get_AJ_Message_msgId() {
 	return c_message.msgId;

@@ -177,19 +177,34 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 		return res.Err
 	}
 
+	//pad := 4 - (int)(message.bodyBytes)%4
+	//C.WriteBytes((*C.AJ_Message)(message), nil, (C.size_t)(0), (C.size_t)(pad))
+
 	buf := new(bytes.Buffer)
-	enc := devicehivealljoyn.NewEncoder(buf, binary.LittleEndian)
+	buf.Write(make([]byte, (int)(message.bodyBytes)))
+	enc := devicehivealljoyn.NewEncoderAtOffset(buf, (int)(message.bodyBytes), binary.LittleEndian)
 	err = enc.Encode(res.Body...)
 	log.Printf("Got reply: %+v", res.Body)
 	if err != nil {
 		log.Printf("Error encoding result: %s", err)
 		return err
 	}
+	/*
+		C.AJ_MarshalContainer((*C.AJ_Message)(message), (*C.AJ_Arg)(C.Get_Arg()), C.AJ_ARG_ARRAY)
 
+		C.AJ_MarshalArgs_cgo((*C.AJ_Message)(message), C.CString("{sv}"), C.CString("DeviceName"), C.CString("s"), C.CString("Golang-device"))
+
+		C.AJ_MarshalCloseContainer((*C.AJ_Message)(message), (*C.AJ_Arg)(C.Get_Arg()))
+	*/
 	log.Printf("Encoded reply, len: %+v, %d", buf.Bytes(), buf.Len())
 	log.Printf("Length before: %d", message.bodyBytes)
-	C.AJ_DeliverMsgPartial((*C.AJ_Message)(message), C.uint32_t(buf.Len()))
-	C.AJ_MarshalRaw((*C.AJ_Message)(message), unsafe.Pointer(&buf.Bytes()[0]), C.size_t(buf.Len()))
+
+	newBuf := buf.Bytes()[(int)(message.bodyBytes):]
+	log.Printf("Encoded reply, len: %+v, %d", newBuf, len(newBuf))
+	C.AJ_DeliverMsgPartial((*C.AJ_Message)(message), C.uint32_t(len(newBuf)))
+	//newBuf := append(bytes.Repeat([]byte{0}, 8-(int)(message.bodyBytes)%8), buf.Bytes()...)
+	//log.Printf("New buff reply, len: %+v, %d", newBuf, len(newBuf))
+	C.AJ_MarshalRaw((*C.AJ_Message)(message), unsafe.Pointer(&newBuf[0]), C.size_t(len(newBuf)))
 	return nil
 }
 
