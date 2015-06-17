@@ -31,8 +31,8 @@ DBUS_BRIDGE_PATH = '/com/devicehive/alljoyn/bridge'
 DBUS_BUS_NAME = 'com.devicehive.alljoyn.allseen.LSF.LampService'
 DBUS_BUS_PATH = '/com/devicehive/alljoyn/allseen/LSF/Lamp'
 
-ALLJOYN_LIGHT_PATH = 'org.allseen.LSF.LampService'
-ALLJOYN_LIGHT_NAME = '/org/allseen/LSF/Lamp'
+ALLJOYN_LIGHT_NAME = 'org.allseen.LSF.LampService'
+ALLJOYN_LIGHT_PATH = '/org/allseen/LSF/Lamp'
 
 ABOUT_IFACE = 'org.alljoyn.About'
 LAMP_SERVICE_IFACE = 'org.allseen.LSF.LampService'
@@ -293,7 +293,7 @@ class Lamp:
         bus = dbus.SystemBus()
         bridge = dbus.Interface(bus.get_object(DBUS_BRIDGE_NAME, DBUS_BRIDGE_PATH), dbus_interface='com.devicehive.alljoyn.bridge')
         bridge.AddService(self._dbus.m_service_path, self._dbus.m_service_name, ALLJOYN_LIGHT_PATH, ALLJOYN_LIGHT_NAME, INTROSPECT)
-        bridge.StartService(self._dbus.m_service_name)
+        bridge.StartAllJoyn(self._dbus.m_service_name)
 
 
     def destroy(self):
