@@ -288,7 +288,8 @@ class Lamp:
         self._dbus = LampService(self.mac, self.ble)
 
         # expose to alljoyn 
-        bus = dbus.SystemBus()
+        dbus_loop = DBusGMainLoop()
+        bus = dbus.SystemBus(mainloop=dbus_loop)
         bridge = dbus.Interface(bus.get_object(DBUS_BRIDGE_NAME, DBUS_BRIDGE_PATH), dbus_interface='com.devicehive.alljoyn.bridge')
         bridge.AddService(self._dbus.m_service_path, self._dbus.m_service_name, ALLJOYN_LIGHT_PATH, ALLJOYN_LIGHT_NAME)
         bridge.StartService(self._dbus.m_service_name)
