@@ -22,6 +22,6 @@ PYTHONUSERBASE=$DIR pip3 install --user enocean
 
 # GPIO
 cp -f  $DIR/../../../devicehive-gpio/gpio-daemon $DIR/bin/devicehive-gpio
-cp -fr $DIR/../../../devicehive-gpio/profiles $DIR
+cp -fr $DIR/../../../devicehive-gpio/profiles $DIR/bin/
 
 
