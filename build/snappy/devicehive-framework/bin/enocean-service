@@ -1,0 +1,4 @@
+#!/bin/bash
+
+export PYTHONUSERBASE=$(realpath $(dirname $0)/../)
+$PYTHONUSERBASE/bin/devicehive-enocean
