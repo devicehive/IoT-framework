@@ -196,14 +196,19 @@ class LampService(dbus.service.Object):
         return {
             'AppId': dbus.ByteArray(bytes.fromhex("8e01a0b4233145c8b35921fdf41dd3bc")),
             'DefaultLanguage': 'en',
-            'DeviceId': socket.gethostname(),
+            'DeviceName': socket.gethostname(),
+            'DeviceId': "8E01A0B4233145C8B35921FDF41DD3BC",
             'AppName': 'SatchiLight',
             'Manufacturer': 'DeviceHive',
-            'ModelNumber': '1',
+            'DateOfManufacture': '2015-06-17',
+            'ModelNumber': '001',
             'SupportedLanguages': ['en'],
-            'Description': 'Description',
-            'SoftwareVersion': '1.0.0',
-            'AJSoftwareVersion': '1.0.0'
+            'Description': 'Simulated Lamp',
+            'SoftwareVersion': '1.0',
+            'HardwareVersion': '1.0',              
+            'SupportUrl': 'http://devicehive.com',
+            'AJSoftwareVersion': '14.06.00a Tag "v14.06.00a"',
+            'Maxlength': 254
 
 
         }
