@@ -16,6 +16,8 @@ except ImportError:
 
 DBusGMainLoop(set_as_default=True)
 
+bus = dbus.SystemBus()
+
 # import json
 
 SATECHI_NAMES = ['DELIGHT', 'SATECHI-1']
@@ -138,7 +140,7 @@ class LampService(dbus.service.Object):
         self.ble = ble
         self.m_service_path = DBUS_BUS_PATH + '/' + mac
         self.m_service_name = DBUS_BUS_NAME
-        bus_name = dbus.service.BusName(DBUS_BUS_NAME, dbus.SystemBus())   
+        bus_name = dbus.service.BusName(DBUS_BUS_NAME, bus)
         dbus.service.Object.__init__(self, bus_name, self.m_service_path)
         self.init()
         for l in self.locations:
@@ -295,7 +297,6 @@ class Lamp:
         self._dbus = LampService(self.mac, self.ble)
 
         # expose to alljoyn 
-        bus = dbus.SystemBus()
         bridge = dbus.Interface(bus.get_object(DBUS_BRIDGE_NAME, DBUS_BRIDGE_PATH), dbus_interface='com.devicehive.alljoyn.bridge')
         bridge.AddService(self._dbus.m_service_path, self._dbus.m_service_name, ALLJOYN_LIGHT_PATH, ALLJOYN_LIGHT_NAME, INTROSPECT)
         bridge.StartAllJoyn(self._dbus.m_service_name)
