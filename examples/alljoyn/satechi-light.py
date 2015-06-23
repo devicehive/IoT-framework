@@ -331,6 +331,7 @@ def peripheral_disconnected_handler(mac):
         del LAMPS[mac]
 
 def worker(run_event):
+    time.sleep(1)
     try:
         bus = dbus.SystemBus()
         ble = dbus.Interface(bus.get_object(DBUS_BLE_NAME, DBUS_BLE_PATH), dbus_interface='com.devicehive.bluetooth')
@@ -374,16 +375,17 @@ def main():
     run_event = threading.Event()
     run_event.set()
 
-    worker_thread = threading.Thread(target=worker, args=(run_event,))
-    worker_thread.start()
-
     # init d-bus
     GObject.threads_init() 
     dbus.mainloop.glib.threads_init()   
     # lamps = [LampService(mac) for mac in argv]
 
+    worker_thread = threading.Thread(target=worker, args=(run_event,))
+
     # start mainloop
     loop = GObject.MainLoop()
+    worker_thread.start()
+
     try:
         loop.run()
     except (KeyboardInterrupt, SystemExit):
