@@ -335,6 +335,7 @@ def main():
 
     # init d-bus
     GObject.threads_init()    
+    dbus.mainloop.glib.threads_init()
     # lamps = [LampService(mac) for mac in argv]
 
     # start mainloop
