@@ -315,10 +315,13 @@ class Lamp:
 def worker():
     try:
 
+        time.sleep(2)
+
         # single lamp for now
         mac = '12345678'
         LAMPS[mac] = Lamp(mac, 'Virtual Lamp')
-        threading.Thread(target=LAMPS[mac].connect).start()
+        # threading.Thread(target=LAMPS[mac].connect).start()
+        LAMPS[mac].connect()
         
         return    
 
