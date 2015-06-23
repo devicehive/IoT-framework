@@ -144,6 +144,7 @@ class LampService(dbus.service.Object):
 
     @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature='ss', out_signature='v')
     def Get(self, interface, prop):
+        print("Properties.Get is called for %s" % self.mac)
         if interface == ABOUT_IFACE:
             if prop == 'Version':
                 return '1.0.0'
@@ -154,6 +155,7 @@ class LampService(dbus.service.Object):
 
     @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature='ssv')
     def Set(self, interface, prop, value):
+        print("Properties.Set is called for %s" % self.mac)
         if interface == ABOUT_IFACE:
             pass
         if interface == LAMP_SERVICE_IFACE:
@@ -174,6 +176,7 @@ class LampService(dbus.service.Object):
 
     @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature='s', out_signature='a{sv}')
     def GetAll(self, interface):
+        print("Properties.GetAll is called for %s" % self.mac)
         if interface == LAMP_SERVICE_IFACE:
             return { 'Version': self.Version,
                      'LampServiceVersion': self.LampServiceVersion,
@@ -189,6 +192,7 @@ class LampService(dbus.service.Object):
 
     @dbus.service.method(ABOUT_IFACE, in_signature='s', out_signature='a{sv}')
     def GetAboutData(self, languageTag):
+        print("GetAboutData is called for %s" % self.mac)
         return {
             'AppId': dbus.ByteArray(bytes.fromhex("8e01a0b4233145c8b35921fdf41dd3bc")),
             'DefaultLanguage': 'en',
@@ -245,6 +249,7 @@ class LampService(dbus.service.Object):
 
     # @dbus.service.method(LAMP_STATE_IFACE, in_signature='', out_signature='s')
     def Introspect(self, object_path, connection):
+        print("Introspect is called for %s" % self.mac)
         return INTROSPECT
 
 
