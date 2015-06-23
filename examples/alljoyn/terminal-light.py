@@ -294,19 +294,25 @@ class Lamp:
         self.status = 'CONNECTED'
         self._dbus = LampService(self.mac)
 
-        # expose to alljoyn 
-        bus = dbus.SystemBus()
-        bridge = dbus.Interface(bus.get_object(DBUS_BRIDGE_NAME, DBUS_BRIDGE_PATH), dbus_interface='com.devicehive.alljoyn.bridge')
-        bridge.AddService(self._dbus.m_service_path, self._dbus.m_service_name, ALLJOYN_LIGHT_PATH, ALLJOYN_LIGHT_NAME, INTROSPECT)
-        bridge.StartAllJoyn(self._dbus.m_service_name)
+        print("Calling alljoyn bridge")
 
-        print("%s exposed to Alljoyn" % self.mac)
+        try:
+        # expose to alljoyn 
+            bus = dbus.SystemBus()
+            bridge = dbus.Interface(bus.get_object(DBUS_BRIDGE_NAME, DBUS_BRIDGE_PATH), dbus_interface='com.devicehive.alljoyn.bridge')
+            bridge.AddService(self._dbus.m_service_path, self._dbus.m_service_name, ALLJOYN_LIGHT_PATH, ALLJOYN_LIGHT_NAME, INTROSPECT)
+            bridge.StartAllJoyn(self._dbus.m_service_name)
+            print("%s exposed to Alljoyn" % self.mac)
+        except Exception as err:
+                print(err)
+                traceback.print_exc()
+        
 
     def destroy(self):
         if self.status == 'CONNECTED':
             self._dbus.deinit()
 
-def worker(run_event):
+def worker():
     try:
 
         # single lamp for now
@@ -323,9 +329,6 @@ def worker(run_event):
 
 def main():
 
-    run_event = threading.Event()
-    run_event.set()
-
     # init d-bus
     GObject.threads_init()    
     # lamps = [LampService(mac) for mac in argv]
@@ -333,7 +336,7 @@ def main():
     # start mainloop
     loop = GObject.MainLoop()
 
-    worker_thread = threading.Thread(target=worker, args=(run_event,))
+    worker_thread = threading.Thread(target=worker,)
     worker_thread.start()
 
     try:
@@ -342,7 +345,6 @@ def main():
         # for lamp in lamps:
         #     lamp.deinit()
         loop.quit()
-        run_event.clear()
         worker_thread.join()
 
 if __name__ == "__main__":
