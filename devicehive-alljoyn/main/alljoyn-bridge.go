@@ -7,6 +7,8 @@ package main
 #include <aj_debug.h>
 #include <aj_guid.h>
 #include <aj_creds.h>
+#include <aj_peer.h>
+#include <aj_link_timeout.h>
 #include "alljoyn.h"
 
 uint32_t Get_AJ_Message_msgId();
@@ -22,8 +24,12 @@ void * Get_AJ_BusAttachment();
 void * Allocate_AJ_Object_Array(uint32_t array_size);
 void * Create_AJ_Object(uint32_t index, void * array, char* path, AJ_InterfaceDescription* interfaces, uint8_t flags, void* context);
 AJ_Status MyAboutPropGetter_cgo(AJ_Message* reply, const char* language);
+void * Get_Session_Opts();
 void * Get_Arg();
 AJ_Status AJ_MarshalArgs_cgo(AJ_Message* msg, char * a, char * b, char * c, char * d);
+AJ_Status MyRegisterConfigObject_cgo();
+void AJ_BusSetPasswordCallback_cgo();
+int UnmarshalPort();
 */
 import "C"
 import (
@@ -144,8 +150,8 @@ func GetAllJoynObjects(services []*AllJoynBindingInfo) unsafe.Pointer {
 		interfaces = ParseAllJoynInterfaces(service.introspectData.Interfaces)
 		C.Create_AJ_Object(C.uint32_t(i), array, C.CString(service.introspectData.Name), &interfaces[0], C.AJ_OBJ_FLAG_ANNOUNCED, unsafe.Pointer(nil))
 		C.Create_AJ_Object(C.uint32_t(i+1), array, nil, nil, 0, nil)
+		log.Printf("*****Alljoyn Objects %s %s", service.introspectData.Name, &interfaces[0])
 	}
-
 	return array
 }
 
@@ -187,7 +193,7 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 	enc := devicehivealljoyn.NewEncoderAtOffset(buf, (int)(message.bodyBytes), binary.LittleEndian)
 	pad, err := enc.Encode(res.Body...)
 	log.Printf("Padding of the encoded buffer: %d", pad)
-	log.Printf("Got reply: %+v", res.Body)
+	//log.Printf("Got reply: %+v", res.Body)
 	if err != nil {
 		log.Printf("Error encoding result: %s", err)
 		return err
@@ -199,11 +205,11 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 
 		C.AJ_MarshalCloseContainer((*C.AJ_Message)(message), (*C.AJ_Arg)(C.Get_Arg()))
 	*/
-	log.Printf("Encoded reply, len: %+v, %d", buf.Bytes(), buf.Len())
+	//log.Printf("Encoded reply, len: %+v, %d", buf.Bytes(), buf.Len())
 	log.Printf("Length before: %d", message.bodyBytes)
 
 	newBuf := buf.Bytes()[(int)(message.bodyBytes)+pad:]
-	log.Printf("Buffer to write into AllJoyn: %+v, %d", newBuf, len(newBuf))
+	//log.Printf("Buffer to write into AllJoyn: %+v, %d", newBuf, len(newBuf))
 	C.AJ_DeliverMsgPartial((*C.AJ_Message)(message), C.uint32_t(len(newBuf)))
 	//newBuf := append(bytes.Repeat([]byte{0}, 8-(int)(message.bodyBytes)%8), buf.Bytes()...)
 	//log.Printf("New buff reply, len: %+v, %d", newBuf, len(newBuf))
@@ -212,6 +218,7 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 }
 
 func (m *AllJoynMessenger) forwardAllJoynMessage(msgId uint32) (err error) {
+	log.Printf("****forwardAllJoynMessage****")
 	msg := C.Get_AJ_Message()
 	reply := C.Get_AJ_ReplyMessage()
 
@@ -246,14 +253,14 @@ func (m *AllJoynMessenger) forwardAllJoynMessage(msgId uint32) (err error) {
 		return err
 	}
 
-	log.Printf("Received application alljoyn message, signature: %s, bytes: %+v, decoded: %+v", signature, b, res)
+	//log.Printf("Received application alljoyn message, signature: %s, bytes: %+v, decoded: %+v", signature, b, res)
 
 	objPath := C.GoString(C.Get_AJ_Message_objPath())
 	member := C.GoString(C.Get_AJ_Message_member())
 	destination := C.GoString(C.Get_AJ_Message_destination())
 	iface := C.GoString(C.Get_AJ_Message_iface())
 
-	log.Printf("Message [objPath, member, iface, destination]: %s, %s, %s, %s", objPath, member, iface, destination)
+	log.Printf("****Message [objPath, member, iface, destination]: %s, %s, %s, %s", objPath, member, iface, destination)
 
 	for _, service := range m.binding {
 		if service.allJoynPath == objPath {
@@ -277,27 +284,32 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 
 	C.AJ_Initialize()
 	C.AJ_RegisterObjects((*C.AJ_Object)(objects), nil)
+	C.MyRegisterConfigObject_cgo()
 	C.AJ_AboutRegisterPropStoreGetter((C.AJ_AboutPropGetter)(unsafe.Pointer(C.MyAboutPropGetter_cgo)))
+	C.AJ_SetMinProtoVersion(10)
 
 	C.AJ_PrintXML((*C.AJ_Object)(objects))
 	connected := false
 	var status C.AJ_Status = C.AJ_OK
 	busAttachment := C.Get_AJ_BusAttachment()
 	msg := C.Get_AJ_Message()
+	C.AJ_ClearAuthContext()
 
 	log.Printf("CreateAJ_BusAttachment(): %+v", busAttachment)
+
+	var PORT = 42
 
 	go func() {
 		for {
 			if !connected {
 				status = C.AJ_StartService((*C.AJ_BusAttachment)(busAttachment),
-					nil,
+					C.CString("org.alljoyn.BusNode"),
 					60*1000, // TODO: Move connection timeout to config
 					C.FALSE,
-					25, // TODO: Move port to config
+					C.uint16_t(PORT), // TODO: Move port to config
 					C.CString(service[0].allJoynService),
 					C.AJ_NAME_REQ_DO_NOT_QUEUE,
-					nil)
+					(*C.AJ_SessionOpts)(C.Get_Session_Opts()))
 
 				if status != C.AJ_OK {
 					continue
@@ -319,18 +331,19 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 			if C.AJ_OK == status {
 
 				msgId := C.Get_AJ_Message_msgId()
-				log.Printf("Received message: %+v", msgId)
+				log.Printf("****Got a message, ID: 0x%X", msgId)
 
 				switch {
 				case msgId == C.AJ_METHOD_ACCEPT_SESSION:
 					{
-						// uint16_t port;
-						// char* joiner;
-						// uint32_t sessionId;
-
-						// AJ_UnmarshalArgs(&msg, "qus", &port, &sessionId, &joiner);
-						status = C.AJ_BusReplyAcceptSession((*C.AJ_Message)(msg), C.TRUE)
-						log.Printf("ACCEPT_SESSION: %+v", msgId)
+						port := int(C.UnmarshalPort())
+						if port == PORT {
+							status = C.AJ_BusReplyAcceptSession((*C.AJ_Message)(msg), C.TRUE)
+							log.Printf("ACCEPT_SESSION: %+v port %d", msgId, port)
+						} else {
+							status = C.AJ_BusReplyAcceptSession((*C.AJ_Message)(msg), C.FALSE)
+							log.Printf("REJECT_SESSION: %+v port", msgId, port)
+						}
 					}
 
 				case msgId == C.AJ_SIGNAL_SESSION_LOST_WITH_REASON:
@@ -344,6 +357,11 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 					{
 						myMessenger.forwardAllJoynMessage(uint32(msgId))
 					}
+					//				case msgId == 0x80010008: //AJ_METHOD_BIND_SESSION_PORT - it's in AJ_StartService
+					//					{
+					//						status = C.AJ_AboutInit((*C.AJ_BusAttachment)(busAttachment), 42)
+					//						log.Printf("AJ_AboutInit returned %d", status)
+					//					}
 				default:
 					if (uint32(msgId) & 0xFFFF0000) == 0x00050000 {
 						if uint32(msgId) == 0x00050102 {
@@ -355,6 +373,9 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 						} else if uint32(msgId) == 0x00050000 {
 							log.Printf("Passing Properties.Get %+v to AllJoyn", msgId)
 							status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
+						} else if (uint32(msgId) & 0xFFFF0000) == 0x3000000 {
+							// if we are here we have to implement config answer for CONFIG_GET_PROP to provide deviceID
+							log.Printf("CONFIG_GET_CONFIG_CONFIGURATIONS AAAAAAAAAAaaaaaaaaaaaAAAAAAAAAAAAAAAAaaaaaAAAAAAAAAAAA")
 						} else {
 							myMessenger.forwardAllJoynMessage(uint32(msgId))
 						}
@@ -362,12 +383,19 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 						/* Pass to the built-in handlers. */
 						log.Printf("Passing msgId %+v to AllJoyn", msgId)
 						status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
+						log.Printf("AllJoyn returned %d", status)
 					}
 				}
+				C.AJ_NotifyLinkActive()
 			}
 
 			/* Messages MUST be discarded to free resources. */
 			C.AJ_CloseMsg((*C.AJ_Message)(msg))
+
+			if status == C.AJ_OK {
+				log.Print("***C.AJ_AboutAnnounce***")
+				C.AJ_AboutAnnounce((*C.AJ_BusAttachment)(busAttachment))
+			}
 
 			if status == C.AJ_ERR_READ {
 				C.AJ_Disconnect((*C.AJ_BusAttachment)(busAttachment))

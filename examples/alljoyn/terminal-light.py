@@ -42,103 +42,97 @@ LAMP_STATE_IFACE = 'org.allseen.LSF.LampState'
 LAMPS = {}
 
 INTROSPECT = """
-<node name="/org/allseen/LSF/Lamp" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-xsi:noNamespaceSchemaLocation="https://allseenalliance.org/schemas/introspect.xsd">
-    <interface name="org.freedesktop.DBus.Introspectable">
-      <method name="Introspect">
-        <arg direction="out" type="s" />
-      </method>
-    </interface>
-    <interface name="org.freedesktop.DBus.Properties">
-     <method name="Get">
-     <arg type="s" direction="in"/>
-     <arg type="s" direction="in"/>
-     <arg type="v" direction="out"/>
-     </method>
-     <method name="Set">
-     <arg type="s" direction="in"/>
-     <arg type="s" direction="in"/>
-     <arg type="v" direction="in"/>
-     </method>
-     <method name="GetAll">
-     <arg type="s" direction="in"/>
-     <arg type="a{sv}" direction="out"/>
-     </method>
-    </interface>
-    <interface name="org.allseen.LSF.LampService">
-     <property name="Version" type="u" access="read"/>
-     <property name="LampServiceVersion" type="u" access="read"/>
-     <method name="ClearLampFault">
-     <arg name="LampFaultCode" type="u" direction="in"/>
-     <arg name="LampResponseCode" type="u" direction="out"/>
-     <arg name="LampFaultCode" type="u" direction="out"/>
-     </method>
-     <property name="LampFaults" type="au" access="read"/>
-    </interface>
-    <interface name="org.allseen.LSF.LampParameters">
-     <property name="Version" type="u" access="read"/>
-     <property name="Energy_Usage_Milliwatts" type="u" access="read"/>
-     <property name="Brightness_Lumens" type="u" access="read"/>
-    </interface>
-    <interface name="org.allseen.LSF.LampDetails">
-     <property name="Version" type="u" access="read"/>
-     <property name="Make" type="u" access="read"/>
-     <property name="Model" type="u" access="read"/>
-     <property name="Type" type="u" access="read"/>
-     <property name="LampType" type="u" access="read"/>
-     <property name="LampBaseType" type="u" access="read"/>
-     <property name="LampBeamAngle" type="u" access="read"/>
-     <property name="Dimmable" type="b" access="read"/>
-     <property name="Color" type="b" access="read"/>
-     <property name="VariableColorTemp" type="b" access="read"/>
-     <property name="HasEffects" type="b" access="read"/>
-     <property name="MinVoltage" type="u" access="read"/>
-     <property name="MaxVoltage" type="u" access="read"/>
-     <property name="Wattage" type="u" access="read"/>
-     <property name="IncandescentEquivalent" type="u" access="read"/>
-     <property name="MaxLumens" type="u" access="read"/>
-     <property name="MinTemperature" type="u" access="read"/>
-     <property name="MaxTemperature" type="u" access="read"/>
-     <property name="ColorRenderingIndex" type="u" access="read"/>
-     <property name="LampID" type="s" access="read"/>
-    </interface>
-    <interface name="org.allseen.LSF.LampState">
-     <property name="Version" type="u" access="read"/>
-     <method name="TransitionLampState">
-     <arg name="Timestamp" type="t" direction="in"/>
-     <arg name="NewState" type="a{sv}" direction="in"/>
-     <arg name="TransitionPeriod" type="u" direction="in"/>
-     <arg name="LampResponseCode" type="u" direction="out"/>
-     </method>
-     <method name="ApplyPulseEffect">
-     <arg name="FromState" type="a{sv}" direction="in"/>
-     <arg name="ToState" type="a{sv}" direction="in"/>
-     <arg name="period" type="u" direction="in"/>
-     <arg name="duration" type="u" direction="in"/>
-     <arg name="numPulses" type="u" direction="in"/>
-     <arg name="timestamp" type="t" direction="in"/>
-     <arg name="LampResponseCode" type="u" direction="out"/>
-     </method>
-     <signal name="LampStateChanged">
-     <arg name="LampID" type="s"/>
-     </signal>
-     <property name="OnOff" type="b" access="readwrite"/>
-     <property name="Hue" type="u" access="readwrite"/>
-     <property name="Saturation" type="u" access="readwrite"/>
-     <property name="ColorTemp" type="u" access="readwrite"/>
-     <property name="Brightness" type="u" access="readwrite"/>
-    </interface>
-</node> 
+<node name="/org/allseen/LSF/Lamp">
+<interface name="org.freedesktop.DBus.Properties">
+  <method name="Get">
+    <arg type="s" direction="in"/>
+    <arg type="s" direction="in"/>
+    <arg type="v" direction="out"/>
+  </method>
+  <method name="Set">
+    <arg type="s" direction="in"/>
+    <arg type="s" direction="in"/>
+    <arg type="v" direction="in"/>
+  </method>
+  <method name="GetAll">
+    <arg type="s" direction="in"/>
+    <arg type="a{sv}" direction="out"/>
+  </method>
+</interface>
+<interface name="org.allseen.LSF.LampService">
+  <property name="Version" type="u" access="read"/>
+  <property name="LampServiceVersion" type="u" access="read"/>
+  <method name="ClearLampFault">
+    <arg name="LampFaultCode" type="u" direction="in"/>
+    <arg name="LampResponseCode" type="u" direction="out"/>
+    <arg name="LampFaultCode" type="u" direction="out"/>
+  </method>
+  <property name="LampFaults" type="au" access="read"/>
+</interface>
+<interface name="org.allseen.LSF.LampParameters">
+  <property name="Version" type="u" access="read"/>
+  <property name="Energy_Usage_Milliwatts" type="u" access="read"/>
+  <property name="Brightness_Lumens" type="u" access="read"/>
+</interface>
+<interface name="org.allseen.LSF.LampDetails">
+  <property name="Version" type="u" access="read"/>
+  <property name="Make" type="u" access="read"/>
+  <property name="Model" type="u" access="read"/>
+  <property name="Type" type="u" access="read"/>
+  <property name="LampType" type="u" access="read"/>
+  <property name="LampBaseType" type="u" access="read"/>
+  <property name="LampBeamAngle" type="u" access="read"/>
+  <property name="Dimmable" type="b" access="read"/>
+  <property name="Color" type="b" access="read"/>
+  <property name="VariableColorTemp" type="b" access="read"/>
+  <property name="HasEffects" type="b" access="read"/>
+  <property name="MinVoltage" type="u" access="read"/>
+  <property name="MaxVoltage" type="u" access="read"/>
+  <property name="Wattage" type="u" access="read"/>
+  <property name="IncandescentEquivalent" type="u" access="read"/>
+  <property name="MaxLumens" type="u" access="read"/>
+  <property name="MinTemperature" type="u" access="read"/>
+  <property name="MaxTemperature" type="u" access="read"/>
+  <property name="ColorRenderingIndex" type="u" access="read"/>
+  <property name="LampID" type="s" access="read"/>
+</interface>
+<interface name="org.allseen.LSF.LampState">
+  <property name="Version" type="u" access="read"/>
+  <method name="TransitionLampState">
+    <arg name="Timestamp" type="t" direction="in"/>
+    <arg name="NewState" type="a{sv}" direction="in"/>
+    <arg name="TransitionPeriod" type="u" direction="in"/>
+    <arg name="LampResponseCode" type="u" direction="out"/>
+  </method>
+  <method name="ApplyPulseEffect">
+    <arg name="FromState" type="a{sv}" direction="in"/>
+    <arg name="ToState" type="a{sv}" direction="in"/>
+    <arg name="period" type="u" direction="in"/>
+    <arg name="duration" type="u" direction="in"/>
+    <arg name="numPulses" type="u" direction="in"/>
+    <arg name="timestamp" type="t" direction="in"/>
+    <arg name="LampResponseCode" type="u" direction="out"/>
+  </method>
+  <signal name="LampStateChanged">
+    <arg name="LampID" type="s"/>
+  </signal>
+  <property name="OnOff" type="b" access="readwrite"/>
+  <property name="Hue" type="u" access="readwrite"/>
+  <property name="Saturation" type="u" access="readwrite"/>
+  <property name="ColorTemp" type="u" access="readwrite"/>
+  <property name="Brightness" type="u" access="readwrite"/>
+</interface>
+</node>
         """
 
 class LampService(dbus.service.Object):
     def __init__(self, mac):
+        print('__init__')
         self.mac = mac        
         self.m_service_path = DBUS_BUS_PATH + '/' + mac
         self.m_service_name = DBUS_BUS_NAME
         bus_name = dbus.service.BusName(DBUS_BUS_NAME, bus)   
         dbus.service.Object.__init__(self, bus_name, self.m_service_path)
-        self.init()
         for l in self.locations:
             print(l)
         print('Registered lamp %s on %s' % (self.mac, self.m_service_path))
@@ -146,17 +140,27 @@ class LampService(dbus.service.Object):
 
     @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature='ss', out_signature='v')
     def Get(self, interface, prop):
-        print("Properties.Get is called for %s" % self.mac)
+        print('Get')
+        print("Properties.Get is called for %s interface %s prop %s" % (self.mac, interface, prop))
         if interface == ABOUT_IFACE:
             if prop == 'Version':
-                return '1.0.0'
+                return LAMPS[self.mac].Version
             else:
                 raise Exception('Unsupported property: %s.%s' % (interface, prop))
-        else:
-            return
+        elif interface == LAMP_SERVICE_IFACE:
+            pass
+        elif interface == LAMP_PARAMETERS_IFACE:
+            pass
+        elif interface == LAMP_DETAILS_IFACE:
+            pass
+        elif interface == LAMP_STATE_IFACE:
+            if prop == 'OnOff':
+              return LAMPS[self.mac].OnOff
+        return "NotSupported"
 
     @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature='ssv')
     def Set(self, interface, prop, value):
+        print('Set')
         print("Properties.Set is called for %s" % self.mac)
         if interface == ABOUT_IFACE:
             pass
@@ -168,21 +172,57 @@ class LampService(dbus.service.Object):
             pass
         elif interface == LAMP_STATE_IFACE:
             if prop == 'OnOff':
-                if value:
-                    print("%s is now ON" % self.mac)
-                else:
-                    print("%s is now OFF" % self.mac)
+                LAMPS[self.mac].turnOnOff(value)
         else:
             raise Exception('Unsupported property: %s.%s' % (interface, prop))
       
 
     @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature='s', out_signature='a{sv}')
     def GetAll(self, interface):
-        print("Properties.GetAll is called for %s" % self.mac)
+        print('GetAll')
+        print("Properties.GetAll is called for %s, interface %s" % (self.mac, interface))
         if interface == LAMP_SERVICE_IFACE:
-            return { 'Version': self.Version,
-                     'LampServiceVersion': self.LampServiceVersion,
-                     'LampFaults': self.LampFaults
+            return { 'Version': dbus.UInt32(LAMPS[self.mac].Version),
+                     'LampServiceVersion': dbus.UInt32(LAMPS[self.mac].LampServiceVersion),
+                     'LampFaults': dbus.UInt32(LAMPS[self.mac].LampFaults)
+                   }
+        elif interface == LAMP_PARAMETERS_IFACE:
+            return { 'Version': dbus.UInt32(LAMPS[self.mac].Version),
+                     'Energy_Usage_Milliwatts': dbus.UInt32(LAMPS[self.mac].energyUsage_mW),
+                     'Brightness_Lumens': dbus.UInt32(LAMPS[self.mac].brigthnessLumen)
+                   }
+
+        elif interface == LAMP_DETAILS_IFACE:
+            return { 'Version': LAMPS[self.mac].Version,
+                     'LampVersion' : dbus.UInt32(1),
+                     'Make': dbus.UInt32(1),
+                     'Model': dbus.UInt32(1),
+                     'Type': dbus.UInt32(1),
+                     'LampType': dbus.UInt32(30),
+                     'LampBaseType': dbus.UInt32(8),
+                     'LampBeamAngle': dbus.UInt32(100),
+                     'Dimmable': False,
+                     'Color': False, 
+                     'VariableColorTemp': False,
+                     'HasEffects': False,
+                     'MinVoltage': dbus.UInt32(90),
+                     'MaxVoltage': dbus.UInt32(240),
+                     'Wattage': dbus.UInt32(9),
+                     'IncandescentEquivalent': dbus.UInt32(75),
+                     'MaxLumens': dbus.UInt32(900),
+                     'MinTemperature': dbus.UInt32(2700),
+                     'MaxTemperature': dbus.UInt32(5400),
+                     'ColorRenderingIndex': dbus.UInt32(0),
+                     'LampID': LAMPS[self.mac].deviceId
+                   }
+        elif interface == LAMP_STATE_IFACE:
+            return { 'Version': LAMPS[self.mac].Version,
+## In percentage, 0 means 0. uint32_max-1 means 100. */
+                     'Hue': 99999, 
+                     'Saturation': 99999,
+                     'ColorTemp': 99999,
+                     'Brightness': 100,
+                     'OnOff': LAMPS[self.mac].OnOff
                    }
         else:
             raise dbus.exceptions.DBusException(
@@ -198,30 +238,30 @@ class LampService(dbus.service.Object):
         return {
             'AppId': dbus.ByteArray(bytes.fromhex("8e01a0b4233145c8b35921fdf41dd3bc")),
             'DefaultLanguage': 'en',
-            'DeviceName': socket.gethostname(),
-            'DeviceId': "8E01A0B4233145C8B35921FDF41DD3BC",
+            'DeviceName': "DeviceHiveVB",
+            'DeviceId': LAMPS[self.mac].deviceId,
             'AppName': 'SatchiLight',
             'Manufacturer': 'DeviceHive',
             'DateOfManufacture': '2015-06-17',
-            'ModelNumber': '001',
+            'ModelNumber': '0.0.1',
             'SupportedLanguages': ['en'],
             'Description': 'Simulated Lamp',
             'SoftwareVersion': '1.0',
             'HardwareVersion': '1.0',              
             'SupportUrl': 'http://devicehive.com',
             'AJSoftwareVersion': '14.06.00a Tag "v14.06.00a"',
-            'Maxlength': 254
-
-
+            'Maxlength': dbus.UInt16(254)
         }
 
     @dbus.service.method(ABOUT_IFACE, in_signature='', out_signature='a(oas)')
     def GetObjectDescription(self):
+        print('GetObjectDescription - empty')
         return {}
 
 
     @dbus.service.signal(ABOUT_IFACE, signature='qqa(oas)a{sv}')
     def Announce(self, version, port, objectDescription, metaData):
+        print('Announce - empty')
         pass
 
 
@@ -229,6 +269,7 @@ class LampService(dbus.service.Object):
 
     @dbus.service.method(LAMP_SERVICE_IFACE, in_signature='u', out_signature='uu')
     def ClearLampFault(self, LampFaultCode):
+        print('ClearLampFault - empty')
         pass
 
 
@@ -236,21 +277,26 @@ class LampService(dbus.service.Object):
 
     @dbus.service.signal(LAMP_STATE_IFACE, signature='s')
     def LampStateChanged(self, LampID):
+        print('LampStateChanged - empty')
         pass
 
 
     @dbus.service.method(LAMP_STATE_IFACE, in_signature='ta{sv}u', out_signature='u')
     def TransitionLampState(self, Timestamp, NewState, TransitionPeriod):
-        return 'LampResponseCode'
+        print('TransitionLampState  %s' % NewState['OnOff'])
+        LAMPS[self.mac].turnOnOff(NewState['OnOff'])
+        return 1
 
 
     @dbus.service.method(LAMP_STATE_IFACE, in_signature='a{sv}a{sv}uuut', out_signature='u')
     def ApplyPulseEffect(self, FromState, ToState, period, duration, numPulses, timestamp):
-        return 'LampResponseCode'
+        print('ApplyPulseEffect - empty')
+        return 0
 
 
     # @dbus.service.method(LAMP_STATE_IFACE, in_signature='', out_signature='s')
     def Introspect(self, object_path, connection):
+        print('Introspect - empty')
         print("Introspect is called for %s" % self.mac)
         return INTROSPECT
 
@@ -274,23 +320,24 @@ class LampService(dbus.service.Object):
 #     </interface>
 # """
 
-
-    # init
-    def init(self):        
-        self.Version = '1.0.0'
-        self.LampServiceVersion = '1.0.0'
-        self.LampFaults = []
-
     # free all resources
     def deinit(self):
+        print('deinit')
         self.remove_from_connection()
         # print('Destroyed %s' % self.mac)
 
 class Lamp:
     def __init__(self, mac, name):
+        self.Version = 1
         self.mac = mac
         self.name = name        
         self.status = 'DISCOVERED'
+        self.LampServiceVersion = 1
+        self.LampFaults = []
+        self.energyUsage_mW = 15
+        self.brigthnessLumen = 100
+        self.deviceId = "8e01a0b4233145c8e35921fdf41dd3bc";
+        self.OnOff = False
 
     def connect(self):
         self.status = 'CONNECTED'
@@ -308,6 +355,12 @@ class Lamp:
                 print(err)
                 traceback.print_exc()
         
+    def turnOnOff(self, state):
+        self.OnOff = state
+        if state:
+            print("***LAMP NOW IS ON***")
+        else:
+            print("***LAMP NOW IS OFF***")
 
     def destroy(self):
         if self.status == 'CONNECTED':
