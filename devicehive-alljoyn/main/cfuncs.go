@@ -86,19 +86,6 @@ AJ_Status MyAboutPropGetter_cgo(AJ_Message* reply, const char* language) {
 }
 
 AJ_Status MyRegisterConfigObject_cgo() {
-	// TODO just a test
-	AJ_GUID localGuid = {0xbc, 0xd3, 0x1d, 0xf4, 0xfd, 0x21, 0x59, 0xe3, 0xc8, 0x45, 0x31, 0x23, 0xb4, 0xa0, 0x01, 0x8e};
-	AJ_Status status = AJ_ERR_FAILURE;
-	AJ_NV_DATASET* handle = AJ_NVRAM_Open(AJ_LOCAL_GUID_NV_ID, "w", sizeof(AJ_GUID));
-    if (handle) {
-        if (sizeof(AJ_GUID) == AJ_NVRAM_Write(&localGuid, sizeof(AJ_GUID), handle)) {
-            status = AJ_OK;
-			printf("****AJ_GUID has written****\n");
-        }
-        status = AJ_NVRAM_Close(handle);
-    }
-
-
 	static const char* const AJSVC_ConfigInterface[] = {
     "$org.alljoyn.Config",
     "@Version>q",

@@ -373,9 +373,6 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 						} else if uint32(msgId) == 0x00050000 {
 							log.Printf("Passing Properties.Get %+v to AllJoyn", msgId)
 							status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
-						} else if (uint32(msgId) & 0xFFFF0000) == 0x3000000 {
-							// if we are here we have to implement config answer for CONFIG_GET_PROP to provide deviceID
-							log.Printf("CONFIG_GET_CONFIG_CONFIGURATIONS AAAAAAAAAAaaaaaaaaaaaAAAAAAAAAAAAAAAAaaaaaAAAAAAAAAAAA")
 						} else {
 							myMessenger.forwardAllJoynMessage(uint32(msgId))
 						}

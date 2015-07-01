@@ -39,6 +39,8 @@ LAMP_PARAMETERS_IFACE = 'org.allseen.LSF.LampParameters'
 LAMP_DETAILS_IFACE = 'org.allseen.LSF.LampDetails'
 LAMP_STATE_IFACE = 'org.allseen.LSF.LampState'
 
+CONFIG_IFACE = 'org.alljoyn.Config'
+
 LAMPS = {}
 
 INTROSPECT = """
@@ -236,7 +238,7 @@ class LampService(dbus.service.Object):
     def GetAboutData(self, languageTag):
         print("GetAboutData is called for %s" % self.mac)
         return {
-            'AppId': dbus.ByteArray(bytes.fromhex("8e01a0b4233145c8b35921fdf41dd3bc")),
+            'AppId': dbus.ByteArray(bytes.fromhex(LAMPS[self.mac].deviceId)),
             'DefaultLanguage': 'en',
             'DeviceName': "DeviceHiveVB",
             'DeviceId': LAMPS[self.mac].deviceId,
@@ -257,7 +259,6 @@ class LampService(dbus.service.Object):
     def GetObjectDescription(self):
         print('GetObjectDescription - empty')
         return {}
-
 
     @dbus.service.signal(ABOUT_IFACE, signature='qqa(oas)a{sv}')
     def Announce(self, version, port, objectDescription, metaData):
@@ -336,7 +337,7 @@ class Lamp:
         self.LampFaults = []
         self.energyUsage_mW = 15
         self.brigthnessLumen = 100
-        self.deviceId = "8e01a0b4233145c8e35921fdf41dd3bc";
+        self.deviceId = "d7d65f4fbf4ec4c4f1e44da8fe7ca0bc" #8e01a0b4233145c8e35921fdf41dd3bc";
         self.OnOff = False
 
     def connect(self):
