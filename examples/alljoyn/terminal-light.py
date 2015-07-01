@@ -33,15 +33,49 @@ DBUS_BUS_PATH = '/com/devicehive/alljoyn/allseen/LSF/Lamp'
 ALLJOYN_LIGHT_NAME = 'org.allseen.LSF.LampService'
 ALLJOYN_LIGHT_PATH = '/org/allseen/LSF/Lamp'
 
+ALLJOYN_CONFIG_NAME = 'org.alljoyn.Config'
+ALLJOYN_CONFIG_PATH = '/Config'
+
 ABOUT_IFACE = 'org.alljoyn.About'
 LAMP_SERVICE_IFACE = 'org.allseen.LSF.LampService'
 LAMP_PARAMETERS_IFACE = 'org.allseen.LSF.LampParameters'
 LAMP_DETAILS_IFACE = 'org.allseen.LSF.LampDetails'
 LAMP_STATE_IFACE = 'org.allseen.LSF.LampState'
-
-CONFIG_IFACE = 'org.alljoyn.Config'
+CONFIG_SERVICE_IFACE = 'org.alljoyn.Config'
 
 LAMPS = {}
+
+CONFIG_INTROSPECT = """
+<node name="/Config" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:noNamespaceSchemaLocation="http://www.allseenalliance.org/schemas/introspect.xsd">
+
+   <interface name="org.alljoyn.Config">
+      <property name="Version" type="q" access="read"/>
+      <method name="FactoryReset">
+         <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
+      </method>
+      <method name="Restart">
+         <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
+      </method>
+      <method name="SetPasscode">
+         <arg name="daemonRealm" type="s" direction="in"/>
+         <arg name="newPasscode" type="ay" direction="in"/>
+      </method>
+      <method name="GetConfigurations">
+         <arg name="languageTag" type="s" direction="in"/>
+         <arg name="configData" type="a{sv}" direction="out"/>
+      </method>
+      <method name="UpdateConfigurations">
+         <arg name="languageTag" type="s" direction="in"/>
+         <arg name="configMap" type="a{sv}" direction="in"/>
+      </method>
+      <method name="ResetConfigurations">
+         <arg name="languageTag" type="s" direction="in"/>
+         <arg name="fieldList" type="as" direction="in"/>
+      </method>
+   </interface>
+</node>
+"""
 
 INTROSPECT = """
 <node name="/org/allseen/LSF/Lamp">
@@ -126,6 +160,34 @@ INTROSPECT = """
 </interface>
 </node>
         """
+
+class ConfigService(dbus.service.Object):
+    def __init__(self, mac, name):
+        print('__init__')
+        self.mac = mac
+        self.name = name        
+        self.m_service_path = DBUS_BUS_PATH + '/' + mac + '/Config'
+        self.m_service_name = DBUS_BUS_NAME
+        bus_name = dbus.service.BusName(DBUS_BUS_NAME, bus)
+        dbus.service.Object.__init__(self, bus_name, self.m_service_path)        
+        print('Registered config %s on %s' % (self.mac, self.m_service_path))
+
+    ## org.alljoyn.Config Interface
+
+    @dbus.service.method(CONFIG_SERVICE_IFACE, in_signature='s', out_signature='a{sv}')
+    def GetConfigurations(self, languageTag):
+        print('GetConfigurations')
+        
+        return {            
+            'DefaultLanguage': 'en',
+            'DeviceName': "DeviceHiveVB"            
+        }
+
+    # @dbus.service.method(LAMP_STATE_IFACE, in_signature='', out_signature='s')
+    def Introspect(self, object_path, connection):
+        print("Introspect is called for config %s" % self.name)
+        return CONFIG_INTROSPECT
+
 
 class LampService(dbus.service.Object):
     def __init__(self, mac):
@@ -265,7 +327,6 @@ class LampService(dbus.service.Object):
         print('Announce - empty')
         pass
 
-
     ## org.allseen.LSF.LampService Interface
 
     @dbus.service.method(LAMP_SERVICE_IFACE, in_signature='u', out_signature='uu')
@@ -297,7 +358,6 @@ class LampService(dbus.service.Object):
 
     # @dbus.service.method(LAMP_STATE_IFACE, in_signature='', out_signature='s')
     def Introspect(self, object_path, connection):
-        print('Introspect - empty')
         print("Introspect is called for %s" % self.mac)
         return INTROSPECT
 
@@ -343,6 +403,7 @@ class Lamp:
     def connect(self):
         self.status = 'CONNECTED'
         self._dbus = LampService(self.mac)
+        self._config = ConfigService(self.mac, "DeviceHiveVB")
 
         print("Calling alljoyn bridge")
 
@@ -350,6 +411,7 @@ class Lamp:
         # expose to alljoyn             
             bridge = dbus.Interface(bus.get_object(DBUS_BRIDGE_NAME, DBUS_BRIDGE_PATH), dbus_interface='com.devicehive.alljoyn.bridge')
             bridge.AddService(self._dbus.m_service_path, self._dbus.m_service_name, ALLJOYN_LIGHT_PATH, ALLJOYN_LIGHT_NAME, INTROSPECT)
+            bridge.AddService(self._config.m_service_path, self._config.m_service_name, ALLJOYN_CONFIG_PATH, ALLJOYN_CONFIG_NAME, CONFIG_INTROSPECT)
             bridge.StartAllJoyn(self._dbus.m_service_name)
             print("%s exposed to Alljoyn" % self.mac)
         except Exception as err:
