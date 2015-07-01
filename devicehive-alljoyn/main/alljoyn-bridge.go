@@ -177,7 +177,7 @@ func (m *AllJoynMessenger) MyAboutPropGetter_member(reply *C.AJ_Message, languag
 
 func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member string, arguments []interface{}) (err error) {
 	remote := m.bus.Object(m.dbusService, dbus.ObjectPath(path))
-	log.Printf("Argument[0] %+v", reflect.ValueOf(arguments[0]).Type())
+	log.Printf("%s Argument[0] %+v", member, reflect.ValueOf(arguments[0]).Type())
 	res := remote.Call(member, 0, arguments...)
 
 	if res.Err != nil {
@@ -284,7 +284,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 
 	C.AJ_Initialize()
 	C.AJ_RegisterObjects((*C.AJ_Object)(objects), nil)
-	C.MyRegisterConfigObject_cgo()
+	//C.MyRegisterConfigObject_cgo()
 	C.AJ_AboutRegisterPropStoreGetter((C.AJ_AboutPropGetter)(unsafe.Pointer(C.MyAboutPropGetter_cgo)))
 	C.AJ_SetMinProtoVersion(10)
 
