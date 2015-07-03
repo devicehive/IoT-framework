@@ -36,14 +36,27 @@ ALLJOYN_LIGHT_PATH = '/org/allseen/LSF/Lamp'
 ALLJOYN_CONFIG_NAME = 'org.alljoyn.Config'
 ALLJOYN_CONFIG_PATH = '/Config'
 
+ALLJOYN_CONTROLPANEL_NAME = 'org.alljoyn.ControlPanel.ControlPanel'
+ALLJOYN_CONTROLPANEL_PATH = '/ControlPanel/DHBulb/rootContainer'
+
 ABOUT_IFACE = 'org.alljoyn.About'
 LAMP_SERVICE_IFACE = 'org.allseen.LSF.LampService'
 LAMP_PARAMETERS_IFACE = 'org.allseen.LSF.LampParameters'
 LAMP_DETAILS_IFACE = 'org.allseen.LSF.LampDetails'
 LAMP_STATE_IFACE = 'org.allseen.LSF.LampState'
 CONFIG_SERVICE_IFACE = 'org.alljoyn.Config'
+CONTROLPANEL_SERVICE_IFACE = 'org.alljoyn.ControlPanel.ControlPanel'
 
 LAMPS = {}
+
+CONTROLPANEL_INTROSPECT = """
+<node name="/ControlPanel/DHBulb/rootContainer" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="https://www.allseenalliance.org/schemas/introspect.xsd">
+   <interface name="org.alljoyn.ControlPanel.ControlPanel">
+      <property name="Version" type="q" access="read"/>
+   </interface>
+</node>
+"""
 
 CONFIG_INTROSPECT = """
 <node name="/Config" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
@@ -183,11 +196,27 @@ class ConfigService(dbus.service.Object):
             'DeviceName': "DeviceHiveVB"            
         }
 
-    # @dbus.service.method(LAMP_STATE_IFACE, in_signature='', out_signature='s')
+    # @dbus.service.method(CONFIG_SERVICE_IFACE, in_signature='', out_signature='s')
     def Introspect(self, object_path, connection):
         print("Introspect is called for config %s" % self.name)
         return CONFIG_INTROSPECT
 
+class ControlPanelService(dbus.service.Object):
+    def __init__(self, mac):
+        print('__init__')
+        self.mac = mac       
+        self.m_service_path = DBUS_BUS_PATH + '/' + mac + '/ControlPanel/DHBulb/rootContainer'
+        self.m_service_name = DBUS_BUS_NAME
+        bus_name = dbus.service.BusName(DBUS_BUS_NAME, bus)
+        dbus.service.Object.__init__(self, bus_name, self.m_service_path)        
+        print('Registered control panel %s on %s' % (self.mac, self.m_service_path))
+
+    ## org.alljoyn.ControlPanel Interface
+
+    # @dbus.service.method(CONTROLPANEL_SERVICE_IFACE, in_signature='', out_signature='s')
+    def Introspect(self, object_path, connection):
+        print("Introspect is called for config %s" % self.name)
+        return CONTROLPANEL_INTROSPECT
 
 class LampService(dbus.service.Object):
     def __init__(self, mac):
@@ -404,6 +433,7 @@ class Lamp:
         self.status = 'CONNECTED'
         self._dbus = LampService(self.mac)
         self._config = ConfigService(self.mac, "DeviceHiveVB")
+        self._controlpanel = ControlPanelService(self.mac)
 
         print("Calling alljoyn bridge")
 
@@ -412,6 +442,7 @@ class Lamp:
             bridge = dbus.Interface(bus.get_object(DBUS_BRIDGE_NAME, DBUS_BRIDGE_PATH), dbus_interface='com.devicehive.alljoyn.bridge')
             bridge.AddService(self._dbus.m_service_path, self._dbus.m_service_name, ALLJOYN_LIGHT_PATH, ALLJOYN_LIGHT_NAME, INTROSPECT)
             bridge.AddService(self._config.m_service_path, self._config.m_service_name, ALLJOYN_CONFIG_PATH, ALLJOYN_CONFIG_NAME, CONFIG_INTROSPECT)
+            bridge.AddService(self._controlpanel.m_service_path, self._controlpanel.m_service_name, ALLJOYN_CONTROLPANEL_PATH, ALLJOYN_CONTROLPANEL_NAME, CONTROLPANEL_INTROSPECT)
             bridge.StartAllJoyn(self._dbus.m_service_name)
             print("%s exposed to Alljoyn" % self.mac)
         except Exception as err:
