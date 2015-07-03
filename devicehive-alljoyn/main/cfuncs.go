@@ -130,44 +130,6 @@ int UnmarshalPort() {
 
 	AJ_UnmarshalArgs(&c_message, "qus", &port, &sessionId, &joiner);
 	return port;
-
-}
-#define MAC_LENGTH 8
-AJ_Status EncryptMessage(AJ_Message* msg)
-{
-    AJ_IOBuffer* ioBuf = &msg->bus->sock.tx;
-    AJ_Status status;
-    uint8_t key[16];
-    uint8_t nonce[5];
-    uint8_t role = AJ_ROLE_KEY_UNDEFINED;
-    uint32_t mlen = sizeof(AJ_MsgHeader) + ((msg->hdr->headerLen + 7) & 0xFFFFFFF8) + msg->hdr->bodyLen;
-    uint32_t hlen = mlen - msg->hdr->bodyLen;
-
-    if (AJ_IO_BUF_SPACE(ioBuf) < MAC_LENGTH) {
-        return AJ_ERR_RESOURCES;
-    }
-    msg->hdr->bodyLen += MAC_LENGTH;
-    ioBuf->writePtr += MAC_LENGTH;
-
-    if ((msg->hdr->msgType == AJ_MSG_SIGNAL) && !msg->destination) {
-        status = AJ_GetGroupKey(NULL, key);
-    } else {
-        status = AJ_GetSessionKey(msg->destination, key, &role);
-    }
-    if (status != AJ_OK) {
-        AJ_ErrPrintf(("EncryptMesssage(): peer %s not authenticated", msg->destination));
-        AJ_ErrPrintf(("EncryptMessage(): AJ_ERR_SECURITY\n"));
-        status = AJ_ERR_SECURITY;
-    } else {
-        uint32_t serial = msg->hdr->serialNum;
-	    nonce[0] = role;
-	    nonce[1] = (uint8_t)(serial >> 24);
-	    nonce[2] = (uint8_t)(serial >> 16);
-	    nonce[3] = (uint8_t)(serial >> 8);
-	    nonce[4] = (uint8_t)(serial);
-        status = AJ_Encrypt_CCM(key, ioBuf->bufStart, mlen, hlen, MAC_LENGTH, nonce, sizeof(nonce));
-    }
-    return status;
 }
 
 */
