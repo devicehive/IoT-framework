@@ -27,8 +27,6 @@ AJ_Status MyAboutPropGetter_cgo(AJ_Message* reply, const char* language);
 void * Get_Session_Opts();
 void * Get_Arg();
 AJ_Status AJ_MarshalArgs_cgo(AJ_Message* msg, char * a, char * b, char * c, char * d);
-AJ_Status MyRegisterConfigObject_cgo();
-void AJ_BusSetPasswordCallback_cgo();
 int UnmarshalPort();
 */
 import "C"
@@ -145,7 +143,6 @@ func ParseAllJoynInterfaces(interfaces []introspect.Interface) []C.AJ_InterfaceD
 
 func GetAllJoynObjects(services []*AllJoynBindingInfo) unsafe.Pointer {
 	array := C.Allocate_AJ_Object_Array(C.uint32_t(len(services) + 1))
-
 	for i, service := range services {
 		interfaces = ParseAllJoynInterfaces(service.introspectData.Interfaces)
 		C.Create_AJ_Object(C.uint32_t(i), array, C.CString(service.introspectData.Name), &interfaces[0], C.AJ_OBJ_FLAG_ANNOUNCED, unsafe.Pointer(nil))
@@ -210,10 +207,19 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 
 	newBuf := buf.Bytes()[(int)(message.bodyBytes)+pad:]
 	//log.Printf("Buffer to write into AllJoyn: %+v, %d", newBuf, len(newBuf))
+	//	hdr := message.hdr
+	//	if hdr.flags&C.uint8_t(C.AJ_FLAG_ENCRYPTED) == 0 {
+	//		hdr = nil
+	//	} else {
+	//		message.hdr.flags &= ^C.uint8_t(C.AJ_FLAG_ENCRYPTED)
+	//	}
 	C.AJ_DeliverMsgPartial((*C.AJ_Message)(message), C.uint32_t(len(newBuf)))
-	//newBuf := append(bytes.Repeat([]byte{0}, 8-(int)(message.bodyBytes)%8), buf.Bytes()...)
-	//log.Printf("New buff reply, len: %+v, %d", newBuf, len(newBuf))
 	C.AJ_MarshalRaw((*C.AJ_Message)(message), unsafe.Pointer(&newBuf[0]), C.size_t(len(newBuf)))
+	//log.Printf("New buff reply, len: %+v, %d", newBuf, len(newBuf))
+	//	if hdr != nil {
+	//		message.hdr = hdr
+	//		message.hdr.flags &= ^C.uint8_t(C.AJ_FLAG_ENCRYPTED)
+	//	}
 	return nil
 }
 
@@ -284,7 +290,6 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 
 	C.AJ_Initialize()
 	C.AJ_RegisterObjects((*C.AJ_Object)(objects), nil)
-	//C.MyRegisterConfigObject_cgo()
 	C.AJ_AboutRegisterPropStoreGetter((C.AJ_AboutPropGetter)(unsafe.Pointer(C.MyAboutPropGetter_cgo)))
 	C.AJ_SetMinProtoVersion(10)
 
@@ -353,15 +358,23 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 						// AJ_AlwaysPrintf(("Session lost. ID = %u, reason = %u", id, reason));
 						log.Printf("Session lost: %+v", msgId)
 					}
+				case uint32(msgId) == 0x1010003: // Config.GetConfigurations
+					// our forwardAllJoyn doesn't support encrypted messages which config service is,
+					// so we handle it here manually
+					{
+						//C.AJ_UnmarshalArgs(msg, "s", &language);
+						reply := C.Get_AJ_ReplyMessage()
+						C.AJ_MarshalReplyMsg((*C.AJ_Message)(msg), (*C.AJ_Message)(reply))
+						C.AJ_MarshalContainer((*C.AJ_Message)(reply), (*C.AJ_Arg)(C.Get_Arg()), C.AJ_ARG_ARRAY)
+						C.AJ_MarshalArgs_cgo((*C.AJ_Message)(reply), C.CString("{sv}"), C.CString("DeviceName"), C.CString("s"), C.CString("DeviceHiveVB"))
+						C.AJ_MarshalArgs_cgo((*C.AJ_Message)(reply), C.CString("{sv}"), C.CString("DefaultLanguage"), C.CString("s"), C.CString("en"))
+						C.AJ_MarshalCloseContainer((*C.AJ_Message)(reply), (*C.AJ_Arg)(C.Get_Arg()))
+						C.AJ_DeliverMsg((*C.AJ_Message)(reply))
+					}
 				case (uint32(msgId) & 0x01000000) != 0:
 					{
 						myMessenger.forwardAllJoynMessage(uint32(msgId))
 					}
-					//				case msgId == 0x80010008: //AJ_METHOD_BIND_SESSION_PORT - it's in AJ_StartService
-					//					{
-					//						status = C.AJ_AboutInit((*C.AJ_BusAttachment)(busAttachment), 42)
-					//						log.Printf("AJ_AboutInit returned %d", status)
-					//					}
 				default:
 					if (uint32(msgId) & 0xFFFF0000) == 0x00050000 {
 						if uint32(msgId) == 0x00050102 {
