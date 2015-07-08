@@ -9,6 +9,7 @@ _test
 build/**/bin/armhf
 build/**/bin/x86_64
 *.snap
+!build/debian/devicehive-cloud.template/usr/bin
 
 # Architecture specific extensions/prefixes
 *.[568vq]
