@@ -551,7 +551,7 @@ func main() {
 		// f000aa11 for old sensortag, f000aa81 for new sensortag
 		if uuid == "f000aa1104514000b000000000000000" || uuid == "f000aa8104514000b000000000000000" {
 			if len(*ble.readingsBuffer[mac]) > 9 {
-				vS := stats.VarS(*ble.readingsBuffer[mac])
+				vS, _ := stats.VarS(*ble.readingsBuffer[mac])
 				cloud.SendNotification("NotificationReceived", map[string]interface{}{
 					"mac":   mac,
 					"uuid":  uuid,
