@@ -202,4 +202,7 @@
   /dev/ttyUSB* rw,
   /var/lock/** rw,
   /run/lock/** rw,
+
+  capability dac_override,
+  capability dac_read_search,
 }
