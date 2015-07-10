@@ -36,24 +36,35 @@ class EventHook(object):
 
 class GPIOPin(dbus.service.Object):
     def __init__(self, bus_name, pin, port):
+        self.m_is_analog = str(port).startswith("AIN")
         self.m_service_path = "{}/{}".format(DBUS_PATH, pin)
         self.m_port = port
         self.m_poll_thread = None
         self.m_poll_flag = False
         self.m_pin = pin
-        self.m_gpio_port_path = "/sys/class/gpio/gpio{}".format(self.m_port)
-        self.m_gpio_port_path_value = os.path.join(self.m_gpio_port_path, "value")
+        if self.m_is_analog:
+            self.m_gpio_port_path = "/sys/bus/iio/devices/iio:device0/in_voltage{}_raw".format(str(port)[3:])
+            self.m_gpio_port_path_value = self.m_gpio_port_path
+        else:
+            self.m_gpio_port_path = "/sys/class/gpio/gpio{}".format(self.m_port)
+            self.m_gpio_port_path_value = os.path.join(self.m_gpio_port_path, "value")
         self.onPinChange = EventHook()
         dbus.service.Object.__init__(self, bus_name, self.m_service_path)
 
     # send when pin state changed
     @dbus.service.signal(DBUS_PIN_INTERFACE, signature="sv")
     def pin_value_changed(self, pin, value):
-        self.onPinChange(port, value)
+        self.onPinChange.fire(pin, value)
         pass
 
     # pin state poller
-    def poller(self):
+    def analogPoller(self):
+        while self.m_poll_flag:
+           self.pin_value_changed(self.m_pin, self.get())
+           time.sleep(self.m_adc_period / 1000.0)
+
+    # pin state poller
+    def digitalPoller(self):
         watcher = open(self.m_gpio_port_path_value, "r")
         poller = select.poll()
         poller.register(watcher, select.POLLPRI or select.POLLERR or select.POLLIN)
@@ -82,26 +93,38 @@ class GPIOPin(dbus.service.Object):
     # init pin
     @dbus.service.method(DBUS_PIN_INTERFACE, in_signature="s")
     def init(self, mode):
-        # mode can be out, in, rising, falling or both
-        if os.path.isdir(self.m_gpio_port_path):
-            self.deinit()
-        with open("/sys/class/gpio/export", 'w') as fi:
-            fi.write(self.m_port)
-        if mode == "out":
-            with open(os.path.join(self.m_gpio_port_path, "direction"), "w") as fi:
-                fi.write("out")
-        else:
-            with open(os.path.join(self.m_gpio_port_path, "direction"), "w") as fi:
-                fi.write("in")
-            if mode != "in":
-                with open(os.path.join(self.m_gpio_port_path, "edge"), "w") as fi:
-                    fi.write(mode)
+        # mode can be out, in, rising, falling or both for digital pins
+        # and notification period for analog pin in ms 
+        if self.m_is_analog:
+            self.m_adc_period = int(mode)
+            if self.m_adc_period > 0:
                 self.m_poll_flag = True
-                self.m_poll_thread = threading.Thread(target=self.poller)
+                self.m_poll_thread = threading.Thread(target=self.analogPoller)
                 self.m_poll_thread.start()
+        else:
+            if os.path.isdir(self.m_gpio_port_path):
+                self.deinit()
+            with open("/sys/class/gpio/export", 'w') as fi:
+                fi.write(self.m_port)
+            if mode == "out":
+                with open(os.path.join(self.m_gpio_port_path, "direction"), "w") as fi:
+                    fi.write("out")
             else:
-                with open(os.path.join(self.m_gpio_port_path, "edge"), "w") as fi:
-                    fi.write("none")
+                with open(os.path.join(self.m_gpio_port_path, "direction"), "w") as fi:
+                    fi.write("in")
+                if mode != "in":
+                    with open(os.path.join(self.m_gpio_port_path, "edge"), "w") as fi:
+                        fi.write(mode)
+                    self.m_poll_flag = True
+                    self.m_poll_thread = threading.Thread(target=self.digitalPoller)
+                    self.m_poll_thread.start()
+                else:
+                    with open(os.path.join(self.m_gpio_port_path, "edge"), "w") as fi:
+                        fi.write("none")
+
+    def check_analog(self):
+        if self.m_is_analog:
+            raise Exception("This pin is input and cannot be set")
 
     # deinit pin and free all resource
     @dbus.service.method(DBUS_PIN_INTERFACE)
@@ -115,6 +138,7 @@ class GPIOPin(dbus.service.Object):
     # set pin state
     @dbus.service.method(DBUS_PIN_INTERFACE, in_signature="s")
     def set_value(self, value):
+        check_analog()
         if value == "1":
             with open(self.m_gpio_port_path_value, "w") as fi:
                 fi.write("1")
@@ -125,12 +149,14 @@ class GPIOPin(dbus.service.Object):
     # set pin state to high
     @dbus.service.method(DBUS_PIN_INTERFACE)
     def set(self):
+        check_analog()
         with open(self.m_gpio_port_path_value, "w") as fi:
             fi.write("1")
 
     # set pin state to low
     @dbus.service.method(DBUS_PIN_INTERFACE)
     def clear(self):
+        check_analog()
         with open(self.m_gpio_port_path_value, "w") as fi:
             fi.write("0")
 
@@ -138,11 +164,12 @@ class GPIOPin(dbus.service.Object):
     @dbus.service.method(DBUS_PIN_INTERFACE, out_signature="s")
     def get(self):
         with open(self.m_gpio_port_path_value, "r") as fi:
-            return fi.read(1)
+            return fi.read().strip(' \t\n\r')
 
     # toggle pin state
     @dbus.service.method(DBUS_PIN_INTERFACE)
     def toggle(self):
+        check_analog()
         if self.get() == "0":
             self.set()
         else:
