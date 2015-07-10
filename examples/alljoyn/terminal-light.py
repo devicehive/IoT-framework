@@ -193,7 +193,7 @@ class ConfigService(dbus.service.Object):
         
         return {            
             'DefaultLanguage': 'en',
-            'DeviceName': "DeviceHiveVB"            
+            'DeviceName': self.name            
         }
 
     # @dbus.service.method(CONFIG_SERVICE_IFACE, in_signature='', out_signature='s')
@@ -442,7 +442,7 @@ class Lamp:
             bridge = dbus.Interface(bus.get_object(DBUS_BRIDGE_NAME, DBUS_BRIDGE_PATH), dbus_interface='com.devicehive.alljoyn.bridge')
             bridge.AddService(self._dbus.m_service_path, self._dbus.m_service_name, ALLJOYN_LIGHT_PATH, ALLJOYN_LIGHT_NAME, INTROSPECT)
             bridge.AddService(self._config.m_service_path, self._config.m_service_name, ALLJOYN_CONFIG_PATH, ALLJOYN_CONFIG_NAME, CONFIG_INTROSPECT)
-            bridge.AddService(self._controlpanel.m_service_path, self._controlpanel.m_service_name, ALLJOYN_CONTROLPANEL_PATH, ALLJOYN_CONTROLPANEL_NAME, CONTROLPANEL_INTROSPECT)
+            # bridge.AddService(self._controlpanel.m_service_path, self._controlpanel.m_service_name, ALLJOYN_CONTROLPANEL_PATH, ALLJOYN_CONTROLPANEL_NAME, CONTROLPANEL_INTROSPECT)
             bridge.StartAllJoyn(self._dbus.m_service_name)
             print("%s exposed to Alljoyn" % self.mac)
         except Exception as err:
