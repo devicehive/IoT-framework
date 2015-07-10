@@ -1,8 +1,4 @@
 #!/bin/bash
 
-devicehive-ble/build.sh
-snappy build devicehive-ble
-
-devicehive-cloud/build.sh
-snappy build devicehive-cloud
-
+devicehive-framework/build.sh
+snappy build devicehive-framework

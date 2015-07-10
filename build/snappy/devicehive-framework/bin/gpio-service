@@ -1,0 +1,4 @@
+#!/bin/bash
+
+BASE=$(realpath $(dirname $0)/../); 
+PYTHONUSERBASE=$BASE $BASE/bin/devicehive-gpio

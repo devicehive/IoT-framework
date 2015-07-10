@@ -1,0 +1,31 @@
+name: devicehive-iot-toolkit
+version: 1.0.0
+type: framework
+vendor: DataArt <info@devicehive.com>
+icon: meta/dh.png
+architecture: [amd64, armhf]
+services:
+  - name: enocean-service
+    description: "DeviceHive Enocean Service"
+    start: bin/enocean-service
+    bus-name: "com.devicehive.enocean"
+    security-policy:
+      apparmor: meta/enocean.apparmor
+  - name: gpio-service
+    description: "DeviceHive GPIO Service"
+    start: bin/gpio-service
+    bus-name: "com.devicehive.gpio"
+    security-policy:
+      apparmor: meta/gpio.apparmor
+  - name: ble-service
+    description: "DeviceHive BLE Service"
+    bus-name: "com.devicehive.bluetooth"
+    start: bin/ble-service
+    security-policy:
+      apparmor: meta/ble.apparmor
+  - name: cloud-service
+    description: "DeviceHive Cloud Gateway"
+    bus-name: "com.devicehive.cloud"
+    start: bin/cloud-service
+    security-policy:
+      apparmor: meta/cloud.apparmor

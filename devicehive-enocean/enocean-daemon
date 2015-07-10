@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-
+import sys, os, time
 from enocean.consolelogger import init_logging
 from enocean.communicators.serialcommunicator import SerialCommunicator
 from enocean.protocol.packet import Packet
@@ -10,7 +10,6 @@ from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GObject
 import threading
 import traceback
-import sys
 import json
 
 try:
@@ -38,62 +37,81 @@ class EnoceanService(dbus.service.Object):
 
     # pin state poller
     def poller(self):
-        p = Packet(PACKET.COMMON_COMMAND, [0x08])
-
-        self.m_communicator.start()
-        self.m_communicator.send(p)
-
-        while self.m_communicator.is_alive():
+    
+        while self.m_loop:                
             try:
-                # Loop to empty the queue...
-                p = self.m_communicator.receive.get(block=True, timeout=1)
-                res = None
+                self.m_communicator = SerialCommunicator(self.m_port)
+                p = Packet(PACKET.COMMON_COMMAND, [0x08])
 
-                if p.type == PACKET.RADIO:
-                    res = {"sender": p.sender_hex}
+                self.m_communicator.start()
+                self.m_communicator.send(p)
+                print("Connected to device on %s" & self.m_port)                
+                while self.m_communicator.is_alive():
+                    try:
+                        # Loop to empty the queue...
+                        p = self.m_communicator.receive.get(block=True, timeout=1)
+                        res = None
 
-                if p.type == PACKET.RADIO and p.rorg == RORG.BS4:
-                    for k in p.parse_eep(0x02, 0x05):
-                        res[k] = p.parsed[k]
-                if p.type == PACKET.RADIO and p.rorg == RORG.BS1:
-                    for k in p.parse_eep(0x00, 0x01):
-                        res[k] = p.parsed[k]
-                if p.type == PACKET.RADIO and p.rorg == RORG.RPS:
-                    for k in p.parse_eep(0x02, 0x04):
-                        res[k] = p.parsed[k]
+                        if p.type == PACKET.RADIO:
+                            res = {"sender": p.sender_hex}
 
-                if (res):
-                    s = json.dumps(res)
-                    print(s)
-                    self.message_received(json.dumps(res))
+                        if p.type == PACKET.RADIO and p.rorg == RORG.BS4:
+                            for k in p.parse_eep(0x02, 0x05):
+                                res[k] = p.parsed[k]
+                        if p.type == PACKET.RADIO and p.rorg == RORG.BS1:
+                            for k in p.parse_eep(0x00, 0x01):
+                                res[k] = p.parsed[k]
+                        if p.type == PACKET.RADIO and p.rorg == RORG.RPS:
+                            for k in p.parse_eep(0x02, 0x04):
+                                res[k] = p.parsed[k]
 
-            except queue.Empty:
-                continue
+                        if (res):
+                            s = json.dumps(res)
+                            print(s)
+                            self.message_received(json.dumps(res))
+
+                    except queue.Empty:
+                        time.sleep(0.1)
+                        continue
+            except  (OSError, IOError):
+                # this error means the usb dongle is not present. 
+                # for now we just ignore and wait. Better solution is requested in issue #9 
+                # (https://github.com/devicehive/IoT-framework/issues/9)
+                time.sleep(5)
+                continue                
             except (KeyboardInterrupt, SystemExit):
+                print('Exiting..')
                 sys.exit()
             except Exception:
                 traceback.print_exc(file=sys.stdout)
                 break
 
+
     # init
     # @dbus.service.method(DBUS_BUS_NAME)
     def init(self):
         init_logging()
-        self.m_communicator = SerialCommunicator(self.m_port)
-        self.m_poll_flag = True
+        self.m_loop = True
+        self.m_communicator = None
         self.m_poll_thread = threading.Thread(target=self.poller)
         self.m_poll_thread.start()
 
     # free all resources
     # @dbus.service.method(DBUS_BUS_NAME)
     def deinit(self):
-        if self.m_communicator.is_alive():
+        self.m_loop = False
+        if self.m_communicator  is not None and self.m_communicator.is_alive():
             self.m_communicator.stop()
         self.m_poll_thread.join()
 
 def main():
     # init d-bus
     DBusGMainLoop(set_as_default=True)
+
+    # init d-bus
+    GObject.threads_init()    
+    dbus.mainloop.glib.threads_init()
+
     # create root element
     enocean_root_service = EnoceanService()
     # start mainloop
