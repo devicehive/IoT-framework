@@ -16,6 +16,8 @@ except ImportError:
 
 DBusGMainLoop(set_as_default=True)
 
+bus = dbus.SystemBus()
+
 # import json
 
 SATECHI_NAMES = ['DELIGHT', 'SATECHI-1']
@@ -138,7 +140,7 @@ class LampService(dbus.service.Object):
         self.ble = ble
         self.m_service_path = DBUS_BUS_PATH + '/' + mac
         self.m_service_name = DBUS_BUS_NAME
-        bus_name = dbus.service.BusName(DBUS_BUS_NAME, dbus.SystemBus())   
+        bus_name = dbus.service.BusName(DBUS_BUS_NAME, bus)
         dbus.service.Object.__init__(self, bus_name, self.m_service_path)
         self.init()
         for l in self.locations:
@@ -196,14 +198,19 @@ class LampService(dbus.service.Object):
         return {
             'AppId': dbus.ByteArray(bytes.fromhex("8e01a0b4233145c8b35921fdf41dd3bc")),
             'DefaultLanguage': 'en',
-            'DeviceId': socket.gethostname(),
+            'DeviceName': socket.gethostname(),
+            'DeviceId': "8E01A0B4233145C8B35921FDF41DD3BC",
             'AppName': 'SatchiLight',
             'Manufacturer': 'DeviceHive',
-            'ModelNumber': '1',
+            'DateOfManufacture': '2015-06-17',
+            'ModelNumber': '001',
             'SupportedLanguages': ['en'],
-            'Description': 'Description',
-            'SoftwareVersion': '1.0.0',
-            'AJSoftwareVersion': '1.0.0'
+            'Description': 'Simulated Lamp',
+            'SoftwareVersion': '1.0',
+            'HardwareVersion': '1.0',              
+            'SupportUrl': 'http://devicehive.com',
+            'AJSoftwareVersion': '14.06.00a Tag "v14.06.00a"',
+            'Maxlength': 254
 
 
         }
@@ -290,7 +297,6 @@ class Lamp:
         self._dbus = LampService(self.mac, self.ble)
 
         # expose to alljoyn 
-        bus = dbus.SystemBus()
         bridge = dbus.Interface(bus.get_object(DBUS_BRIDGE_NAME, DBUS_BRIDGE_PATH), dbus_interface='com.devicehive.alljoyn.bridge')
         bridge.AddService(self._dbus.m_service_path, self._dbus.m_service_name, ALLJOYN_LIGHT_PATH, ALLJOYN_LIGHT_NAME, INTROSPECT)
         bridge.StartAllJoyn(self._dbus.m_service_name)
@@ -325,6 +331,7 @@ def peripheral_disconnected_handler(mac):
         del LAMPS[mac]
 
 def worker(run_event):
+    time.sleep(1)
     try:
         bus = dbus.SystemBus()
         ble = dbus.Interface(bus.get_object(DBUS_BLE_NAME, DBUS_BLE_PATH), dbus_interface='com.devicehive.bluetooth')
@@ -368,15 +375,17 @@ def main():
     run_event = threading.Event()
     run_event.set()
 
-    worker_thread = threading.Thread(target=worker, args=(run_event,))
-    worker_thread.start()
-
     # init d-bus
-    GObject.threads_init()    
+    GObject.threads_init() 
+    dbus.mainloop.glib.threads_init()   
     # lamps = [LampService(mac) for mac in argv]
+
+    worker_thread = threading.Thread(target=worker, args=(run_event,))
 
     # start mainloop
     loop = GObject.MainLoop()
+    worker_thread.start()
+
     try:
         loop.run()
     except (KeyboardInterrupt, SystemExit):

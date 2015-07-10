@@ -1,0 +1,8 @@
+Package: devicehive-cloud
+Version: ${VERSION}-${GITHASH}
+Section: base
+Priority: optional
+Architecture: ${ARCHITECTURE}
+Maintainer: Anton Rudnev <arudnev@dataart.com>
+Description: DeviceHive Gateway
+ Gateway for DeviceHive
