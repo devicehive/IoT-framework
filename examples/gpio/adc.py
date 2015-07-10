@@ -24,7 +24,6 @@ def command_received(id, name, parameters):
         print(e)
 
 def adc_changed(port, value):
-    global pin_out
     print("pin_value_changed port: {} value: {}".format(port, value))
     s = "{\"notification\" : \"emg\", \"parameters\": \"%s\"}" % value
     cloud.SendNotification("emg", s, 0)

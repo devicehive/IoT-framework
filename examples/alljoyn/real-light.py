@@ -17,6 +17,8 @@ except ImportError:
 DBusGMainLoop(set_as_default=True)
 
 bus = dbus.SystemBus()
+DBUS_BLE_NAME = 'com.devicehive.bluetooth'
+DBUS_BLE_PATH = '/com/devicehive/bluetooth'
 ble = dbus.Interface(bus.get_object(DBUS_BLE_NAME, DBUS_BLE_PATH), dbus_interface='com.devicehive.bluetooth')
 
 # import json
@@ -26,7 +28,6 @@ SATECHI_COLOR_CHAR = 'fff3'
 
 DBUS_BRIDGE_NAME = 'com.devicehive.alljoyn.bridge'
 DBUS_BRIDGE_PATH = '/com/devicehive/alljoyn/bridge'
-
 
 DBUS_BUS_NAME = 'com.devicehive.alljoyn.allseen.LSF.LampService'
 DBUS_BUS_PATH = '/com/devicehive/alljoyn/allseen/LSF/Lamp'
@@ -417,6 +418,17 @@ class LampService(dbus.service.Object):
         self.remove_from_connection()
         # print('Destroyed %s' % self.mac)
 
+def ble_connect(mac):
+    while True:
+        try:
+            ble.Connect(mac, False)
+            break
+        except(Exception):
+            pass
+
+def device_discovered(mac, name, rssi):
+    ble_connect(mac)
+
 class Lamp:
     def __init__(self, mac, name):
         self.Version = 1
@@ -435,6 +447,8 @@ class Lamp:
         self._dbus = LampService(self.mac)
         self._config = ConfigService(self.mac, "DeviceHiveVB")
         self._controlpanel = ControlPanelService(self.mac)
+        ble.connect_to_signal("DeviceDiscovered", device_discovered)
+        ble_connect(self.mac)
 
         print("Calling alljoyn bridge")
 
@@ -454,8 +468,10 @@ class Lamp:
         self.OnOff = state
         if state:
             print("***LAMP NOW IS ON***")
+            ble.GattWrite(self.mac, SATECHI_COLOR_CHAR, '0f0d0300ffffffc800c800c8000059ffff')
         else:
             print("***LAMP NOW IS OFF***")
+            ble.GattWrite(self.mac, SATECHI_COLOR_CHAR, '0f0d0300ffffff0000c800c8000091ffff') 
 
     def destroy(self):
         if self.status == 'CONNECTED':
@@ -467,7 +483,7 @@ def worker():
         time.sleep(2)
 
         # single lamp for now
-        mac = '12345678'
+        mac = 'd05fb831379f'
         LAMPS[mac] = Lamp(mac, 'Virtual Lamp')
         # threading.Thread(target=LAMPS[mac].connect).start()
         LAMPS[mac].connect()
