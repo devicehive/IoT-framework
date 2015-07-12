@@ -5,7 +5,7 @@ vendor: Artyom Astafurov <artyom@devicehive.com>
 icon: meta/dh.png
 architecture: [amd64, armhf]
 frameworks:
-  - devicehive-cloud
+  - devicehive-iot-toolkit
 services:
     - name: service
       description: "Monitor system stats and send them to the cloud via DeviceHive cloud framework"
