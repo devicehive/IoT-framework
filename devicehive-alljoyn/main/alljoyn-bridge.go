@@ -48,7 +48,6 @@ var interfaces []C.AJ_InterfaceDescription
 var myPropGetterFunction PropGetterFunction
 var myMessenger *AllJoynMessenger
 
-type IntrospectProvider func(dbusService, dbusPath string) (node *introspect.Node, err error)
 type PropGetterFunction func(reply *C.AJ_Message, language *C.char) C.AJ_Status
 
 type AllJoynBindingInfo struct {
@@ -60,7 +59,6 @@ type AllJoynBindingInfo struct {
 
 type AllJoynBridge struct {
 	bus                *dbus.Conn
-	introspectProvider IntrospectProvider
 	services           map[string][]*AllJoynBindingInfo
 }
 
@@ -74,11 +72,10 @@ func NewAllJoynMessenger(dbusService string, bus *dbus.Conn, binding []*AllJoynB
 	return &AllJoynMessenger{dbusService, bus, binding}
 }
 
-func NewAllJoynBridge(bus *dbus.Conn, introspectProvider IntrospectProvider) *AllJoynBridge {
+func NewAllJoynBridge(bus *dbus.Conn) *AllJoynBridge {
 	bridge := new(AllJoynBridge)
 	bridge.bus = bus
 	bridge.services = make(map[string][]*AllJoynBindingInfo)
-	bridge.introspectProvider = introspectProvider
 
 	return bridge
 }
@@ -428,24 +425,34 @@ func (a *AllJoynBridge) addService(service string, info *AllJoynBindingInfo) {
 }
 
 func (a *AllJoynBridge) AddService(dbusPath, dbusService, allJoynPath, allJoynService, introspectXml string) *dbus.Error {
-	p := a.introspectProvider
-	if introspectXml != "" {
-		p = func(dbusService, dbusPath string) (*introspect.Node, error) {
-			var node introspect.Node
-			err := xml.NewDecoder(strings.NewReader(introspectXml)).Decode(&node)
-			return &node, err
+
+	var xmldata string 
+	var node introspect.Node
+
+	if xmldata != "" {
+		// introspect data was provided with method call
+		xmldata = introspectXml		
+	} else {
+		// get introspecction data from dbus
+		var o = a.bus.Object(dbusService, dbus.ObjectPath(dbusPath))
+		err := o.Call("org.freedesktop.DBus.Introspectable.Introspect", 0).Store(&xmldata)
+
+		if err != nil {
+			log.Printf("Error getting introspect from [%s, %s]: %s", dbusService, dbusPath, err)
+			return nil
 		}
 	}
 
-	node, err := p(dbusService, dbusPath)
+	err := xml.NewDecoder(strings.NewReader(xmldata)).Decode(&node)
 
 	if err != nil {
-		log.Printf("Error getting introspect from [%s, %s]: %s", dbusService, dbusPath, err)
+		log.Printf("Error decoding introspect data for [%s, %s]: %s", dbusService, dbusPath, err)
+		return nil
 	}
 
-	a.addService(dbusService, &AllJoynBindingInfo{allJoynService, allJoynPath, dbusPath, node})
+	a.addService(dbusService, &AllJoynBindingInfo{allJoynService, allJoynPath, dbusPath, &node})
 
-	log.Printf("Received introspect: %+v", node)
+	log.Printf("Received introspect: %+v", &node)
 
 	return nil
 }
@@ -468,9 +475,7 @@ func main() {
 		log.Fatalf("Failed to request dbus name: %+v", res)
 	}
 
-	allJoynBridge := NewAllJoynBridge(bus, func(dbusService, dbusPath string) (*introspect.Node, error) {
-		return introspect.Call(bus.Object(dbusService, dbus.ObjectPath(dbusPath)))
-	})
+	allJoynBridge := NewAllJoynBridge(bus)
 
 	bus.Export(allJoynBridge, "/com/devicehive/alljoyn/bridge", "com.devicehive.alljoyn.bridge")
 
@@ -484,7 +489,16 @@ func main() {
 		},
 	}
 
+	root := &introspect.Node{
+		Children: []introspect.Node{
+			{
+				Name:    "com/devicehive/alljoyn/bridge",
+			},
+		},
+	}
+
 	bus.Export(introspect.NewIntrospectable(n), "/com/devicehive/alljoyn/bridge", "org.freedesktop.DBus.Introspectable")
+	bus.Export(introspect.NewIntrospectable(root), "/", "org.freedesktop.DBus.Introspectable") // workaroud for dbus issue #14
 
 	select {}
 }
