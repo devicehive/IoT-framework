@@ -278,10 +278,10 @@ func (m *AllJoynMessenger) forwardAllJoynMessage(msgId uint32) (err error) {
 }
 
 func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
-	service := a.services[dbusService]
-	objects := GetAllJoynObjects(a.services[dbusService])
+	services := a.services[dbusService]
+	objects := GetAllJoynObjects(services)
 
-	myMessenger = NewAllJoynMessenger(dbusService, a.bus, a.services[dbusService])
+	myMessenger = NewAllJoynMessenger(dbusService, a.bus, services)
 
 	log.Printf("StartAllJoyn: %+v", myMessenger)
 
@@ -309,7 +309,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 					60*1000, // TODO: Move connection timeout to config
 					C.FALSE,
 					C.uint16_t(PORT), // TODO: Move port to config
-					C.CString(service[0].allJoynService),
+					C.CString(services[0].allJoynService),
 					C.AJ_NAME_REQ_DO_NOT_QUEUE,
 					(*C.AJ_SessionOpts)(C.Get_Session_Opts()))
 
