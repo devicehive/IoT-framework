@@ -13,4 +13,4 @@ devicehive-enocean - our simple API for access to EnOcean devices
 devicehive-gpio - our API for access to device's pins
 examples - samples of usage out IoT framework
 build - build system for our IoT framework
-Each directory contains more detailed information about component, see details there.
+Each directory contains more detailed information about component, see details there in readme files.
