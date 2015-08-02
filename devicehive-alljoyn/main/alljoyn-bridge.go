@@ -43,6 +43,10 @@ import (
 	"unsafe"
 )
 
+const PORT = 42
+const AJ_CP_PORT = 1000
+
+
 /* Gloabal variables to preserve from garbage collection to pass safely to cgo */
 var interfaces []C.AJ_InterfaceDescription
 var myPropGetterFunction PropGetterFunction
@@ -220,6 +224,26 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 	return nil
 }
 
+func safeString(p * C.char ) string{	
+	if p == nil {
+		return ""
+	} else {
+		return C.GoString(p)
+	}
+}
+
+func dumpMessage(prefix string){
+
+	msgId := uint32(C.Get_AJ_Message_msgId())
+	objPath := "" //safeString(C.Get_AJ_Message_objPath())
+	member := safeString(C.Get_AJ_Message_member())
+	destination := safeString(C.Get_AJ_Message_destination())
+	iface := safeString(C.Get_AJ_Message_iface())
+
+	log.Printf("%s \r\n\tmsgId: %d \r\n\tobjPath: %s \r\n\tmember: %s \r\n\tiface: %s \r\n\tdestination: %s", prefix, msgId, objPath, member, iface, destination)
+
+}
+
 func (m *AllJoynMessenger) forwardAllJoynMessage(msgId uint32) (err error) {
 	log.Printf("****forwardAllJoynMessage****")
 	msg := C.Get_AJ_Message()
@@ -299,8 +323,6 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 
 	log.Printf("CreateAJ_BusAttachment(): %+v", busAttachment)
 
-	var PORT = 42
-
 	go func() {
 		for {
 			if !connected {
@@ -320,7 +342,16 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 				log.Printf("StartService returned %d, %+v", status, busAttachment)
 
 				connected = true
+
+				status = C.AJ_BusBindSessionPort((*C.AJ_BusAttachment)(busAttachment), 
+					AJ_CP_PORT, (*C.AJ_SessionOpts)(C.Get_Session_Opts()), 0);
+
+				if (status != C.AJ_OK) {
+					log.Printf(("Failed to send bind session port message"));
+				}
+
 			}
+
 
 			status = C.AJ_UnmarshalMsg((*C.AJ_BusAttachment)(busAttachment), (*C.AJ_Message)(msg),
 				5*1000) // TODO: Move unmarshal timeout to config
@@ -334,12 +365,13 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 
 				msgId := C.Get_AJ_Message_msgId()
 				log.Printf("****Got a message, ID: 0x%X", msgId)
+				dumpMessage("****Message Detais: ")
 
 				switch {
 				case msgId == C.AJ_METHOD_ACCEPT_SESSION:
 					{
 						port := int(C.UnmarshalPort())
-						if port == PORT {
+						if port == PORT || port == AJ_CP_PORT {
 							status = C.AJ_BusReplyAcceptSession((*C.AJ_Message)(msg), C.TRUE)
 							log.Printf("ACCEPT_SESSION: %+v port %d", msgId, port)
 						} else {
@@ -373,6 +405,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 						myMessenger.forwardAllJoynMessage(uint32(msgId))
 					}
 				default:
+
 					if (uint32(msgId) & 0xFFFF0000) == 0x00050000 {
 						if uint32(msgId) == 0x00050102 {
 							log.Printf("Passing About.GetObjectDescription %+v to AllJoyn", msgId)
@@ -388,7 +421,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 						}
 					} else {
 						/* Pass to the built-in handlers. */
-						log.Printf("Passing msgId %+v to AllJoyn", msgId)
+						log.Printf("Passing msgId %+v to AllJoyn", uint32(msgId))
 						status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
 						log.Printf("AllJoyn returned %d", status)
 					}
@@ -424,19 +457,17 @@ func (a *AllJoynBridge) addService(service string, info *AllJoynBindingInfo) {
 	}
 }
 
-func (a *AllJoynBridge) AddService(dbusPath, dbusService, allJoynPath, allJoynService, introspectXml string) *dbus.Error {
-
+func (a *AllJoynBridge) AddService(dbusPath, dbusService, allJoynPath, allJoynService, introspectXml string) *dbus.Error {	
 	var xmldata string 
 	var node introspect.Node
 
-	if xmldata != "" {
+	if introspectXml != "" {
 		// introspect data was provided with method call
 		xmldata = introspectXml		
 	} else {
 		// get introspecction data from dbus
-		var o = a.bus.Object(dbusService, dbus.ObjectPath(dbusPath))
-		err := o.Call("org.freedesktop.DBus.Introspectable.Introspect", 0).Store(&xmldata)
-
+		var o = a.bus.Object(dbusService, dbus.ObjectPath(dbusPath))		
+		err := o.Call("org.freedesktop.DBus.Introspectable.Introspect", 0).Store(&xmldata)		
 		if err != nil {
 			log.Printf("Error getting introspect from [%s, %s]: %s", dbusService, dbusPath, err)
 			return nil
@@ -499,6 +530,8 @@ func main() {
 
 	bus.Export(introspect.NewIntrospectable(n), "/com/devicehive/alljoyn/bridge", "org.freedesktop.DBus.Introspectable")
 	bus.Export(introspect.NewIntrospectable(root), "/", "org.freedesktop.DBus.Introspectable") // workaroud for dbus issue #14
+
+	log.Printf("Bridge is Running.")
 
 	select {}
 }
