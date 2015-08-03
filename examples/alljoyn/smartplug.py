@@ -222,8 +222,8 @@ class ConfigService(PropertiesServiceInterface):
 class ControlPanelService(PropertiesServiceInterface):
   def __init__(self, container, name):
     PropertiesServiceInterface.__init__(self, container, "/ControlPanel/%s/rootContainer" % name, 
-      ['org.alljoyn.ControlPanel.ControlPanel'],
-      {'org.alljoyn.ControlPanel.ControlPanel' : {'Version': 1}})
+      ['org.alljoyn.ControlPanel.ControlPanel', 'org.freedesktop.DBus.Properties'],
+      {'org.alljoyn.ControlPanel.ControlPanel' : {'Version': dbus.UInt16(1)}})
 
   def Introspect(self, object_path, connection):
     return """
@@ -232,14 +232,30 @@ class ControlPanelService(PropertiesServiceInterface):
          <interface name="org.alljoyn.ControlPanel.ControlPanel">
             <property name="Version" type="q" access="read"/>
          </interface>
+        <interface name="org.freedesktop.DBus.Properties">
+          <method name="Get">
+            <arg direction="in" name="interface" type="s"/>
+            <arg direction="in" name="propname" type="s"/>
+            <arg direction="out" name="value" type="v"/>
+          </method>
+          <method name="GetAll">
+            <arg direction="in" name="interface" type="s"/>
+            <arg direction="out" name="props" type="a{sv}"/>
+          </method>
+          <method name="Set">
+            <arg direction="in" name="interface" type="s"/>
+            <arg direction="in" name="propname" type="s"/>
+            <arg direction="in" name="value" type="v"/>
+          </method>
+        </interface>
       </node>
     """
 
 class ContainerService(PropertiesServiceInterface):
   def __init__(self, container, name, path):
     PropertiesServiceInterface.__init__(self, container, "/ControlPanel/%s/rootContainer/%s" % (name, path), 
-      ['org.alljoyn.ControlPanel.Container'],
-      {'org.alljoyn.ControlPanel.Container' : {'Version': 1, 'States': 1, 'OptParams': {1:'Container'}}})
+      ['org.alljoyn.ControlPanel.Container', 'org.freedesktop.DBus.Properties'],
+      {'org.alljoyn.ControlPanel.Container' : {'Version': dbus.UInt16(1), 'States': dbus.UInt32(1)}})
 
   def Introspect(self, object_path, connection):
     return """
@@ -251,6 +267,22 @@ class ContainerService(PropertiesServiceInterface):
             <property name="OptParams" type="a{qv}" access="read"/>
             <signal name="MetadataChanged" />
           </interface>
+          <interface name="org.freedesktop.DBus.Properties">
+          <method name="Get">
+            <arg direction="in" name="interface" type="s"/>
+            <arg direction="in" name="propname" type="s"/>
+            <arg direction="out" name="value" type="v"/>
+          </method>
+          <method name="GetAll">
+            <arg direction="in" name="interface" type="s"/>
+            <arg direction="out" name="props" type="a{sv}"/>
+          </method>
+          <method name="Set">
+            <arg direction="in" name="interface" type="s"/>
+            <arg direction="in" name="propname" type="s"/>
+            <arg direction="in" name="value" type="v"/>
+          </method>
+        </interface>
       </node>
     """
   @dbus.service.signal(ABOUT_IFACE, signature='')
@@ -289,7 +321,7 @@ class SmartPlug():
       AboutService(self._container, about)
       ,ConfigService(self._container, self.name)
       ,ControlPanelService(self._container, self.name)
-      # ,ContainerService(self._container, self.name, 'en')
+      ,ContainerService(self._container, self.name, 'en')
     ]
 
     print("Registered %s on dbus" % self.name)
