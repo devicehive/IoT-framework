@@ -215,7 +215,11 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 	//		message.hdr.flags &= ^C.uint8_t(C.AJ_FLAG_ENCRYPTED)
 	//	}
 	C.AJ_DeliverMsgPartial((*C.AJ_Message)(message), C.uint32_t(len(newBuf)))
-	C.AJ_MarshalRaw((*C.AJ_Message)(message), unsafe.Pointer(&newBuf[0]), C.size_t(len(newBuf)))
+	if len(newBuf) > 0 {
+		C.AJ_MarshalRaw((*C.AJ_Message)(message), unsafe.Pointer(&newBuf[0]), C.size_t(len(newBuf)))
+	} else {
+		C.AJ_MarshalRaw((*C.AJ_Message)(message), unsafe.Pointer(&newBuf), C.size_t(0))
+	}
 	//log.Printf("New buff reply, len: %+v, %d", newBuf, len(newBuf))
 	//	if hdr != nil {
 	//		message.hdr = hdr

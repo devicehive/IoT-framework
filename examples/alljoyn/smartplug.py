@@ -113,7 +113,7 @@ class PropertiesServiceInterface(ServiceInterface):
   @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature='ssv')
   def Set(self, interface, property, value):
       prop = interface + '.' + property
-      print("Properties.Set is called %s " % prop)
+      print("Properties.Set is called %s with %s" % (prop, value))
       if prop in self._properties:
           self._properties[prop] = value
       else:
@@ -285,10 +285,55 @@ class ContainerService(PropertiesServiceInterface):
         </interface>
       </node>
     """
-  @dbus.service.signal(ABOUT_IFACE, signature='')
+  @dbus.service.signal('org.alljoyn.ControlPanel.Container', signature='')
   def MetadataChanged(self):
       pass
 
+
+class PropertyService(PropertiesServiceInterface):
+  def __init__(self, container, name, path):
+    PropertiesServiceInterface.__init__(self, container, "/ControlPanel/%s/rootContainer/%s" % (name, path), 
+      ['org.alljoyn.ControlPanel.Property', 'org.freedesktop.DBus.Properties'],
+      {'org.alljoyn.ControlPanel.Property' : {'Version': dbus.UInt16(1), 'States': dbus.UInt32(1), 'Value': 'Off'}})
+
+  def Introspect(self, object_path, connection):
+    return """
+      <node name=\"""" + self._path +  """\" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:noNamespaceSchemaLocation="https://www.allseenalliance.org/schemas/introspect.xsd">
+          <interface name="org.alljoyn.ControlPanel.Property">
+            <property name="Version" type="q" access="read"/>
+            <property name="States" type="u" access="read"/>
+            <property name="OptParams" type="a{qv}" access="read"/>
+            <property name="Value" type="v" access="readwrite"/>
+            <signal name="MetadataChanged" />
+            <signal name="ValueChanged">
+               <arg type="v"/>
+            </signal>
+         </interface>
+          <interface name="org.freedesktop.DBus.Properties">
+          <method name="Get">
+            <arg direction="in" name="interface" type="s"/>
+            <arg direction="in" name="propname" type="s"/>
+            <arg direction="out" name="value" type="v"/>
+          </method>
+          <method name="GetAll">
+            <arg direction="in" name="interface" type="s"/>
+            <arg direction="out" name="props" type="a{sv}"/>
+          </method>
+          <method name="Set">
+            <arg direction="in" name="interface" type="s"/>
+            <arg direction="in" name="propname" type="s"/>
+            <arg direction="in" name="value" type="v"/>
+          </method>
+        </interface>
+      </node>
+    """
+  @dbus.service.signal('org.alljoyn.ControlPanel.Property', signature='')
+  def MetadataChanged(self):
+      pass
+  @dbus.service.signal('org.alljoyn.ControlPanel.Property', signature='')
+  def ValueChanged(self, value):
+      pass
 
 class SmartPlug():
   def __init__(self, busname, name):
@@ -322,6 +367,7 @@ class SmartPlug():
       ,ConfigService(self._container, self.name)
       ,ControlPanelService(self._container, self.name)
       ,ContainerService(self._container, self.name, 'en')
+      ,PropertyService(self._container, self.name, 'en/State')
     ]
 
     print("Registered %s on dbus" % self.name)
