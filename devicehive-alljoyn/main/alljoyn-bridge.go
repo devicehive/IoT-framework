@@ -142,11 +142,37 @@ func ParseAllJoynInterfaces(interfaces []introspect.Interface) []C.AJ_InterfaceD
 	return res
 }
 
+const AJ_CP_PREFIX = "org.alljoyn.ControlPanel."
+const AJ_CP_INTERFACE = "org.alljoyn.ControlPanel.ControlPanel"
+
+func getAllJoynObjectFlags(service *AllJoynBindingInfo) C.uint8_t {
+
+	var hasControlPanel = false
+	var hasOtherCPInterfaces = false
+
+	for _, iface := range service.introspectData.Interfaces {
+		hasOtherCPInterfaces = hasOtherCPInterfaces || strings.HasPrefix(iface.Name, AJ_CP_PREFIX)
+		hasControlPanel = hasControlPanel || (iface.Name == AJ_CP_INTERFACE)
+	}
+
+	if hasOtherCPInterfaces {
+		if hasControlPanel {
+			return C.AJ_OBJ_FLAG_ANNOUNCED
+		} else {
+			return C.uint8_t(0) //C.AJ_OBJ_FLAG_HIDDEN
+		}
+	} else {
+		return C.AJ_OBJ_FLAG_ANNOUNCED
+	}
+}
+
 func GetAllJoynObjects(services []*AllJoynBindingInfo) unsafe.Pointer {
 	array := C.Allocate_AJ_Object_Array(C.uint32_t(len(services) + 1))
 	for i, service := range services {
 		interfaces = ParseAllJoynInterfaces(service.introspectData.Interfaces)
-		C.Create_AJ_Object(C.uint32_t(i), array, C.CString(service.introspectData.Name), &interfaces[0], C.AJ_OBJ_FLAG_ANNOUNCED, unsafe.Pointer(nil))
+		flags := getAllJoynObjectFlags(service)
+		log.Printf("Creating Object %s %u", service.introspectData.Name, flags)
+		C.Create_AJ_Object(C.uint32_t(i), array, C.CString(service.introspectData.Name), &interfaces[0], flags, unsafe.Pointer(nil))
 		C.Create_AJ_Object(C.uint32_t(i+1), array, nil, nil, 0, nil)
 		log.Printf("*****Alljoyn Objects %s %s", service.introspectData.Name, &interfaces[0])
 	}

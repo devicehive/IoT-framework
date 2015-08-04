@@ -252,10 +252,17 @@ class ControlPanelService(PropertiesServiceInterface):
     """
 
 class ContainerService(PropertiesServiceInterface):
-  def __init__(self, container, name, path):
+  def __init__(self, container, name, path, label):
     PropertiesServiceInterface.__init__(self, container, "/ControlPanel/%s/rootContainer/%s" % (name, path), 
       ['org.alljoyn.ControlPanel.Container', 'org.freedesktop.DBus.Properties'],
-      {'org.alljoyn.ControlPanel.Container' : {'Version': dbus.UInt16(1), 'States': dbus.UInt32(1)}})
+      {'org.alljoyn.ControlPanel.Container' : {
+        'Version': dbus.UInt16(1), 
+        'States': dbus.UInt32(1), 
+        'OptParams': dbus.Dictionary({
+          dbus.UInt16(0): label,
+          dbus.UInt16(2): [dbus.UInt16(1)]
+        }, variant_level=1, signature='qv')
+      }})
 
   def Introspect(self, object_path, connection):
     return """
@@ -291,10 +298,17 @@ class ContainerService(PropertiesServiceInterface):
 
 
 class PropertyService(PropertiesServiceInterface):
-  def __init__(self, container, name, path):
+  def __init__(self, container, name, path, label):
     PropertiesServiceInterface.__init__(self, container, "/ControlPanel/%s/rootContainer/%s" % (name, path), 
       ['org.alljoyn.ControlPanel.Property', 'org.freedesktop.DBus.Properties'],
-      {'org.alljoyn.ControlPanel.Property' : {'Version': dbus.UInt16(1), 'States': dbus.UInt32(1), 'Value': 'Off'}})
+      {'org.alljoyn.ControlPanel.Property' : {
+        'Version': dbus.UInt16(1), 
+        'States': dbus.UInt32(1), 
+        'Value': dbus.String('Off', variant_level = 1),
+        'OptParams': dbus.Dictionary({
+          dbus.UInt16(0): label
+        }, variant_level=1, signature='qv')
+      }})
 
   def Introspect(self, object_path, connection):
     return """
@@ -366,8 +380,8 @@ class SmartPlug():
       AboutService(self._container, about)
       ,ConfigService(self._container, self.name)
       ,ControlPanelService(self._container, self.name)
-      ,ContainerService(self._container, self.name, 'en')
-      ,PropertyService(self._container, self.name, 'en/State')
+      ,ContainerService(self._container, self.name, 'en', 'ROOT CONTAINER')
+      ,PropertyService(self._container, self.name, 'en/State', 'State')
     ]
 
     print("Registered %s on dbus" % self.name)
