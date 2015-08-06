@@ -43,6 +43,34 @@ CONFIG_SERVICE_IFACE = 'org.alljoyn.Config'
 SMART_TOILET_IFACE = 'org.allseen.SmartHome.ToiletService'
 CONTROLPANEL_SERVICE_IFACE = 'org.alljoyn.ControlPanel.ControlPanel'
 
+INTROSPECTION_TEMPLATE = """
+      <node name="{0}" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:noNamespaceSchemaLocation="http://www.allseenalliance.org/schemas/introspect.xsd">
+         {1}
+         <interface name="org.freedesktop.DBus.Introspectable"><method name="Introspect"><arg name="out" type="s" direction="out"></arg></method></interface>
+         {2}
+      </node>
+    """
+
+PROPERTIES_IFACE_XML = """
+      <interface name="org.freedesktop.DBus.Properties">
+        <method name="Get">
+          <arg direction="in" name="interface" type="s"/>
+          <arg direction="in" name="propname" type="s"/>
+          <arg direction="out" name="value" type="v"/>
+        </method>
+        <method name="GetAll">
+          <arg direction="in" name="interface" type="s"/>
+          <arg direction="out" name="props" type="a{sv}"/>
+        </method>
+        <method name="Set">
+          <arg direction="in" name="interface" type="s"/>
+          <arg direction="in" name="propname" type="s"/>
+          <arg direction="in" name="value" type="v"/>
+        </method>
+      </interface>
+    """
+
 bus = dbus.SystemBus()
 bus_name = dbus.service.BusName(DBUS_BUS_NAME, bus)
 
@@ -79,10 +107,22 @@ class ServiceInterface(dbus.service.Object):
   def path(self):
       return self._path
 
+  def IntrospectionXml(self):
+    return None
+
+  def Introspect(self, object_path, connection):
+    xml = self.IntrospectionXml()
+    if xml is None:
+      return dbus.service.Object.Introspect(self, object_path, connection)
+    else:      
+      children = "\n".join(['<node name="%s"/>' % name for name in connection.list_exported_child_objects(object_path)])
+      return INTROSPECTION_TEMPLATE.format(self._path, xml, children)
+
+
   def introspect(self):    
     introspection = self.Introspect(self._object_path, self._connection)
     # print(introspection)
-    return introspection
+    return introspection    
 
   @property
   def object_path(self):
@@ -124,6 +164,10 @@ class PropertiesServiceInterface(ServiceInterface):
       prefix = interface + '.'
       return  {k[len(prefix):]: v for k, v in self._properties.items() if k.startswith(prefix)}
 
+  def IntrospectionXml(self):
+    return PROPERTIES_IFACE_XML
+
+
 class AboutService(PropertiesServiceInterface):
   def __init__(self, container, properties):
     PropertiesServiceInterface.__init__(self, container, '/About', 
@@ -147,10 +191,8 @@ class AboutService(PropertiesServiceInterface):
       print('Announce - empty')
       pass
 
-  def Introspect(self, object_path, connection):
+  def IntrospectionXml(self):
     return """
-      <node name="/About" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-            xsi:noNamespaceSchemaLocation="http://www.allseenalliance.org/schemas/introspect.xsd">
          <interface name="org.alljoyn.About">
             <property name="Version" type="q" access="read"/>
             <method name="GetAboutData">
@@ -167,8 +209,7 @@ class AboutService(PropertiesServiceInterface):
                <arg name="metaData" type="a{sv}"/>
             </signal>
          </interface>
-      </node>
-    """
+    """  + PropertiesServiceInterface.IntrospectionXml(self)
 
 class ConfigService(PropertiesServiceInterface):
   def __init__(self, container, name):
@@ -186,38 +227,34 @@ class ConfigService(PropertiesServiceInterface):
           'DeviceName': self._name
       }
 
-  def Introspect(self, object_path, connection):
+  def IntrospectionXml(self):
     return """
-      <node name="/Config" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
-      xsi:noNamespaceSchemaLocation="http://www.allseenalliance.org/schemas/introspect.xsd">
-
-         <interface name="org.alljoyn.Config">
-            <property name="Version" type="q" access="read"/>
-            <method name="FactoryReset">
-               <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
-            </method>
-            <method name="Restart">
-               <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
-            </method>
-            <method name="SetPasscode">
-               <arg name="daemonRealm" type="s" direction="in"/>
-               <arg name="newPasscode" type="ay" direction="in"/>
-            </method>
-            <method name="GetConfigurations">
-               <arg name="languageTag" type="s" direction="in"/>
-               <arg name="configData" type="a{sv}" direction="out"/>
-            </method>
-            <method name="UpdateConfigurations">
-               <arg name="languageTag" type="s" direction="in"/>
-               <arg name="configMap" type="a{sv}" direction="in"/>
-            </method>
-            <method name="ResetConfigurations">
-               <arg name="languageTag" type="s" direction="in"/>
-               <arg name="fieldList" type="as" direction="in"/>
-            </method>
-         </interface>
-      </node>
-    """
+       <interface name="org.alljoyn.Config">
+          <property name="Version" type="q" access="read"/>
+          <method name="FactoryReset">
+             <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
+          </method>
+          <method name="Restart">
+             <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
+          </method>
+          <method name="SetPasscode">
+             <arg name="daemonRealm" type="s" direction="in"/>
+             <arg name="newPasscode" type="ay" direction="in"/>
+          </method>
+          <method name="GetConfigurations">
+             <arg name="languageTag" type="s" direction="in"/>
+             <arg name="configData" type="a{sv}" direction="out"/>
+          </method>
+          <method name="UpdateConfigurations">
+             <arg name="languageTag" type="s" direction="in"/>
+             <arg name="configMap" type="a{sv}" direction="in"/>
+          </method>
+          <method name="ResetConfigurations">
+             <arg name="languageTag" type="s" direction="in"/>
+             <arg name="fieldList" type="as" direction="in"/>
+          </method>
+       </interface>
+    """ + PropertiesServiceInterface.IntrospectionXml(self)
 
 class ControlPanelService(PropertiesServiceInterface):
   def __init__(self, container, name):
@@ -225,31 +262,12 @@ class ControlPanelService(PropertiesServiceInterface):
       ['org.alljoyn.ControlPanel.ControlPanel', 'org.freedesktop.DBus.Properties'],
       {'org.alljoyn.ControlPanel.ControlPanel' : {'Version': dbus.UInt16(1)}})
 
-  def Introspect(self, object_path, connection):
+  def IntrospectionXml(self):
     return """
-      <node name=\"""" + self._path +  """\" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-            xsi:noNamespaceSchemaLocation="https://www.allseenalliance.org/schemas/introspect.xsd">
          <interface name="org.alljoyn.ControlPanel.ControlPanel">
             <property name="Version" type="q" access="read"/>
          </interface>
-        <interface name="org.freedesktop.DBus.Properties">
-          <method name="Get">
-            <arg direction="in" name="interface" type="s"/>
-            <arg direction="in" name="propname" type="s"/>
-            <arg direction="out" name="value" type="v"/>
-          </method>
-          <method name="GetAll">
-            <arg direction="in" name="interface" type="s"/>
-            <arg direction="out" name="props" type="a{sv}"/>
-          </method>
-          <method name="Set">
-            <arg direction="in" name="interface" type="s"/>
-            <arg direction="in" name="propname" type="s"/>
-            <arg direction="in" name="value" type="v"/>
-          </method>
-        </interface>
-      </node>
-    """
+    """ + PropertiesServiceInterface.IntrospectionXml(self)
 
 class ContainerService(PropertiesServiceInterface):
   def __init__(self, container, name, path, label):
@@ -264,34 +282,15 @@ class ContainerService(PropertiesServiceInterface):
         }, variant_level=1, signature='qv')
       }})
 
-  def Introspect(self, object_path, connection):
+  def IntrospectionXml(self):
     return """
-      <node name=\"""" + self._path +  """\" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-            xsi:noNamespaceSchemaLocation="https://www.allseenalliance.org/schemas/introspect.xsd">
           <interface name="org.alljoyn.ControlPanel.Container">
             <property name="Version" type="q" access="read"/>
             <property name="States" type="u" access="read"/>
             <property name="OptParams" type="a{qv}" access="read"/>
             <signal name="MetadataChanged" />
           </interface>
-          <interface name="org.freedesktop.DBus.Properties">
-          <method name="Get">
-            <arg direction="in" name="interface" type="s"/>
-            <arg direction="in" name="propname" type="s"/>
-            <arg direction="out" name="value" type="v"/>
-          </method>
-          <method name="GetAll">
-            <arg direction="in" name="interface" type="s"/>
-            <arg direction="out" name="props" type="a{sv}"/>
-          </method>
-          <method name="Set">
-            <arg direction="in" name="interface" type="s"/>
-            <arg direction="in" name="propname" type="s"/>
-            <arg direction="in" name="value" type="v"/>
-          </method>
-        </interface>
-      </node>
-    """
+    """ + PropertiesServiceInterface.IntrospectionXml(self)
   @dbus.service.signal('org.alljoyn.ControlPanel.Container', signature='')
   def MetadataChanged(self):
       pass
@@ -310,38 +309,21 @@ class PropertyService(PropertiesServiceInterface):
         }, variant_level=1, signature='qv')
       }})
 
-  def Introspect(self, object_path, connection):
+  def IntrospectionXml(self):
     return """
-      <node name=\"""" + self._path +  """\" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-            xsi:noNamespaceSchemaLocation="https://www.allseenalliance.org/schemas/introspect.xsd">
-          <interface name="org.alljoyn.ControlPanel.Property">
-            <property name="Version" type="q" access="read"/>
-            <property name="States" type="u" access="read"/>
-            <property name="OptParams" type="a{qv}" access="read"/>
-            <property name="Value" type="v" access="readwrite"/>
-            <signal name="MetadataChanged" />
-            <signal name="ValueChanged">
-               <arg type="v"/>
-            </signal>
-         </interface>
-          <interface name="org.freedesktop.DBus.Properties">
-          <method name="Get">
-            <arg direction="in" name="interface" type="s"/>
-            <arg direction="in" name="propname" type="s"/>
-            <arg direction="out" name="value" type="v"/>
-          </method>
-          <method name="GetAll">
-            <arg direction="in" name="interface" type="s"/>
-            <arg direction="out" name="props" type="a{sv}"/>
-          </method>
-          <method name="Set">
-            <arg direction="in" name="interface" type="s"/>
-            <arg direction="in" name="propname" type="s"/>
-            <arg direction="in" name="value" type="v"/>
-          </method>
-        </interface>
-      </node>
-    """
+       <interface name="org.alljoyn.ControlPanel.Property">
+          <property name="Version" type="q" access="read"/>
+          <property name="States" type="u" access="read"/>
+          <property name="OptParams" type="a{qv}" access="read"/>
+          <property name="Value" type="v" access="readwrite"/>
+          <signal name="MetadataChanged" />
+          <signal name="ValueChanged">
+             <arg type="v"/>
+          </signal>
+       </interface>
+    """  + PropertiesServiceInterface.IntrospectionXml(self)
+
+
   @dbus.service.signal('org.alljoyn.ControlPanel.Property', signature='')
   def MetadataChanged(self):
       pass
