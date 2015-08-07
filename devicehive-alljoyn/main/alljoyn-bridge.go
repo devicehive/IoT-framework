@@ -41,10 +41,27 @@ import (
 	"reflect"
 	"strings"
 	"unsafe"
+	"crypto/rand"
+	"io"
+	"fmt"
 )
 
 const PORT = 42
 const AJ_CP_PORT = 1000
+
+// newUUID generates a random UUID according to RFC 4122
+func newUUID() (string, error) {
+	uuid := make([]byte, 16)
+	n, err := io.ReadFull(rand.Reader, uuid)
+	if n != len(uuid) || err != nil {
+		return "", err
+	}
+	// variant bits; see section 4.1.1
+	uuid[8] = uuid[8]&^0xc0 | 0x80
+	// version 4 (pseudo-random); see section 4.1.3
+	uuid[6] = uuid[6]&^0xf0 | 0x40
+	return fmt.Sprintf("%x-%x-%x-%x-%x", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:]), nil
+}
 
 
 /* Gloabal variables to preserve from garbage collection to pass safely to cgo */
@@ -54,16 +71,22 @@ var myMessenger *AllJoynMessenger
 
 type PropGetterFunction func(reply *C.AJ_Message, language *C.char) C.AJ_Status
 
-type AllJoynBindingInfo struct {
-	allJoynService string
+type AllJoynBindingInfo struct {	
 	allJoynPath    string
 	dbusPath       string
 	introspectData *introspect.Node
 }
 
+type AllJoynServiceInfo struct {
+	allJoynService    string
+	dbusService       string
+	objects           []*AllJoynBindingInfo	
+}
+
+
 type AllJoynBridge struct {
 	bus                *dbus.Conn
-	services           map[string][]*AllJoynBindingInfo
+	services           map[string]*AllJoynServiceInfo
 }
 
 type AllJoynMessenger struct {
@@ -76,10 +99,11 @@ func NewAllJoynMessenger(dbusService string, bus *dbus.Conn, binding []*AllJoynB
 	return &AllJoynMessenger{dbusService, bus, binding}
 }
 
+
 func NewAllJoynBridge(bus *dbus.Conn) *AllJoynBridge {
 	bridge := new(AllJoynBridge)
 	bridge.bus = bus
-	bridge.services = make(map[string][]*AllJoynBindingInfo)
+	bridge.services = make(map[string]*AllJoynServiceInfo)
 
 	return bridge
 }
@@ -331,11 +355,11 @@ func (m *AllJoynMessenger) forwardAllJoynMessage(msgId uint32) (err error) {
 	return nil
 }
 
-func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
-	services := a.services[dbusService]
-	objects := GetAllJoynObjects(services)
+func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
+	service := a.services[uuid]
+	objects := GetAllJoynObjects(service.objects)
 
-	myMessenger = NewAllJoynMessenger(dbusService, a.bus, services)
+	myMessenger = NewAllJoynMessenger(service.dbusService, a.bus, service.objects)
 
 	log.Printf("StartAllJoyn: %+v", myMessenger)
 
@@ -354,14 +378,14 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 	log.Printf("CreateAJ_BusAttachment(): %+v", busAttachment)
 
 	go func() {
-		for {
+		for {	
 			if !connected {
 				status = C.AJ_StartService((*C.AJ_BusAttachment)(busAttachment),
 					C.CString("org.alljoyn.BusNode"),
 					60*1000, // TODO: Move connection timeout to config
 					C.FALSE,
 					C.uint16_t(PORT), // TODO: Move port to config
-					C.CString(services[0].allJoynService),
+					C.CString(service.allJoynService),
 					C.AJ_NAME_REQ_DO_NOT_QUEUE,
 					(*C.AJ_SessionOpts)(C.Get_Session_Opts()))
 
@@ -375,7 +399,7 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 
 				status = C.AJ_BusBindSessionPort((*C.AJ_BusAttachment)(busAttachment), 
 					AJ_CP_PORT, (*C.AJ_SessionOpts)(C.Get_Session_Opts()), 0);
-
+				
 				if (status != C.AJ_OK) {
 					log.Printf(("Failed to send bind session port message"));
 				}
@@ -478,45 +502,62 @@ func (a *AllJoynBridge) StartAllJoyn(dbusService string) *dbus.Error {
 	return nil
 }
 
-func (a *AllJoynBridge) addService(service string, info *AllJoynBindingInfo) {
-	services, ok := a.services[service]
-	if ok {
-		a.services[service] = append(services, info)
-	} else {
-		a.services[service] = []*AllJoynBindingInfo{info}
-	}
-}
+func traverseDbusObjects (bus *dbus.Conn, dbusService, dbusPath string, fn func(path string, node *introspect.Node)) {
 
-func (a *AllJoynBridge) AddService(dbusPath, dbusService, allJoynPath, allJoynService, introspectXml string) *dbus.Error {	
 	var xmldata string 
 	var node introspect.Node
 
-	if introspectXml != "" {
-		// introspect data was provided with method call
-		xmldata = introspectXml		
-	} else {
-		// get introspecction data from dbus
-		var o = a.bus.Object(dbusService, dbus.ObjectPath(dbusPath))		
-		err := o.Call("org.freedesktop.DBus.Introspectable.Introspect", 0).Store(&xmldata)		
-		if err != nil {
-			log.Printf("Error getting introspect from [%s, %s]: %s", dbusService, dbusPath, err)
-			return nil
-		}
-	}
-
-	err := xml.NewDecoder(strings.NewReader(xmldata)).Decode(&node)
+	var o = bus.Object(dbusService, dbus.ObjectPath(dbusPath))
+	err := o.Call("org.freedesktop.DBus.Introspectable.Introspect", 0).Store(&xmldata)
 
 	if err != nil {
-		log.Printf("Error decoding introspect data for [%s, %s]: %s", dbusService, dbusPath, err)
-		return nil
+		log.Printf("Error getting introspect from [%s, %s]: %s", dbusService, dbusPath, err)
 	}
 
-	a.addService(dbusService, &AllJoynBindingInfo{allJoynService, allJoynPath, dbusPath, &node})
+	// log.Printf("Introspect Data: %s", xmldata)
+	err = xml.NewDecoder(strings.NewReader(xmldata)).Decode(&node)
 
-	log.Printf("Received introspect: %+v", &node)
+	if node.Name != "" && len(node.Interfaces) > 0 {				
+		fn(dbusPath, &node)
+	}
 
-	return nil
+	for _, child := range node.Children {
+		traverseDbusObjects(bus, dbusService, dbusPath + "/" + child.Name, fn)
+	}
+
 }
+
+func (a *AllJoynBridge) AddService(dbusService, dbusPath, allJoynService string) (string, *dbus.Error) {	
+	
+	// TODO: make sure uuid is really unique and not present in a.services
+	uuid, err := newUUID()
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return "", dbus.NewError("com.devicehive.Error", []interface{}{err.Error})
+	}
+
+
+	// go func() {
+
+	var bindings []*AllJoynBindingInfo;
+
+	log.Printf("Traversing objects tree for %s (%s at %s)", uuid, dbusService, dbusPath)
+
+	traverseDbusObjects(a.bus, dbusService, dbusPath, func(path string, node *introspect.Node){
+		allJoynPath := strings.TrimPrefix(path, dbusPath)
+		bindings = append(bindings, &AllJoynBindingInfo{allJoynPath, path, node})
+		log.Printf("Found Object: %s with %d interfaces", allJoynPath, len(node.Interfaces))
+		})
+
+	a.services[uuid] = &AllJoynServiceInfo{allJoynService, dbusService, bindings}
+
+	log.Printf("Added %s service with %d AJ objects", allJoynService, len(bindings))
+
+	go a.startAllJoyn(uuid)
+
+	return uuid, nil
+}
+
 
 func main() {
 	bus, err := dbus.SystemBus()
@@ -562,6 +603,7 @@ func main() {
 	bus.Export(introspect.NewIntrospectable(root), "/", "org.freedesktop.DBus.Introspectable") // workaroud for dbus issue #14
 
 	log.Printf("Bridge is Running.")
+
 
 	select {}
 }
