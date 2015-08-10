@@ -38,7 +38,6 @@ import (
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
 	"log"
-	"reflect"
 	"strings"
 	"unsafe"
 	"crypto/rand"
@@ -225,7 +224,7 @@ func (m *AllJoynMessenger) MyAboutPropGetter_member(reply *C.AJ_Message, languag
 
 func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member string, arguments []interface{}) (err error) {
 	remote := m.bus.Object(m.dbusService, dbus.ObjectPath(path))
-	log.Printf("%s Argument[0] %+v", member, reflect.ValueOf(arguments[0]).Type())
+	// log.Printf("%s Argument[0] %+v", member, reflect.ValueOf(arguments[0]).Type())
 	res := remote.Call(member, 0, arguments...)
 
 	if res.Err != nil {
@@ -399,7 +398,7 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 
 				status = C.AJ_BusBindSessionPort((*C.AJ_BusAttachment)(busAttachment), 
 					AJ_CP_PORT, (*C.AJ_SessionOpts)(C.Get_Session_Opts()), 0);
-				
+
 				if (status != C.AJ_OK) {
 					log.Printf(("Failed to send bind session port message"));
 				}

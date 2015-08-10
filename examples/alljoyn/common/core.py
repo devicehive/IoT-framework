@@ -43,15 +43,29 @@ def flatten(d, parent_key='', sep='.'):
     return dict(items)
 
 
+class BusContainer(object):
+  def __init__(self, bus, root):
+    self._bus = bus
+    self._root = root.rstrip('/')
+
+  @property
+  def bus(self):
+    return self._bus
+
+  def relative(self, path):
+    return "%s/%s" % (self._root, path.lstrip('/'))
+
 class ServiceInterface(dbus.service.Object):
-  def __init__(self, container, path, exports):
-    self._path = path
-    self._exports = exports
+  def __init__(self, container, path):
+    self._path = path    
     dbus.service.Object.__init__(self, container.bus, container.relative(path))
 
   @property
   def path(self):
       return self._path
+
+  def relative(self, path):
+    return "%s/%s" % (self._path, path.lstrip('/'))
 
   def IntrospectionXml(self):
     return None
@@ -73,18 +87,13 @@ class ServiceInterface(dbus.service.Object):
   @property
   def object_path(self):
       return self._object_path
-
-  @property
-  def exports(self):
-      return self._exports
-  
   
 
 class PropertiesServiceInterface(ServiceInterface):
-  def __init__(self, container, path, exports, properties):
+  def __init__(self, container, path, properties):
     self._path = path
     self._properties = flatten(properties)
-    ServiceInterface.__init__(self, container, path, exports)
+    ServiceInterface.__init__(self, container, path)
 
   ## dbus.PROPERTIES_IFACE
   @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature='ss', out_signature='v')
@@ -94,19 +103,17 @@ class PropertiesServiceInterface(ServiceInterface):
       if prop in self._properties:
           return self._properties[prop]
       else:
-          raise Exception('Unsupported property: %s.%s' % (interface, prop))
+          raise Exception('Unsupported property: %s' % prop)
 
   @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature='ssv')
   def Set(self, interface, property, value):
       prop = interface + '.' + property
       print("Properties.Set is called %s with %s" % (prop, value))
-      if prop in self._properties:
-          self._properties[prop] = value
-      else:
-          raise Exception('Unsupported property: %s.%s' % (interface, prop))
-
+      self._properties[prop] = value
+      
   @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature='s', out_signature='a{sv}')
   def GetAll(self, interface):
+      print("Properties.GetAll is called for %s" % interface)
       prefix = interface + '.'
       return  {k[len(prefix):]: v for k, v in self._properties.items() if k.startswith(prefix)}
 
@@ -116,8 +123,7 @@ class PropertiesServiceInterface(ServiceInterface):
 
 class AboutService(PropertiesServiceInterface):
   def __init__(self, container, properties):
-    PropertiesServiceInterface.__init__(self, container, '/About', 
-      ['org.alljoyn.About'],
+    PropertiesServiceInterface.__init__(self, container, '/About',       
       {'org.alljoyn.About' : properties})
 
   ## org.alljoyn.About Interface
@@ -161,7 +167,7 @@ class ConfigService(PropertiesServiceInterface):
   def __init__(self, container, name):
     self._name = name
     PropertiesServiceInterface.__init__(self, container, '/Config', 
-      ['org.alljoyn.Config'], {'org.alljoyn.Config' : {'Version': 1}})
+      {'org.alljoyn.Config' : {'Version': 1}})
 
   ## org.alljoyn.Config Interface
   @dbus.service.method(CONFIG_SERVICE_IFACE, in_signature='s', out_signature='a{sv}')
