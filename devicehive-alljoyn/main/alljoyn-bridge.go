@@ -18,8 +18,8 @@ const char * Get_AJ_Message_objPath();
 const char * Get_AJ_Message_iface();
 const char * Get_AJ_Message_member();
 const char * Get_AJ_Message_destination();
-void * Get_AJ_ReplyMessage();
-void * Get_AJ_Message();
+AJ_Message * Get_AJ_ReplyMessage();
+AJ_Message * Get_AJ_Message();
 void * Get_AJ_BusAttachment();
 void * Allocate_AJ_Object_Array(uint32_t array_size);
 void * Create_AJ_Object(uint32_t index, void * array, char* path, AJ_InterfaceDescription* interfaces, uint8_t flags, void* context);
@@ -27,7 +27,16 @@ AJ_Status MyAboutPropGetter_cgo(AJ_Message* reply, const char* language);
 void * Get_Session_Opts();
 void * Get_Arg();
 AJ_Status AJ_MarshalArgs_cgo(AJ_Message* msg, char * a, char * b, char * c, char * d);
+
 int UnmarshalPort();
+
+void free (void *__ptr);
+AJ_Status MarshalArg(AJ_Message* msg, char * sig, void * value);
+AJ_Status AJ_DeliverMsg(AJ_Message* msg);
+AJ_Status AJ_MarshalSignal_cgo(AJ_Message* msg, uint32_t msgId, uint32_t sessionId, uint8_t flags, uint32_t ttl);
+AJ_Status UnmarshalJoinSessionArgs(AJ_Message* msg, uint16_t * port, uint32_t * sessionId);
+AJ_Status UnmarshalLostSessionArgs(AJ_Message* msg, uint32_t * sessionId, uint32_t * reason);
+
 */
 import "C"
 import (
@@ -45,7 +54,8 @@ import (
 	"fmt"
 )
 
-const PORT = 42
+
+const PORT = 900
 const AJ_CP_PORT = 1000
 
 // newUUID generates a random UUID according to RFC 4122
@@ -78,14 +88,17 @@ type AllJoynBindingInfo struct {
 
 type AllJoynServiceInfo struct {
 	allJoynService    string
-	dbusService       string
+	dbusService       string // unique bus id name
+	dbusServiceName   string // friendly name 
 	objects           []*AllJoynBindingInfo	
 }
 
 
 type AllJoynBridge struct {
 	bus                *dbus.Conn
+	signals            chan *dbus.Signal
 	services           map[string]*AllJoynServiceInfo
+	sessions           [] uint32
 }
 
 type AllJoynMessenger struct {
@@ -101,10 +114,22 @@ func NewAllJoynMessenger(dbusService string, bus *dbus.Conn, binding []*AllJoynB
 
 func NewAllJoynBridge(bus *dbus.Conn) *AllJoynBridge {
 	bridge := new(AllJoynBridge)
-	bridge.bus = bus
+	bridge.bus      = bus
+	bridge.signals  = make(chan *dbus.Signal, 100)
 	bridge.services = make(map[string]*AllJoynServiceInfo)
+	bridge.sessions = []uint32{}
+	
+	sbuffer  := make(chan *dbus.Signal, 100)
+	go bridge.signalsPump(sbuffer)
+	bus.Signal(sbuffer)
 
 	return bridge
+}
+
+func (a *AllJoynBridge) signalsPump(buffer chan *dbus.Signal) {	
+	for signal := range buffer {
+		a.signals <- signal
+	}
 }
 
 func ParseArgumentOrProperty(name, access, _type string) string {
@@ -140,20 +165,20 @@ func ParseAllJoynInterfaces(interfaces []introspect.Interface) []C.AJ_InterfaceD
 		for _, method := range iface.Methods {
 			methogString := "?" + method.Name
 			argString := ParseArguments(method.Args)
-			log.Print(methogString + argString)
+			// log.Print(methogString + argString)
 			desc = append(desc, C.CString(methogString+argString))
 		}
 
 		for _, signal := range iface.Signals {
 			signalString := "!" + signal.Name
 			argString := ParseArguments(signal.Args)
-			log.Print(signalString + argString)
+			// log.Print(signalString + argString)
 			desc = append(desc, C.CString(signalString+argString))
 		}
 
 		for _, prop := range iface.Properties {
 			propString := "@" + ParseArgumentOrProperty(prop.Name, prop.Access, prop.Type)
-			log.Print(propString)
+			// log.Print(propString)
 			desc = append(desc, C.CString(propString))
 		}
 
@@ -189,15 +214,15 @@ func getAllJoynObjectFlags(service *AllJoynBindingInfo) C.uint8_t {
 	}
 }
 
-func GetAllJoynObjects(services []*AllJoynBindingInfo) unsafe.Pointer {
-	array := C.Allocate_AJ_Object_Array(C.uint32_t(len(services) + 1))
-	for i, service := range services {
-		interfaces = ParseAllJoynInterfaces(service.introspectData.Interfaces)
-		flags := getAllJoynObjectFlags(service)
-		log.Printf("Creating Object %s %u", service.introspectData.Name, flags)
-		C.Create_AJ_Object(C.uint32_t(i), array, C.CString(service.introspectData.Name), &interfaces[0], flags, unsafe.Pointer(nil))
+func GetAllJoynObjects(objects []*AllJoynBindingInfo) unsafe.Pointer {
+	array := C.Allocate_AJ_Object_Array(C.uint32_t(len(objects) + 1))
+	for i, object := range objects {
+		interfaces = ParseAllJoynInterfaces(object.introspectData.Interfaces)
+		flags := getAllJoynObjectFlags(object)
+		log.Printf("Creating Object %s %u", object.introspectData.Name, flags)
+		C.Create_AJ_Object(C.uint32_t(i), array, C.CString(object.introspectData.Name), &interfaces[0], flags, unsafe.Pointer(nil))
 		C.Create_AJ_Object(C.uint32_t(i+1), array, nil, nil, 0, nil)
-		log.Printf("*****Alljoyn Objects %s %s", service.introspectData.Name, &interfaces[0])
+		// log.Printf("*****Alljoyn Objects %s %s", object.introspectData.Name, &interfaces[0])
 	}
 	return array
 }
@@ -208,7 +233,7 @@ func MyAboutPropGetter(reply *C.AJ_Message, language *C.char) C.AJ_Status {
 }
 
 func (m *AllJoynMessenger) MyAboutPropGetter_member(reply *C.AJ_Message, language *C.char) C.AJ_Status {
-	log.Printf("MyAboutPropGetter_member(): %+v", m)
+	// log.Printf("MyAboutPropGetter_member(): %+v", m)
 	aboutInterfacePath := m.binding[0].dbusPath
 
 	log.Printf("About interface path: %s", aboutInterfacePath)
@@ -218,7 +243,7 @@ func (m *AllJoynMessenger) MyAboutPropGetter_member(reply *C.AJ_Message, languag
 		return C.AJ_ERR_NO_MATCH
 	}
 
-	log.Printf("About message signature, offset: %s, %d", C.GoString(reply.signature), reply.sigOffset)
+	// log.Printf("About message signature, offset: %s, %d", C.GoString(reply.signature), reply.sigOffset)
 	return C.AJ_OK
 }
 
@@ -239,8 +264,7 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 	buf.Write(make([]byte, (int)(message.bodyBytes)))
 	enc := devicehivealljoyn.NewEncoderAtOffset(buf, (int)(message.bodyBytes), binary.LittleEndian)
 	pad, err := enc.Encode(res.Body...)
-	log.Printf("Padding of the encoded buffer: %d", pad)
-	//log.Printf("Got reply: %+v", res.Body)
+	// log.Printf("Padding of the encoded buffer: %d", pad)
 	if err != nil {
 		log.Printf("Error encoding result: %s", err)
 		return err
@@ -253,7 +277,7 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 		C.AJ_MarshalCloseContainer((*C.AJ_Message)(message), (*C.AJ_Arg)(C.Get_Arg()))
 	*/
 	//log.Printf("Encoded reply, len: %+v, %d", buf.Bytes(), buf.Len())
-	log.Printf("Length before: %d", message.bodyBytes)
+	// log.Printf("Length before: %d", message.bodyBytes)
 
 	newBuf := buf.Bytes()[(int)(message.bodyBytes)+pad:]
 	//log.Printf("Buffer to write into AllJoyn: %+v, %d", newBuf, len(newBuf))
@@ -312,7 +336,7 @@ func (m *AllJoynMessenger) forwardAllJoynMessage(msgId uint32) (err error) {
 		status := C.AJ_UnmarshalRaw((*C.AJ_Message)(msg), (*unsafe.Pointer)(unsafe.Pointer(&data)), C.size_t(1), (*C.size_t)(unsafe.Pointer(&actual)))
 		if status == C.AJ_OK {
 			b = append(b, C.GoBytes(unsafe.Pointer(data), C.int(actual))...)
-			log.Printf("Reading RAW message, status = %d, actual = %d", status, actual)
+			// log.Printf("Reading RAW message, status = %d, actual = %d", status, actual)
 		} else {
 			log.Printf("Error while reading message body, status = %d", status)
 			break
@@ -344,7 +368,7 @@ func (m *AllJoynMessenger) forwardAllJoynMessage(msgId uint32) (err error) {
 
 	for _, service := range m.binding {
 		if service.allJoynPath == objPath {
-			log.Print("Found matching dbus service: %+v", service)
+			log.Printf("Found matching dbus service: %+v", service)			
 			C.AJ_MarshalReplyMsg((*C.AJ_Message)(msg), (*C.AJ_Message)(reply))
 			m.callRemoteMethod((*C.AJ_Message)(reply), service.dbusPath, iface+"."+member, res)
 			C.AJ_DeliverMsg((*C.AJ_Message)(reply))
@@ -354,20 +378,166 @@ func (m *AllJoynMessenger) forwardAllJoynMessage(msgId uint32) (err error) {
 	return nil
 }
 
+func SubscribeToSignals(bus *dbus.Conn, service * AllJoynServiceInfo) {
+	
+	for _, obj := range service.objects {
+		query := "type='signal',sender='" + service.dbusService + "',path='" + obj.dbusPath + "'"		
+		bus.BusObject().Call("org.freedesktop.DBus.AddMatch", 0, query)
+		// log.Printf("FILTERING SIGNALS: %s", query)
+	}
+}
+
+func  (a *AllJoynBridge) addSession(sessionId uint32) {
+	a.removeSession(sessionId)
+	a.sessions = append(a.sessions, sessionId)
+}
+
+func  (a *AllJoynBridge) removeSession(sessionId uint32) {
+	for i, sid := range a.sessions {
+		if sid == sessionId {
+			a.sessions = append(a.sessions[:i], a.sessions[i+1:]...)
+			return
+		}
+	}	
+}
+
+
+func  (a *AllJoynBridge) findSignal(signal * dbus.Signal) (uint32, *introspect.Signal) {
+		
+		sepPos := strings.LastIndex(signal.Name, ".")
+		singalInterface	:= signal.Name[:sepPos]
+		singalName 		:= signal.Name[sepPos+1:]
+
+		log.Printf("**** Inteface: %s, Name: %s", singalInterface, singalName)
+
+		for _, service := range a.services {
+			if service.dbusService == signal.Sender {
+				log.Printf("Found matching service: %s", service.dbusServiceName)
+
+				for objIdx, object := range service.objects {
+					if object.dbusPath == string(signal.Path) {
+						for ifIdx, iface := range object.introspectData.Interfaces {
+							if iface.Name == singalInterface {								
+								for sIdx, sgn := range iface.Signals {
+									if sgn.Name == singalName {
+										
+										memberIdx := len(iface.Methods) + sIdx
+										signalMessageId := 0x01000000 | (uint32(objIdx) << 16) | (uint32(ifIdx) << 8) | uint32(memberIdx)
+										log.Printf("##### Signal: %s => 0x%X  (%d %d %d)", signal.Name, signalMessageId, objIdx, ifIdx, memberIdx)
+
+										return signalMessageId, &sgn
+									}
+								}
+								// log.Printf("Could not find any matching signal for: %+v", signal)
+								return 0, nil
+							}							
+						}
+						// log.Printf("Could not find any matching interface for: %+v", signal)
+						return 0, nil
+					}
+				}
+				// log.Printf("Could not find any matching obejct for: %+v", signal)
+				return 0, nil
+			}
+		}
+		// log.Printf("Could not find any matching service for: %+v", signal)
+		return 0, nil
+}
+
+
+func (a *AllJoynBridge) processSignals() {		
+
+	// work on currently reveived signals only
+	// TODO:https://golang.org/doc/effective_go.html#leaky_buffer
+	signals := a.signals
+	a.signals  = make(chan *dbus.Signal, 100)
+	close(signals)
+
+	// log.Printf("Processing signals: %d", len(signals))
+
+	for signal := range signals {
+		log.Printf("**** Incoming Signal: %+v", signal)
+
+		// get signal signature
+		msgId, _ := a.findSignal(signal)
+		
+		if msgId == 0 {
+			log.Printf("Could not find any matching service for signal: %+v", signal)
+			continue
+		}
+		
+		for _, sessionId := range a.sessions {
+
+			var status C.AJ_Status = C.AJ_OK
+			msg := C.Get_AJ_Message()
+
+			status = C.AJ_MarshalSignal_cgo((*C.AJ_Message)(msg), C.uint32_t(msgId), C.uint32_t(sessionId), C.uint8_t(0), C.uint32_t(0))
+			log.Printf("**** AJ_MarshalSignal: %d", status)
+
+
+			// for _, arg := range signal.Body {
+			// 	log.Printf("**** ARG: %v", arg)
+			// 	signature := dbus.SignatureOf(arg).String()
+			// 	sig := C.CString(signature)
+			// 	defer C.free(unsafe.Pointer(sig))
+			// 	status = C.MarshalArg((*C.AJ_Message)(msg), sig, unsafe.Pointer(&arg))
+			// 	log.Printf("**** MarshalArg: (%s, %v) => %d", signature, arg, status)
+			// }
+
+
+			if len(signal.Body) > 0 {
+				
+				buf := new(bytes.Buffer)
+				buf.Write(make([]byte, (int)(msg.bodyBytes)))
+				enc := devicehivealljoyn.NewEncoderAtOffset(buf, (int)(msg.bodyBytes), binary.LittleEndian)
+				pad, err := enc.Encode(signal.Body...)
+				
+				if err != nil {
+					log.Printf("Error encoding result: %s", err)
+					continue
+				}
+				
+				newBuf := buf.Bytes()[(int)(msg.bodyBytes)+pad:]
+			
+				status = C.AJ_DeliverMsgPartial((*C.AJ_Message)(msg), C.uint32_t(len(newBuf)))
+				log.Printf("**** AJ_DeliverMsgPartial: %d", status)
+
+				if len(newBuf) > 0 {
+					status = C.AJ_MarshalRaw((*C.AJ_Message)(msg), unsafe.Pointer(&newBuf[0]), C.size_t(len(newBuf)))
+					log.Printf("**** AJ_MarshalRaw: %d", status)
+				} else {
+					status = C.AJ_MarshalRaw((*C.AJ_Message)(msg), unsafe.Pointer(&newBuf), C.size_t(0))
+					log.Printf("**** AJ_MarshalRaw: %d", status)
+				}
+
+			}
+
+			status = C.AJ_DeliverMsg((*C.AJ_Message)(msg));
+			log.Printf("**** AJ_DeliverMsg: %d", status)
+
+			status = C.AJ_CloseMsg((*C.AJ_Message)(msg))
+			log.Printf("**** AJ_CloseMsg: %d", status)
+		}
+		
+	}
+}
+
 func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 	service := a.services[uuid]
 	objects := GetAllJoynObjects(service.objects)
 
+	SubscribeToSignals(a.bus, service)	
+
 	myMessenger = NewAllJoynMessenger(service.dbusService, a.bus, service.objects)
 
-	log.Printf("StartAllJoyn: %+v", myMessenger)
+	// log.Printf("StartAllJoyn: %+v", myMessenger)
 
 	C.AJ_Initialize()
 	C.AJ_RegisterObjects((*C.AJ_Object)(objects), nil)
 	C.AJ_AboutRegisterPropStoreGetter((C.AJ_AboutPropGetter)(unsafe.Pointer(C.MyAboutPropGetter_cgo)))
 	C.AJ_SetMinProtoVersion(10)
 
-	C.AJ_PrintXML((*C.AJ_Object)(objects))
+	// C.AJ_PrintXML((*C.AJ_Object)(objects))
 	connected := false
 	var status C.AJ_Status = C.AJ_OK
 	busAttachment := C.Get_AJ_BusAttachment()
@@ -379,8 +549,10 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 	go func() {
 		for {	
 			if !connected {
+				busNodeName := C.CString("org.alljoyn.BusNode")
+				defer C.free(unsafe.Pointer(busNodeName))
 				status = C.AJ_StartService((*C.AJ_BusAttachment)(busAttachment),
-					C.CString("org.alljoyn.BusNode"),
+					busNodeName,
 					60*1000, // TODO: Move connection timeout to config
 					C.FALSE,
 					C.uint16_t(PORT), // TODO: Move port to config
@@ -388,7 +560,7 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 					C.AJ_NAME_REQ_DO_NOT_QUEUE,
 					(*C.AJ_SessionOpts)(C.Get_Session_Opts()))
 
-				if status != C.AJ_OK {
+				if status != C.AJ_OK {					
 					continue
 				}
 
@@ -396,23 +568,24 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 
 				connected = true
 
+				// Start Control Panel by binding a session port
 				status = C.AJ_BusBindSessionPort((*C.AJ_BusAttachment)(busAttachment), 
 					AJ_CP_PORT, (*C.AJ_SessionOpts)(C.Get_Session_Opts()), 0);
 
 				if (status != C.AJ_OK) {
-					log.Printf(("Failed to send bind session port message"));
+					log.Printf(("Failed to send bind control panel port message"));
 				}
 
 			}
 
-
-			status = C.AJ_UnmarshalMsg((*C.AJ_BusAttachment)(busAttachment), (*C.AJ_Message)(msg),
-				5*1000) // TODO: Move unmarshal timeout to config
-			log.Printf("AJ_UnmarshalMsg: %+v", status)
-
+			status = C.AJ_UnmarshalMsg((*C.AJ_BusAttachment)(busAttachment), (*C.AJ_Message)(msg), 100) // TODO: Move unmarshal timeout to config
+			
 			if C.AJ_ERR_TIMEOUT == status {
+				a.processSignals()
 				continue
 			}
+
+			log.Printf("AJ_UnmarshalMsg: %+v", status)
 
 			if C.AJ_OK == status {
 
@@ -423,22 +596,35 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 				switch {
 				case msgId == C.AJ_METHOD_ACCEPT_SESSION:
 					{
-						port := int(C.UnmarshalPort())
+						
+						var c_port C.uint16_t
+						var c_sessionId C.uint32_t
+						
+						C.UnmarshalJoinSessionArgs((*C.AJ_Message)(msg), &c_port, &c_sessionId)
+
+						port := int(c_port)
+						sessionId := uint32(c_sessionId)
+						
 						if port == PORT || port == AJ_CP_PORT {
 							status = C.AJ_BusReplyAcceptSession((*C.AJ_Message)(msg), C.TRUE)
-							log.Printf("ACCEPT_SESSION: %+v port %d", msgId, port)
+							log.Printf("ACCEPT_SESSION: %d at %d port", sessionId, port)
+							a.addSession(sessionId)
 						} else {
 							status = C.AJ_BusReplyAcceptSession((*C.AJ_Message)(msg), C.FALSE)
-							log.Printf("REJECT_SESSION: %+v port", msgId, port)
+							log.Printf("REJECT_SESSION: %d at %d port", sessionId, port)
 						}
 					}
 
 				case msgId == C.AJ_SIGNAL_SESSION_LOST_WITH_REASON:
 					{
-						// uint32_t id, reason;
-						// AJ_UnmarshalArgs(&msg, "uu", &id, &reason);
-						// AJ_AlwaysPrintf(("Session lost. ID = %u, reason = %u", id, reason));
-						log.Printf("Session lost: %+v", msgId)
+						var c_sessionId, c_reason C.uint32_t
+
+						C.UnmarshalLostSessionArgs((*C.AJ_Message)(msg), &c_sessionId, &c_reason)
+
+						sessionId := uint32(c_sessionId)
+						reason := uint32(c_reason)						
+						log.Printf("Session lost: %d as of reason %d", sessionId, reason)
+						a.removeSession(sessionId)
 					}
 				case uint32(msgId) == 0x1010003: // Config.GetConfigurations
 					// our forwardAllJoyn doesn't support encrypted messages which config service is,
@@ -479,16 +665,18 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 						log.Printf("AllJoyn returned %d", status)
 					}
 				}
+				
+				// Any received packets indicates the link is active, so call to reinforce the bus link state
 				C.AJ_NotifyLinkActive()
 			}
 
 			/* Messages MUST be discarded to free resources. */
 			C.AJ_CloseMsg((*C.AJ_Message)(msg))
 
-			if status == C.AJ_OK {
-				log.Print("***C.AJ_AboutAnnounce***")
-				C.AJ_AboutAnnounce((*C.AJ_BusAttachment)(busAttachment))
-			}
+			// if status == C.AJ_OK {
+			// 	log.Print("***C.AJ_AboutAnnounce***")
+			// 	C.AJ_AboutAnnounce((*C.AJ_BusAttachment)(busAttachment))
+			// }
 
 			if status == C.AJ_ERR_READ {
 				C.AJ_Disconnect((*C.AJ_BusAttachment)(busAttachment))
@@ -540,15 +728,21 @@ func (a *AllJoynBridge) AddService(dbusService, dbusPath, allJoynService string)
 
 	var bindings []*AllJoynBindingInfo;
 
-	log.Printf("Traversing objects tree for %s (%s at %s)", uuid, dbusService, dbusPath)
+	var dbusServiceId string
+	err = a.bus.BusObject().Call("org.freedesktop.DBus.GetNameOwner", 0, dbusService).Store(&dbusServiceId)
+	if err != nil {
+		return "", dbus.NewError("com.devicehive.Error", []interface{}{err.Error})
+	}
 
-	traverseDbusObjects(a.bus, dbusService, dbusPath, func(path string, node *introspect.Node){
+	log.Printf("Traversing objects tree for %s (%s [%s] at %s)", uuid, dbusService, dbusServiceId, dbusPath)
+
+	traverseDbusObjects(a.bus, dbusServiceId, dbusPath, func(path string, node *introspect.Node){
 		allJoynPath := strings.TrimPrefix(path, dbusPath)
 		bindings = append(bindings, &AllJoynBindingInfo{allJoynPath, path, node})
 		log.Printf("Found Object: %s with %d interfaces", allJoynPath, len(node.Interfaces))
 		})
 
-	a.services[uuid] = &AllJoynServiceInfo{allJoynService, dbusService, bindings}
+	a.services[uuid] = &AllJoynServiceInfo{allJoynService, dbusServiceId, dbusService, bindings}
 
 	log.Printf("Added %s service with %d AJ objects", allJoynService, len(bindings))
 

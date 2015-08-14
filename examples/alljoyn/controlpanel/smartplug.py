@@ -99,8 +99,8 @@ class SmartPlug():
       statepropertywidget.SetValue(dbus.String("Switch On", variant_level=2))
 
     def lightsOff():
-      onactionwidget.SetStates(cp.WIDGET_STATE_DISABLED)
-      offactionwidget.SetStates(cp.WIDGET_STATE_ENABLED)
+      onactionwidget.SetStates(cp.WIDGET_STATE_ENABLED)
+      offactionwidget.SetStates(cp.WIDGET_STATE_DISABLED)
       statepropertywidget.SetValue(dbus.String("Switch Off", variant_level=2))
 
     onactionwidget.SetHandler(lightsOn)
