@@ -26,9 +26,6 @@ DBusGMainLoop(set_as_default=True)
 
 # import json
 
-SATECHI_NAMES = ['DELIGHT', 'SATECHI-1']
-SATECHI_COLOR_CHAR = 'fff3'
-
 DBUS_BRIDGE_NAME = 'com.devicehive.alljoyn.bridge'
 DBUS_BRIDGE_PATH = '/com/devicehive/alljoyn/bridge'
 

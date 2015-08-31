@@ -108,7 +108,7 @@ class PropertiesServiceInterface(ServiceInterface):
   @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature='ssv')
   def Set(self, interface, property, value):
       prop = interface + '.' + property
-      print("Properties.Set is called %s with %s (%s)" % (prop, value, type(value)))
+      print("Properties.Set is called %s with %s (%s:%d)" % (prop, value, type(value), value.variant_level))
       self._properties[prop] = value
       
   @dbus.service.method(dbus.PROPERTIES_IFACE, in_signature='s', out_signature='a{sv}')
