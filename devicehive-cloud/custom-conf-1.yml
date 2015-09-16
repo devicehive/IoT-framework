@@ -1,0 +1,8 @@
+URL: http://nn8615.pg.devicehive.com/api
+AccessKey: blUP8R5hfk7Hn/IUYrz8M3cCtKLdMXx5SeRRjwHhUgo=
+
+DeviceID: 0B24431A-EC99-4887-8B4F-38C3CEAF1D03
+DeviceName: snappy-go-gateway
+
+SendNotificatonQueueCapacity: 2047
+LoggingLevel: verbose
