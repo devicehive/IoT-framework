@@ -37,7 +37,9 @@ func DeviceNotificationPoll(
 	if resource.Headers == nil {
 		resource.Headers = http.Header{}
 	}
+
 	resource.Headers["Authorization"] = []string{"Bearer " + accessKey}
+	resource.Headers["Connection"] = []string{"close"}
 
 	_, err = resource.Get(param.Map(params))
 
