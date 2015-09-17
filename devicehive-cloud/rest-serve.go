@@ -57,19 +57,22 @@ func restImplementation(bus *dbus.Conn, config conf.Conf) {
 	}
 
 	go func() {
-		control := rest.NewPollAsync()
-		out := make(chan rest.DeviceNotificationResource, 16)
+		nControl := rest.NewPollAsync()
+		cControl := rest.NewPollAsync()
+		nOut := make(chan rest.DeviceNotificationResource, 16)
+		cOut := make(chan rest.DeviceCmdResource, 16)
 
-		go rest.DeviceNotificationPollAsync(config.URL, config.DeviceID, config.AccessKey, out, control)
+		go rest.DeviceNotificationPollAsync(config.URL, config.DeviceID, config.AccessKey, nOut, nControl)
+		go rest.DeviceCmdPollAsync(config.URL, config.DeviceID, config.AccessKey, cOut, cControl)
 
 		for {
 			select {
-			case n := <-out:
+			case n := <-nOut:
 				parameters := ""
 				if n.Parameters != nil {
 					b, err := json.Marshal(n.Parameters)
 					if err != nil {
-						say.Infof("Could not generate JSON from parameters of command %+v\nWith error %s", n, err.Error())
+						say.Infof("Could not generate JSON from parameters of notification %+v\nWith error %s", n, err.Error())
 						continue
 					}
 
@@ -77,6 +80,20 @@ func restImplementation(bus *dbus.Conn, config conf.Conf) {
 				}
 				say.Verbosef("NOTIFICATION %s -> %s(%v)", config.URL, n.Notification, parameters)
 				bus.Emit(restObjectPath, restCommandName, uint32(n.Id), n.Notification, parameters)
+			case c := <-cOut:
+				parameters := ""
+				if c.Parameters != nil {
+					b, err := json.Marshal(c.Parameters)
+					if err != nil {
+						say.Infof("Could not generate JSON from parameters of command %+v\nWith error %s", c, err.Error())
+						continue
+					}
+
+					parameters = string(b)
+
+				}
+				say.Verbosef("COMMAND %s -> %s(%v)", config.URL, c.Command, parameters)
+				bus.Emit(restObjectPath, restCommandName, uint32(c.Id), c.Command, parameters)
 			}
 		}
 	}()
