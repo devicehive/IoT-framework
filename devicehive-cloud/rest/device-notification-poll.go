@@ -23,9 +23,9 @@ func DeviceNotificationPoll(
 	requestOut chan *http.Request, //maybe nil
 ) (dnrs []DeviceNotificationResource, err error) {
 	api := gopencils.Api(deviceHiveURL)
-	if client != nil {
-		api.SetClient(client)
-	}
+	// if client != nil {
+	// 	api.SetClient(client)
+	// }
 
 	resource := api.Res("device").Id(deviceGuid).Res("notification").Res("poll")
 	resource.Response = &dnrs
@@ -39,7 +39,6 @@ func DeviceNotificationPoll(
 	}
 
 	resource.Headers["Authorization"] = []string{"Bearer " + accessKey}
-	resource.Headers["Connection"] = []string{"close"}
 
 	_, err = resource.Get(param.Map(params))
 
