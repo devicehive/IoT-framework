@@ -40,6 +40,18 @@ LoggingLevel: verbose               # Optional: can be 'info', 'verbose', 'debug
                                     # Default: 'info'
 ```
 
+## Dbus configuration for Ubuntu
+In ``/etc/dbus-1/system.conf`` you should replace:
+```
+<deny own="*"/>
+<deny send_type="method_call"/>
+```
+on
+```
+<allow own="*"/>
+<allow send_type="method_call"/>
+```
+
 ## API Reference
 TBD
 
