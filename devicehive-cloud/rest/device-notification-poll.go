@@ -94,9 +94,9 @@ func DeviceNotificationPoll(
 		return
 	}
 	if body != nil || len(body) != 0 {
-		say.Verbosef("Request %+v received response body: %s", request, string(body))
+		say.Verbosef("Request %s received response body: %s", say.RequestStr(request), string(body))
 	} else {
-		say.Verbosef("Request %+v received zero body", request)
+		say.Verbosef("Request %s received zero body", say.RequestStr(request))
 	}
 
 	err = json.Unmarshal(body, &dnrs)
@@ -124,7 +124,9 @@ func DeviceNotificationPollAsync(
 		go func() {
 			for {
 
+				say.Infof("start n-poll-request")
 				dnrs, err := DeviceNotificationPoll(deviceHiveURL, deviceGuid, accessKey, nil, client, requestOut)
+				say.Infof("end n-poll-request")
 
 				select {
 				case <-isStopped:
