@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/devicehive/IoT-framework/devicehive-cloud/param"
@@ -68,14 +69,19 @@ func DeviceNotificationPoll(
 	client *http.Client, //maybe nil
 	requestOut chan *http.Request, //maybe nil
 ) (dnrs []DeviceNotificationResource, err error) {
-	url := fmt.Sprintf("%s/device/%s/notification/poll", deviceHiveURL, deviceGuid)
+	urlStr := fmt.Sprintf("%s/device/%s/notification/poll", deviceHiveURL, deviceGuid)
 	if client == nil {
 		client = http.DefaultClient
 	}
 
-	//TODO: integrate params
+	baseURL, err := url.Parse(urlStr)
+	if err != nil {
+		return
+	}
+	param.IntegrateWithUrl(baseURL, params)
+	urlStr = baseURL.RawQuery
 
-	request, err := http.NewRequest("GET", url, nil)
+	request, err := http.NewRequest("GET", urlStr, nil)
 	if err != nil {
 		return
 	}
@@ -100,7 +106,7 @@ func DeviceNotificationPoll(
 	if err != nil {
 		return
 	}
-	if body != nil || len(body) != 0 {
+	if body != nil && len(body) > 0 {
 		say.Verbosef("Request %s received response body: %s", say.RequestStr(request), string(body))
 	} else {
 		say.Verbosef("Request %s received zero body", say.RequestStr(request))
@@ -131,13 +137,11 @@ func DeviceNotificationPollAsync(
 		go func() {
 			for {
 
-				say.Infof("start n-poll-request")
 				dnrs, err := DeviceNotificationPoll(deviceHiveURL, deviceGuid, accessKey, nil, client, requestOut)
 				select {
 				case <-requestOut:
 				default:
 				}
-				say.Infof("end n-poll-request")
 
 				select {
 				case <-isStopped:

@@ -11,11 +11,14 @@ type I interface {
 }
 
 func IntegrateWithUrl(baseURL *url.URL, params []I) {
-	q := baseURL.Query()
-	for _, p := range params {
-		q.Set(p.Name(), p.String())
+	if params != nil && len(params) > 0 {
+		q := baseURL.Query()
+		for _, p := range params {
+			q.Set(p.Name(), p.String())
+		}
+		baseURL.RawQuery = q.Encode()
 	}
-	baseURL.RawQuery = q.Encode()
+
 }
 
 func UrlConcat(params []I) string {
