@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"time"
 
@@ -82,6 +83,7 @@ func DeviceNotificationPoll(
 	request.Header.Set("Authorization", "Bearer "+accessKey)
 	requestOut <- request
 
+	log.Printf("STARTING REQUEST: %+v", request)
 	response, err := client.Do(request)
 	if err != nil {
 		return
@@ -92,6 +94,7 @@ func DeviceNotificationPoll(
 	if err != nil {
 		return
 	}
+	log.Printf("RESPONSED BODY: %s", string(body))
 
 	err = json.Unmarshal(body, &dnrs)
 	if err != nil {
