@@ -80,9 +80,16 @@ func DeviceNotificationPoll(
 		return
 	}
 	request.Header.Set("Authorization", "Bearer "+accessKey)
-	requestOut <- request
 
-	say.Verbosef("Starting request %+v", request)
+	if requestOut != nil {
+		select {
+		case requestOut <- request:
+		default:
+			say.Verbosef("You use requestout chan, but this chan is full.")
+		}
+	}
+
+	say.Verbosef("Starting request %+v", say.RequestStr(request))
 	response, err := client.Do(request)
 	if err != nil {
 		return
@@ -126,6 +133,10 @@ func DeviceNotificationPollAsync(
 
 				say.Infof("start n-poll-request")
 				dnrs, err := DeviceNotificationPoll(deviceHiveURL, deviceGuid, accessKey, nil, client, requestOut)
+				select {
+				case <-requestOut:
+				default:
+				}
 				say.Infof("end n-poll-request")
 
 				select {
