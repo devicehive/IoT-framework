@@ -80,22 +80,22 @@ func restImplementation(bus *dbus.Conn, config conf.Conf) {
 				}
 				say.Verbosef("NOTIFICATION %s -> %s(%v)", config.URL, n.Notification, parameters)
 				bus.Emit(restObjectPath, restCommandName, uint32(n.Id), n.Notification, parameters)
-			// case c := <-cOut:
-			// 	parameters := ""
-			// 	if c.Parameters != nil {
-			// 		b, err := json.Marshal(c.Parameters)
-			// 		if err != nil {
-			// 			say.Infof("Could not generate JSON from parameters of command %+v\nWith error %s", c, err.Error())
-			// 			continue
-			// 		}
+				// case c := <-cOut:
+				// 	parameters := ""
+				// 	if c.Parameters != nil {
+				// 		b, err := json.Marshal(c.Parameters)
+				// 		if err != nil {
+				// 			say.Infof("Could not generate JSON from parameters of command %+v\nWith error %s", c, err.Error())
+				// 			continue
+				// 		}
 
-			// 		parameters = string(b)
+				// 		parameters = string(b)
 
-			// 	}
-			// 	say.Verbosef("COMMAND %s -> %s(%v)", config.URL, c.Command, parameters)
-			// 	bus.Emit(restObjectPath, restCommandName, uint32(c.Id), c.Command, parameters)
-			// }
-		// }
+				// 	}
+				// 	say.Verbosef("COMMAND %s -> %s(%v)", config.URL, c.Command, parameters)
+				// 	bus.Emit(restObjectPath, restCommandName, uint32(c.Id), c.Command, parameters)
+			}
+		}
 	}()
 
 	w := NewDbusRestWrapper(config)
