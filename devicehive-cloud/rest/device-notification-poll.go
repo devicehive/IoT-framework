@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/devicehive/IoT-framework/devicehive-cloud/param"
@@ -69,19 +68,14 @@ func DeviceNotificationPoll(
 	client *http.Client, //maybe nil
 	requestOut chan *http.Request, //maybe nil
 ) (dnrs []DeviceNotificationResource, err error) {
-	urlStr := fmt.Sprintf("%s/device/%s/notification/poll", deviceHiveURL, deviceGuid)
+	url := fmt.Sprintf("%s/device/%s/notification/poll", deviceHiveURL, deviceGuid)
 	if client == nil {
 		client = http.DefaultClient
 	}
 
-	baseURL, err := url.Parse(urlStr)
-	if err != nil {
-		return
-	}
-	param.IntegrateWithUrl(baseURL, params)
-	urlStr = baseURL.RawQuery
+	url = param.IntegrateWithUrl(url, params)
 
-	request, err := http.NewRequest("GET", urlStr, nil)
+	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return
 	}
