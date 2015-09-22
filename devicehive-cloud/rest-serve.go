@@ -95,7 +95,7 @@ func restImplementation(bus *dbus.Conn, config conf.Conf) {
 			// 	say.Verbosef("COMMAND %s -> %s(%v)", config.URL, c.Command, parameters)
 			// 	bus.Emit(restObjectPath, restCommandName, uint32(c.Id), c.Command, parameters)
 			// }
-		}
+		// }
 	}()
 
 	w := NewDbusRestWrapper(config)
