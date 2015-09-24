@@ -13,9 +13,12 @@ GOOS=linux GOARCH=arm GOARM=7 go build -o $DIR/bin/armhf/devicehive-ble $DIR/../
 # Cloud
 go get gopkg.in/yaml.v2
 go get github.com/gorilla/websocket
-go get github.com/mibori/gopencils
-GOOS=linux go build -o $DIR/bin/x86_64/devicehive-cloud $DIR/../../../devicehive-cloud/devicehive-cloud.go $DIR/../../../devicehive-cloud/rest-serve.go $DIR/../../../devicehive-cloud/ws-serve.go
-GOOS=linux GOARCH=arm GOARM=7 go build -o $DIR/bin/armhf/devicehive-cloud $DIR/../../../devicehive-cloud/devicehive-cloud.go $DIR/../../../devicehive-cloud/rest-serve.go $DIR/../../../devicehive-cloud/ws-serve.go
+# go get github.com/mibori/gopencils
+# GOOS=linux go build -o $DIR/bin/x86_64/devicehive-cloud $DIR/../../../devicehive-cloud/devicehive-cloud.go $DIR/../../../devicehive-cloud/rest-serve.go $DIR/../../../devicehive-cloud/ws-serve.go
+# GOOS=linux GOARCH=arm GOARM=7 go build -o $DIR/bin/armhf/devicehive-cloud $DIR/../../../devicehive-cloud/devicehive-cloud.go $DIR/../../../devicehive-cloud/rest-serve.go $DIR/../../../devicehive-cloud/ws-serve.go
+GOOS=linux go build -o $DIR/bin/x86_64/devicehive-cloud $DIR/../../../devicehive-cloud/*.go
+GOOS=linux GOARCH=arm GOARM=7 go build -o $DIR/bin/armhf/devicehive-cloud $DIR/../../../devicehive-cloud/*.go
+
 
 # Enocean
 cp -f $DIR/../../../devicehive-enocean/enocean-daemon $DIR/bin/devicehive-enocean
