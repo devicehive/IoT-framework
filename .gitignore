@@ -35,3 +35,4 @@ devicehive-alljoyn/libajtcl.so
 *.DS_Store
 
 __pycache__
+*.pyc

@@ -65,9 +65,7 @@ class Lamp():
 
     self._container = core.BusContainer(busname, DBUS_BUS_PATH + '/' + self.id)
 
-
     lamp_service = lsf.LampService(self._container, self.name)
-    
 
     self._services = [
        core.AboutService(self._container, about_props),
@@ -87,7 +85,7 @@ class Lamp():
       return self._name
 
   def publish(self, bridge):      
-    service = self._services[0]
+    
     bridge.AddService(self._container.bus.get_name(), self._container.relative('').rstrip('/'), SVC_NAME,
       # ignore_reply=True
       reply_handler=lambda id: print("ID: %s" % id),
