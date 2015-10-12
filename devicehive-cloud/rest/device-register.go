@@ -16,13 +16,13 @@ func DeviceRegisterEasy(deviceHiveURL, deviceGuid, deviceName string) (err error
 	}
 
 	params := map[string]interface{}{
-		"key":    "00000000-0000-0000-0000-000000000000",
+		// "key":    "00000000-0000-0000-0000-000000000000",
 		"name":   deviceName,
 		"status": "online",
-		"network": map[string]interface{}{
-			"name":        "default",
-			"description": "default network",
-		},
+		// "network": map[string]interface{}{
+		// 	"name":        "default",
+		// 	"description": "default network",
+		// },
 		"deviceClass": map[string]interface{}{
 			"name":           "go-gateway-class",
 			"version":        "0.1",
