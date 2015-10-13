@@ -9,14 +9,14 @@ func (c *Conn) RegisterDevice(deviceID, deviceName string) {
 	m := map[string]interface{}{
 		"action":    "device/save",
 		"deviceId":  deviceID,
-		"deviceKey": "00000000-0000-0000-0000-000000000000",
+		// "deviceKey": "00000000-0000-0000-0000-000000000000",
 		"device": map[string]interface{}{
-			"key":    "00000000-0000-0000-0000-000000000000",
+			// "key":    "00000000-0000-0000-0000-000000000000",
 			"name":   deviceName,
 			"status": "online",
-			"network": map[string]interface{}{
-				"name":        "default",
-				"description": "default network"},
+			// "network": map[string]interface{}{
+			// 	"name":        "default",
+			// 	"description": "default network"},
 			"deviceClass": map[string]interface{}{
 				"name":           "go-gateway-class",
 				"version":        "0.1",
