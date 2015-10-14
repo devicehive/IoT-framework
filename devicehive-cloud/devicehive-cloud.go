@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"strings"
 	"encoding/json"
 
 	"github.com/devicehive/IoT-framework/devicehive-cloud/conf"
@@ -61,16 +62,19 @@ func main() {
 		say.Fatalf("The name '%s' already taken.", DBusConnName)
 	}
 
-	if config.DeviceNotifcationsReceive == conf.DeviceNotificationReceiveByWS {
-		say.Infof("Starting as websocket...")
-		wsImplementation(bus, config)
-		return
-	}
+	switch strings.ToUpper(config.DeviceNotifcationsReceive) {
+		case conf.DeviceNotificationReceiveByWS: {
+			say.Infof("Starting as websocket...")
+			wsImplementation(bus, config)
+		}
 
-	if config.DeviceNotifcationsReceive == conf.DeviceNotificationReceiveByREST {
-		say.Infof("Starting as rest...")
-		restImplementation(bus, config)
-		return
-	}
+		case conf.DeviceNotificationReceiveByREST: {
+			say.Infof("Starting as rest...")
+			restImplementation(bus, config)
+		}
 
+		default: {
+			say.Fatalf("unknown implementation %q", config.DeviceNotifcationsReceive)
+		}
+	}
 }
