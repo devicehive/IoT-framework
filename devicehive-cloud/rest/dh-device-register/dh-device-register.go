@@ -17,7 +17,7 @@ func main() {
 
 	say.Infof("Conf(%s): %+v", f, c)
 
-	err = rest.DeviceRegisterEasy(c.URL, c.DeviceID, c.DeviceName)
+	err = rest.DeviceRegisterEasy(c.URL, c.DeviceID, c.AccessKey, c.DeviceName)
 
 	if err != nil {
 		say.Infof("Error: %s", err.Error())
