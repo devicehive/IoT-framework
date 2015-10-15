@@ -55,7 +55,7 @@ func wsImplementation(bus *dbus.Conn, config conf.Conf) {
 		info, err := rest.GetApiInfo(config.URL)
 		if err == nil {
 			say.Debugf("API info: %+v", info)
-			c := ws.New(info.WebSocketServerUrl, config.DeviceID, config.SendNotificatonQueueCapacity, func(m map[string]interface{}) {
+			c := ws.New(info.WebSocketUrl, config.DeviceID, config.SendNotificatonQueueCapacity, func(m map[string]interface{}) {
 
 				p := m["parameters"]
 				params := ""
@@ -70,7 +70,7 @@ func wsImplementation(bus *dbus.Conn, config conf.Conf) {
 					params = string(b)
 				}
 
-				say.Debugf("COMMAND %s -> %s(%v)", info.WebSocketServerUrl, m["command"].(string), params)
+				say.Debugf("COMMAND %s -> %s(%v)", info.WebSocketUrl, m["command"].(string), params)
 
 				bus.Emit("/com/devicehive/cloud",
 					"com.devicehive.cloud.CommandReceived",
