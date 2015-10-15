@@ -31,7 +31,7 @@ func IntegrateWithUrl(baseUrl string, params []I) (resultUrl string) {
 
 	u, err := url.Parse(baseUrl)
 	if err != nil {
-		say.Verbosef("params: IntegrateWithUrl error: %s", err.Error())
+		say.Debugf("params: IntegrateWithUrl error: %s", err.Error())
 		return
 	}
 

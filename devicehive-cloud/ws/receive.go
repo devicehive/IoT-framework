@@ -24,7 +24,7 @@ func (c *Conn) readPump() error {
 	for {
 		_, r, err := c.ws.NextReader()
 		if err != nil {
-			say.Verbosef("readPump: could not receive c.ws.NextReader() with error: %s", err.Error())
+			say.Debugf("readPump: could not receive c.ws.NextReader() with error: %s", err.Error())
 			return err
 		}
 
@@ -32,7 +32,7 @@ func (c *Conn) readPump() error {
 		_, err = r.Read(buf)
 
 		if err != nil {
-			say.Verbosef("readPump: could not read c.ws.NextReader() to the buffer (%d bytes) with error: %s", maxMessageSize, err.Error())
+			say.Debugf("readPump: could not read c.ws.NextReader() to the buffer (%d bytes) with error: %s", maxMessageSize, err.Error())
 			return err
 		}
 
@@ -48,7 +48,7 @@ func (c *Conn) handleMessage(m []byte) {
 	m = bytes.Trim(m, "\x00")
 	err := json.Unmarshal(m, &dat)
 	if err != nil {
-		say.Verbosef("handleMessage: could not parse JSON in (%s) with error %s", string(m), err.Error())
+		say.Debugf("handleMessage: could not parse JSON in (%s) with error %s", string(m), err.Error())
 	}
 
 	a := dat["action"]
@@ -62,7 +62,7 @@ func (c *Conn) handleMessage(m []byte) {
 
 	callBack, ok := c.queue[r]
 	if !ok && (a != "command/insert") {
-		say.Verbosef("handleMessage: unhandled request with id=%d", r)
+		say.Debugf("handleMessage: unhandled request with id=%d", r)
 		return
 	}
 
@@ -81,7 +81,7 @@ func (c *Conn) handleMessage(m []byte) {
 		command := dat["command"]
 		go c.CommandReceived()(command.(map[string]interface{}))
 	default:
-		say.Verbosef("handleMessage: Unknown notification: %s", a)
+		say.Debugf("handleMessage: Unknown notification: %s", a)
 	}
 	delete(c.queue, r)
 }

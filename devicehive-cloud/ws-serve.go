@@ -26,7 +26,7 @@ func NewDbusObjectWrapper(c *ws.Conn) *DbusObjectWrapper {
 }
 
 func (w *DbusObjectWrapper) SendNotification(name, parameters string, priority uint64) *dbus.Error {
-	say.Verbosef("SendNotification(name='%s',params='%s',priority=%d)\n", name, parameters, priority)
+	say.Debugf("SendNotification(name='%s',params='%s',priority=%d)\n", name, parameters, priority)
 	dat, err := parseJSON(parameters)
 
 	if err != nil {
@@ -54,7 +54,7 @@ func wsImplementation(bus *dbus.Conn, config conf.Conf) {
 	for {
 		info, err := rest.GetApiInfo(config.URL)
 		if err == nil {
-			say.Verbosef("API info: %+v", info)
+			say.Debugf("API info: %+v", info)
 			c := ws.New(info.WebSocketServerUrl, config.DeviceID, config.SendNotificatonQueueCapacity, func(m map[string]interface{}) {
 
 				p := m["parameters"]
@@ -70,7 +70,7 @@ func wsImplementation(bus *dbus.Conn, config conf.Conf) {
 					params = string(b)
 				}
 
-				say.Verbosef("COMMAND %s -> %s(%v)", info.WebSocketServerUrl, m["command"].(string), params)
+				say.Debugf("COMMAND %s -> %s(%v)", info.WebSocketServerUrl, m["command"].(string), params)
 
 				bus.Emit("/com/devicehive/cloud",
 					"com.devicehive.cloud.CommandReceived",

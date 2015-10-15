@@ -85,11 +85,11 @@ func DeviceNotificationPoll(
 		select {
 		case requestOut <- request:
 		default:
-			say.Verbosef("You use requestout chan, but this chan is full.")
+			say.Debugf("You use requestout chan, but this chan is full.")
 		}
 	}
 
-	say.Verbosef("Starting request %+v", say.RequestStr(request))
+	say.Debugf("Starting request %+v", say.RequestStr(request))
 	response, err := client.Do(request)
 	if err != nil {
 		return
@@ -101,9 +101,9 @@ func DeviceNotificationPoll(
 		return
 	}
 	if body != nil && len(body) > 0 {
-		say.Verbosef("Request %s received response body: %s", say.RequestStr(request), string(body))
+		say.Debugf("Request %s received response body: %s", say.RequestStr(request), string(body))
 	} else {
-		say.Verbosef("Request %s received zero body", say.RequestStr(request))
+		say.Debugf("Request %s received zero body", say.RequestStr(request))
 	}
 
 	err = json.Unmarshal(body, &dnrs)

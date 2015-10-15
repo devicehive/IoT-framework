@@ -31,7 +31,7 @@ func NewDbusRestWrapper(c conf.Conf) *DbusRestWrapper {
 }
 
 func (w *DbusRestWrapper) SendNotification(name, parameters string, priority uint64) *dbus.Error {
-	say.Verbosef("SendNotification(name='%s',params='%s',priority=%d)\n", name, parameters, priority)
+	say.Debugf("SendNotification(name='%s',params='%s',priority=%d)\n", name, parameters, priority)
 	dat, err := parseJSON(parameters)
 
 	if err != nil {
@@ -78,7 +78,7 @@ func restImplementation(bus *dbus.Conn, config conf.Conf) {
 
 					parameters = string(b)
 				}
-				say.Verbosef("NOTIFICATION %s -> %s(%v)", config.URL, n.Notification, parameters)
+				say.Debugf("NOTIFICATION %s -> %s(%v)", config.URL, n.Notification, parameters)
 				bus.Emit(restObjectPath, restCommandName, uint32(n.Id), n.Notification, parameters)
 			case c := <-cOut:
 				parameters := ""
@@ -92,7 +92,7 @@ func restImplementation(bus *dbus.Conn, config conf.Conf) {
 					parameters = string(b)
 
 				}
-				say.Verbosef("COMMAND %s -> %s(%v)", config.URL, c.Command, parameters)
+				say.Debugf("COMMAND %s -> %s(%v)", config.URL, c.Command, parameters)
 				bus.Emit(restObjectPath, restCommandName, uint32(c.Id), c.Command, parameters)
 			}
 		}

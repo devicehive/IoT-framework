@@ -19,7 +19,7 @@ func (c *Conn) runInternal(init func()) error {
 	origin := "http://localhost/"
 	url := c.WebSocketURL() + "/device"
 
-	say.Verbosef("Connecting using WS to %s", url)
+	say.Debugf("Connecting using WS to %s", url)
 
 	ws, _, err := websocket.DefaultDialer.Dial(url, http.Header{"Origin": []string{origin}})
 	if err != nil {
@@ -31,7 +31,7 @@ func (c *Conn) runInternal(init func()) error {
 
 	go func() {
 		for m := range c.senderQ.Out() {
-			say.Verbosef("THROTTLING: Message has been received from priotiorized chan: %+v", m)
+			say.Debugf("THROTTLING: Message has been received from priotiorized chan: %+v", m)
 			c.SendCommand(m)
 		}
 	}()

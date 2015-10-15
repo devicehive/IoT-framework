@@ -30,19 +30,18 @@ const (
 )
 
 func main() {
-	say.SetLevelWithConfName("info")
-
 	configFile, config, err := conf.FromArgs()
 	switch {
 	case err != nil:
-		say.Fatalf("Cannot read configuration in `%s` with error: %s", configFile, err.Error())
+		say.Fatalf("Failed to read %q configuration (%s)", configFile, err.Error())
 	case configFile == "":
-		say.Infof("You should specify configuration file. Starting with test configuration: %+v", config)
+		say.Warnf("No configuration file provided!")
+		say.Infof("Test configuration is used: %+v", config)
 	default:
-		say.Infof("Starting DeviceHive gateway with configuration in '%s': %+v", configFile, config)
+		say.Infof("Starting DeviceHive with %q configuration: %+v", configFile, config)
 	}
 
-	say.SetLevelWithConfName(config.LoggingLevel)
+	say.SetLevelByName(config.LoggingLevel)
 
 	bus, err := dbus.SystemBus()
 	if err != nil {

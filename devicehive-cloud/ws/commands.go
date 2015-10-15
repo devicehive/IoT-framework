@@ -63,11 +63,12 @@ func (c *Conn) SendNotification(name string, parameters map[string]interface{}, 
 	say.Debugf("\n   SENT FROM DBUS name=%d, priority=%d, params=%+v)", name, priority, parameters)
 	removed := c.senderQ.Send(pqueue.Message(m), priority)
 
-	say.If(say.VERBOSE, func() {
-		say.Alwaysf("VERBOSE:THROTTLING: %s^%d(%+v)", name, priority, parameters)
-		for _, qi := range removed {
-			say.Alwaysf("   => REMOVED: %d ^%d(%+v)", qi.Timestamp, qi.Priority, qi.Msg)
-		}
-	})
+	_ = removed
+//	say.If(say.DEBUG, func() {
+//		say.Alwaysf("VERBOSE:THROTTLING: %s^%d(%+v)", name, priority, parameters)
+//		for _, qi := range removed {
+//			say.Alwaysf("   => REMOVED: %d ^%d(%+v)", qi.Timestamp, qi.Priority, qi.Msg)
+//		}
+//	})
 
 }
