@@ -4,28 +4,42 @@ import (
 	"github.com/devicehive/IoT-framework/devicehive-cloud/gopencils"
 )
 
-func DeviceRegisterEasy(deviceHiveURL, deviceGuid, accessKey, deviceName string) (err error) {
+func DeviceRegisterEasy(deviceHiveURL, deviceGuid, accessKey, deviceName, deviceKey, networkName, networkKey, networkDesc string) (err error) {
 	api := gopencils.Api(deviceHiveURL)
 
 	resource := api.Res("device").Id(deviceGuid)
 	resource.SetHeader("Authorization", "Bearer "+accessKey)
 
-	params := map[string]interface{}{
-		// "key":    "00000000-0000-0000-0000-000000000000",
+	// device class
+	dc := map[string]interface{}{
+		"name":           "go-gateway-class",
+		"version":        "0.1",
+		"offlineTimeout": 10}
+
+	// network (optional)
+	n := map[string]interface{}{
+		"name":        networkName,
+		"key":         networkKey,
+		"description": networkDesc}
+
+	// device
+	d := map[string]interface{}{
+		// [optional] "key":    deviceKey,
 		"name":   deviceName,
-		"status": "online",
-		// "network": map[string]interface{}{
-		// 	"name":        "default",
-		// 	"description": "default network",
-		// },
-		"deviceClass": map[string]interface{}{
-			"name":           "go-gateway-class",
-			"version":        "0.1",
-			"offlineTimeout": 10,
-		},
+		"status": "Online",
+		"deviceClass": dc}
+
+	// omit "network" if all fields are empty
+	if len(networkName)!=0 || len(networkKey)!=0 || len(networkDesc)!=0 {
+		d["network"] = n
 	}
 
-	_, err = resource.Put(params)
+	// omit device key if empty
+	if len(deviceKey)!=0 {
+		d["key"] = deviceKey
+	}
+
+	_, err = resource.Put(d)
 
 	if err == nil {
 		err = resource.ProcessedError()

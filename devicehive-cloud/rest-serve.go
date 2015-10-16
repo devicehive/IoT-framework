@@ -50,7 +50,9 @@ func (w *DbusRestWrapper) UpdateCommand(id uint32, status, result string) *dbus.
 
 func restImplementation(bus *dbus.Conn, config conf.Conf) {
 
-	err := rest.DeviceRegisterEasy(config.URL, config.DeviceID, config.AccessKey, config.DeviceName)
+	err := rest.DeviceRegisterEasy(config.URL, config.DeviceID, config.AccessKey,
+			config.DeviceName, config.DeviceKey, config.NetworkName,
+			config.NetworkKey, config.NetworkDesc)
 	if err != nil {
 		say.Infof("DeviceRegisterEasy error: %s", err.Error())
 		return
