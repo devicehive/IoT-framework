@@ -5,12 +5,10 @@
 // all of these additional levels use log.Printf as an implementation.
 package say
 
-
 import (
 	"log"
 	"strings"
 )
-
 
 // additional logging level type
 type Level int
@@ -22,19 +20,21 @@ const (
 	TRACE
 )
 
-
 // global logging level
 var logLevel = INFO
-
 
 // convert custom logging level to string
 // return "UNKNOWN" for unknown levels
 func (level Level) String() string {
 	switch level {
-		case WARN: return "WARN"
-		case INFO: return "INFO"
-		case DEBUG: return "DEBUG"
-		case TRACE: return "TRACE"
+	case WARN:
+		return "WARN"
+	case INFO:
+		return "INFO"
+	case DEBUG:
+		return "DEBUG"
+	case TRACE:
+		return "TRACE"
 	}
 
 	return "UNKNOWN" // by default
@@ -44,16 +44,19 @@ func (level Level) String() string {
 // returns INFO by default
 func parseLevel(name string) Level {
 	switch strings.ToUpper(name) {
-		case "WARN": return WARN
-		case "INFO": return INFO
-		case "DEBUG": return DEBUG
-		case "TRACE": return TRACE
+	case "WARN":
+		return WARN
+	case "INFO":
+		return INFO
+	case "DEBUG":
+		return DEBUG
+	case "TRACE":
+		return TRACE
 	}
 
-	Warnf("%q is unknown logging level, fallback to INFO", name);
+	Warnf("%q is unknown logging level, fallback to INFO", name)
 	return INFO
 }
-
 
 // SetLevel() sets global logging level
 func SetLevel(level Level) {
@@ -69,7 +72,6 @@ func SetLevelByName(name string) {
 	SetLevel(parseLevel(name))
 }
 
-
 // Panic() is the same as log.Panic()
 //func Panic(v ...interface{}) {
 //	log.Panic(v...)
@@ -79,7 +81,6 @@ func SetLevelByName(name string) {
 func Panicf(format string, v ...interface{}) {
 	log.Panicf(format, v...)
 }
-
 
 // Fatal() is the same as log.Fatal()
 //func Fatal(v ...interface{}) {
@@ -91,7 +92,6 @@ func Fatalf(format string, v ...interface{}) {
 	log.Fatalf(format, v...)
 }
 
-
 // Always() is the same as log.Print()
 //func Always(v ...interface{}) {
 //	log.Print(v...)
@@ -101,7 +101,6 @@ func Fatalf(format string, v ...interface{}) {
 func Alwaysf(format string, v ...interface{}) {
 	log.Printf(format, v...)
 }
-
 
 // Warn() is the same as log.Print() with the "WARN: " prefix
 // the message is printed if logging level is greater or equal to WARN
@@ -115,10 +114,9 @@ func Alwaysf(format string, v ...interface{}) {
 // the message is printed if logging level is greater or equal to WARN
 func Warnf(format string, v ...interface{}) {
 	if logLevel >= WARN {
-		log.Printf("WARN: " + format, v...)
+		log.Printf("WARN: "+format, v...)
 	}
 }
-
 
 // Info() is the same as log.Print() with the "INFO: " prefix
 // the message is printed if logging level is greater or equal to INFO
@@ -132,10 +130,9 @@ func Warnf(format string, v ...interface{}) {
 // the message is printed if logging level is greater or equal to INFO
 func Infof(format string, v ...interface{}) {
 	if logLevel >= INFO {
-		log.Printf("INFO: " + format, v...)
+		log.Printf("INFO: "+format, v...)
 	}
 }
-
 
 // Debug() is the same as log.Print() with the "DEBUG: " prefix
 // the message is printed if logging level is greater or equal to DEBUG
@@ -149,10 +146,9 @@ func Infof(format string, v ...interface{}) {
 // the message is printed if logging level is greater or equal to DEBUG
 func Debugf(format string, v ...interface{}) {
 	if logLevel >= DEBUG {
-		log.Printf("DEBUG: " + format, v...)
+		log.Printf("DEBUG: "+format, v...)
 	}
 }
-
 
 // Trace() is the same as log.Print() with the "TRACE: " prefix
 // the message is printed if logging level is greater or equal to TRACE
@@ -166,6 +162,6 @@ func Debugf(format string, v ...interface{}) {
 // the message is printed if logging level is greater or equal to TRACE
 func Tracef(format string, v ...interface{}) {
 	if logLevel >= TRACE {
-		log.Printf("TRACE: " + format, v...)
+		log.Printf("TRACE: "+format, v...)
 	}
 }

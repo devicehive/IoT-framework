@@ -23,9 +23,9 @@ type ApiInfo struct {
 func GetApiInfo(baseURL string) (info ApiInfo, err error) {
 	say.Tracef("getting server info (URL:%q)", baseURL)
 	api := gopencils.Api(baseURL)
-	resource, err := api.Res("info", &info).Get()
+	res, err := api.Res("info", &info).Get()
 	if err == nil {
-		err = resource.ProcessedError()
+		err = res.ProcessedError()
 	}
 	say.Debugf("server info (URL:%q): info=%+v, error=%q", baseURL, info, err)
 	return

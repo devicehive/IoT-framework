@@ -1,3 +1,5 @@
+// TODO: seems this file is unused - consider to delete!
+
 package rest
 
 import (

@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-
-// TestGetApiInfo() unit test for /info method
+// TestGetApiInfo() unit test for /info GET method
 func TestGetApiInfo(t *testing.T) {
 	say.SetLevel(say.TRACE)
 
@@ -28,8 +27,7 @@ func TestGetApiInfo(t *testing.T) {
 	// websocket URL might be empty
 }
 
-
-// TestGetApiInfoBadAddress() unit test for /info method (invalid server address)
+// TestGetApiInfoBadAddress() unit test for /info GET method (invalid server address)
 func TestGetApiInfoBadAddress(t *testing.T) {
 	say.SetLevel(say.TRACE)
 
@@ -40,8 +38,7 @@ func TestGetApiInfoBadAddress(t *testing.T) {
 	}
 }
 
-
-// TestGetApiInfoBadPath() unit test for /info method (invalid path)
+// TestGetApiInfoBadPath() unit test for /info GET method (invalid path)
 func TestGetApiInfoBadPath(t *testing.T) {
 	say.SetLevel(say.TRACE)
 
