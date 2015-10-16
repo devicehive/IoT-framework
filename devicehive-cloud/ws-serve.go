@@ -89,9 +89,10 @@ func wsImplementation(bus *dbus.Conn, config conf.Conf) {
 	}
 
 	w := NewDbusObjectWrapper(conn)
-	go conn.Run(func() {
-		conn.RegisterDevice(config.DeviceID, config.DeviceName)
-		conn.Authenticate()
+	go conn.Run(config.AccessKey, func() {
+		conn.RegisterDevice(config.DeviceID, config.DeviceName, config.DeviceKey,
+				config.NetworkName, config.NetworkKey, config.NetworkDesc)
+		conn.Authenticate(config.DeviceID, config.DeviceKey)
 		conn.SubscribeCommands()
 	})
 

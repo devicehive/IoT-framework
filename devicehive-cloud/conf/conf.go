@@ -17,6 +17,11 @@ type Conf struct {
 
 	DeviceID   string `yaml:"DeviceID,omitempty"`
 	DeviceName string `yaml:"DeviceName,omitempty"`
+	DeviceKey  string `yaml:"DeviceKey,omitempty"`
+
+	NetworkName string `yaml:"NetworkName,omitempty"`
+	NetworkKey  string `yaml:"NetworkKey,omitempty"`
+	NetworkDesc string `yaml:"NetworkDescription,omitempty"`
 
 	// Optional
 	DeviceNotifcationsReceive    string `yaml:"DeviceNotifcationsReceive,omitempty"`
