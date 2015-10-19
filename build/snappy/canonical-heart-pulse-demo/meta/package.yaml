@@ -4,10 +4,11 @@ type: app
 vendor: Loïc Minier <loic.minier@canonical.com>
 icon: meta/heart.png
 architecture: [amd64, armhf]
-integration:
-    service:
-        apparmor-profile: meta/devicehive.apparmor
+frameworks:
+  - devicehive-iot-toolkit
 services:
     - name: service
       description: "Combine various frameworks in one demo: BLE Cloud EnOcean"
       start: bin/service
+      security-policy:
+        apparmor: meta/devicehive.apparmor
