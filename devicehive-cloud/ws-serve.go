@@ -113,6 +113,16 @@ func wsImplementation(bus *dbus.Conn, config conf.Conf) {
 
 	bus.Export(introspect.NewIntrospectable(n), "/com/devicehive/cloud", "org.freedesktop.DBus.Introspectable")
 
+	root := &introspect.Node{
+			Children: []introspect.Node{
+				{
+					Name:    "com/devicehive/cloud",
+				},
+			},
+		}
+
+	bus.Export(introspect.NewIntrospectable(root), "/", "org.freedesktop.DBus.Introspectable")
+
 	select {}
 
 }
