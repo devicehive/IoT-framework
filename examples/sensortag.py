@@ -32,8 +32,8 @@ def notification_received(mac, uuid, message):
 
 def main():
     ble.ScanStart()
-    ble.connect_to_signal("DeviceDiscovered", device_discovered)
-    ble.connect_to_signal("DeviceConnected", device_connected)
+    ble.connect_to_signal("PeripheralDiscovered", device_discovered)
+    ble.connect_to_signal("PeripheralConnected", device_connected)
     ble.connect_to_signal("NotificationReceived", notification_received)
 
     GObject.MainLoop().run()
