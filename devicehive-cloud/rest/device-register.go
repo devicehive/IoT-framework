@@ -2,6 +2,8 @@ package rest
 
 import (
 	"github.com/devicehive/IoT-framework/devicehive-cloud/gopencils"
+	"github.com/devicehive/IoT-framework/devicehive-cloud/say"
+
 )
 
 func DeviceRegisterEasy(deviceHiveURL, deviceGuid, accessKey, deviceName, deviceKey, networkName, networkKey, networkDesc string) (err error) {
@@ -39,9 +41,12 @@ func DeviceRegisterEasy(deviceHiveURL, deviceGuid, accessKey, deviceName, device
 		d["key"] = deviceKey
 	}
 
-	_, err = resource.Put(d)
+	resp, err2 := resource.Put(d)
+	say.Infof("DeviceRegisterEasy Response: %+v \r\n %+v", resp, resp.Raw)
+		
 
-	if err == nil {
+
+	if err2 == nil {
 		err = resource.ProcessedError()
 	}
 	return
