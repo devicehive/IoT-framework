@@ -19,16 +19,11 @@ type Conf struct {
 	DeviceName string `yaml:"DeviceName,omitempty"`
 
 	// Optional
-	DeviceNotifcationsReceive    string `yaml:"DeviceNotifcationsReceive,omitempty"`
 	SendNotificatonQueueCapacity uint64 `yaml:"SendNotificatonQueueCapacity,omitempty"`
 	LoggingLevel                 string `yaml:"LoggingLevel,omitempty"`
 }
 
 func (c *Conf) fix() {
-	if len(c.DeviceNotifcationsReceive) == 0 {
-		c.DeviceNotifcationsReceive = DeviceNotificationReceiveByWS
-	}
-
 	if c.SendNotificatonQueueCapacity == 0 {
 		c.SendNotificatonQueueCapacity = 2048
 	}
