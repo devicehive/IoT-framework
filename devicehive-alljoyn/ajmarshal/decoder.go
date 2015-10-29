@@ -1,4 +1,4 @@
-package devicehivealljoyn
+package ajmarshal
 
 import (
 	"encoding/binary"

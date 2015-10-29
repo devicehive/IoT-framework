@@ -8,6 +8,8 @@ import os
 import socket
 import collections
 
+from threading import Timer
+
 import dbus.service
 from dbus.mainloop.glib import DBusGMainLoop
 try:
@@ -17,7 +19,7 @@ except ImportError:
 
 
 scriptDir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append( scriptDir + "/common" )
+sys.path.append( scriptDir + "/../common" )
 
 import core, controlpanel as cp
 
@@ -30,37 +32,77 @@ DBUS_BRIDGE_PATH = '/com/devicehive/alljoyn/bridge'
 DBUS_BUS_NAME = 'com.devicehive.alljoyn.SmartHome'
 DBUS_BUS_PATH = '/com/devicehive/alljoyn/SmartHome'
 
-HELLO_SVC = 'org.allseen.SmartHome.Hello'
+CLOCK_SVC = 'org.allseen.SmartHome.Clock'
 
 bus = dbus.SystemBus()
 bus_name = dbus.service.BusName(DBUS_BUS_NAME, bus)
 
+FORMAT = "%a, %d %b %Y %H:%M:%S"
 
-class HelloService(core.PropertiesServiceInterface):
+class ClockService(core.PropertiesServiceInterface):
   def __init__(self, container):
     core.PropertiesServiceInterface.__init__(self, container, "/Service", 
-      {HELLO_SVC : {'Name': 'AllJoyn'}})
+      {CLOCK_SVC : {'Time': ''}})
+
+    self._timer = None
+    self._alarm = None
+
+  def start(self):
+    self._timer = Timer(1.0, self.tick)
+    self._timer.start()
+
+  def tick(self):
+    try:
+      timestr = time.strftime(FORMAT, time.localtime())      
+      self.Set(CLOCK_SVC, 'Time', dbus.String(timestr, variant_level=1))
+      print("Time: %s" % timestr)
+
+      if self._alarm is not None:
+        alarmstr = time.strftime(FORMAT, self._alarm)
+        print("Alarm: %s" % alarmstr)
+        if self._alarm <= time.localtime():
+          self.Alarm(alarmstr)
+          self._alarm = None
+
+    except Exception as err:
+        print(err)
+        traceback.print_exc()
+        os._exit(1)
+
+    self.start()
+
+
+  def stop(self):
+    if self._timer is not None:
+      self._timer.cancel()
     
 
   def IntrospectionXml(self):
     return """
-        <interface name="org.allseen.SmartHome.Hello">
-          <property name="Name" type="s" access="readwrite"/>
-          <method name="Greet">
-             <arg name="greeting" type="s" direction="out"/>
+        <interface name="org.allseen.SmartHome.Clock">
+          <property name="Time" type="s" access="read"/>
+          <method name="SetAlarm">
+             <arg name="time" type="s" direction="in"/>
           </method>
+          <signal name="Alarm">
+            <arg type="s"/>
+          </signal>
        </interface>
     """ + core.PropertiesServiceInterface.IntrospectionXml(self)
 
-  @dbus.service.method(HELLO_SVC, in_signature='', out_signature='s')
-  def Greet(self):
-    return "Hello, %s!" % self.Get(HELLO_SVC, "Name")
+  @dbus.service.method(CLOCK_SVC, in_signature='s', out_signature='')
+  def SetAlarm(self, timestr):    
+    self._alarm =  time.strptime(timestr, FORMAT)    
+    print("Alarm Set To: %s" % self._alarm)
 
+  @dbus.service.signal(CLOCK_SVC, signature='s')
+  def Alarm(self, timestr):
+    print("ALARM: %s" % timestr)
 
-class Hello():
+class Clock():
   def __init__(self, busname, name):
 
-    self._id = uuid.uuid4().hex
+    self._id = 'f85bda3742d04ff782c774f01b458cba'
     self._name = name
 
     about_props = {
@@ -69,12 +111,12 @@ class Hello():
       'DefaultLanguage': 'en',
       'DeviceName': self.name,
       'DeviceId': self.id,
-      'AppName': 'Hello',
+      'AppName': 'Clock',
       'Manufacturer': 'DeviceHive',
       'DateOfManufacture': '2015-10-28',
       'ModelNumber': 'example',
       'SupportedLanguages': ['en'],
-      'Description': 'DeviceHive Alljoyn Hello Device',
+      'Description': 'DeviceHive Alljoyn Clock Device',
       'SoftwareVersion': '1.0',
       'HardwareVersion': '1.0',
       'SupportUrl': 'devicehive.com'
@@ -82,15 +124,21 @@ class Hello():
     }
   
     self._container = core.BusContainer(busname, DBUS_BUS_PATH + '/' + self.id)
+    self._service = ClockService(self._container)
 
     self._services = [
        core.AboutService(self._container, about_props)
       # ,core.ConfigService(self._container, self.name)      
       ,core.ConfigService(self._container, self.name)
-      ,HelloService(self._container)
+      ,self._service
     ]
 
+    self._service.start()
     print("Registered %s on dbus" % self.name)
+
+  def __del__(self):
+    self._service.stop()
+
 
   @property
   def id(self):
@@ -102,29 +150,13 @@ class Hello():
 
   def publish(self, bridge):      
     service = self._services[0]
-    bridge.AddService(self._container.bus.get_name(), self._container.relative('').rstrip('/'), HELLO_SVC,
+    bridge.AddService(self._container.bus.get_name(), self._container.relative('').rstrip('/'), CLOCK_SVC,
       # ignore_reply=True
       reply_handler=lambda id: print("ID: %s" % id),
       error_handler=lambda err: print("Error: %s" % err)
       )
 
     print("Published %s on bridge" % self.name)
-
-
-
-def worker():    
-    try:
-
-        bridge = dbus.Interface(bus.get_object(DBUS_BRIDGE_NAME, DBUS_BRIDGE_PATH), dbus_interface='com.devicehive.alljoyn.bridge')
-        plug = Hello(bus_name, 'Hello')
-        plug.publish(bridge)
-
-        return
-
-    except Exception as err:
-        print(err)
-        traceback.print_exc()
-        os._exit(1)
 
 
 def main():
@@ -136,16 +168,15 @@ def main():
     # start mainloop
     loop = GObject.MainLoop()
 
-    worker_thread = threading.Thread(target=worker,)
-    worker_thread.start()
+    bridge = dbus.Interface(bus.get_object(DBUS_BRIDGE_NAME, DBUS_BRIDGE_PATH), dbus_interface='com.devicehive.alljoyn.bridge')
+    clock = Clock(bus_name, 'Clock')
+    clock.publish(bridge)
 
     try:
         loop.run()
-    except (KeyboardInterrupt, SystemExit):
-        # for lamp in lamps:
-        #     lamp.deinit()
+    except (KeyboardInterrupt, SystemExit):        
         loop.quit()
-        worker_thread.join()
+        clock.__del__()
 
 if __name__ == "__main__":
     main()
