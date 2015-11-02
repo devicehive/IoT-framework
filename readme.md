@@ -5,6 +5,8 @@ Develop apps connected to devices, peripherials and cloud using commonly availab
 
 ![](framework.png?raw=true)
 
+Documentation is here: http://docs.devicehive.com/docs/iot-toolkit-overview
+
 Currently this framework contains few components:
 
 devicehive-alljoyn - our custom API to communicate with AllJoyn devices with the easiest way
