@@ -101,7 +101,7 @@ def worker():
         bridge = dbus.Interface(bus.get_object(DBUS_BRIDGE_NAME, DBUS_BRIDGE_PATH), dbus_interface='com.devicehive.alljoyn.bridge')
         time.sleep(2)
 
-        lamp = Lamp(bus_name, 'DeviceHiveBulb')
+        lamp = Lamp(bus_name, 'DeviceHive Terminal Light')
         lamp.publish(bridge)
         
         return    

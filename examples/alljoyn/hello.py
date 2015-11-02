@@ -7,19 +7,14 @@ import sys
 import os
 import socket
 import collections
-
 import dbus.service
 from dbus.mainloop.glib import DBusGMainLoop
-try:
-    from gi.repository import GObject
-except ImportError:
-    import gobject as GObject
-
+from gi.repository import GObject
 
 scriptDir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append( scriptDir + "/common" )
 
-import core, controlpanel as cp
+import core
 
 DBusGMainLoop(set_as_default=True)
 

@@ -20,9 +20,9 @@ const char * Get_AJ_Message_member();
 const char * Get_AJ_Message_destination();
 AJ_Message * Get_AJ_ReplyMessage();
 AJ_Message * Get_AJ_Message();
-void InitNotificationContent();
+//void InitNotificationContent();
 AJ_Status AJNS_Producer_Start();
-void SendNotification();
+void SendNotification(uint16_t messageType, char * lang, char * msg);
 void * Get_AJ_BusAttachment();
 void * Allocate_AJ_Object_Array(uint32_t array_size);
 void * Create_AJ_Object(uint32_t index, void * array, char* path, AJ_InterfaceDescription* interfaces, uint8_t flags, void* context);
@@ -59,6 +59,8 @@ import (
 
 const PORT = 900
 const AJ_CP_PORT = 1000
+const AJ_NOTIFICATION_IF = "org.alljoyn.Notification"
+const AJ_NOTIFICATION_MSG = "org.alljoyn.Notification.Notify"
 
 // newUUID generates a random UUID according to RFC 4122
 func newUUID() (string, error) {
@@ -209,21 +211,35 @@ func getAllJoynObjectFlags(service *AllJoynBindingInfo) C.uint8_t {
 			return C.uint8_t(0) //C.AJ_OBJ_FLAG_HIDDEN
 		}
 	} else {
-		return C.AJ_OBJ_FLAG_ANNOUNCED
+		return C.AJ_OBJ_FLAG_ANNOUNCED //| C.AJ_OBJ_FLAG_DESCRIBED
 	}
 }
 
-func GetAllJoynObjects(objects []*AllJoynBindingInfo) unsafe.Pointer {
+func hasNotificationInterface(object *AllJoynBindingInfo) bool {
+	for _, iface := range object.introspectData.Interfaces {
+		if iface.Name == AJ_NOTIFICATION_IF {
+			return true
+		}
+	}
+	return false
+}
+
+func GetAllJoynObjects(objects []*AllJoynBindingInfo) (unsafe.Pointer, bool) {
 	array := C.Allocate_AJ_Object_Array(C.uint32_t(len(objects) + 1))
+	var hasNotifications bool
 	for i, object := range objects {
-		interfaces = ParseAllJoynInterfaces(object.introspectData.Interfaces)
-		flags := getAllJoynObjectFlags(object)
-		log.Printf("Creating Object %s %u", object.introspectData.Name, flags)
-		C.Create_AJ_Object(C.uint32_t(i), array, C.CString(object.introspectData.Name), &interfaces[0], flags, unsafe.Pointer(nil))
-		C.Create_AJ_Object(C.uint32_t(i+1), array, nil, nil, 0, nil)
+		if hasNotificationInterface(object) {
+			hasNotifications = true
+		} else {
+			interfaces = ParseAllJoynInterfaces(object.introspectData.Interfaces)
+			flags := getAllJoynObjectFlags(object)
+			log.Printf("Creating Object %s %u", object.introspectData.Name, flags)
+			C.Create_AJ_Object(C.uint32_t(i), array, C.CString(object.introspectData.Name), &interfaces[0], flags, unsafe.Pointer(nil))
+			C.Create_AJ_Object(C.uint32_t(i+1), array, nil, nil, 0, nil)
+		}
 		// log.Printf("*****Alljoyn Objects %s %s", object.introspectData.Name, &interfaces[0])
 	}
-	return array
+	return array, hasNotifications
 }
 
 //export MyAboutPropGetter
@@ -446,6 +462,46 @@ func (a *AllJoynBridge) findSignal(signal *dbus.Signal) (uint32, *introspect.Sig
 	return 0, nil
 }
 
+func parseNotificationBody(body []interface{}) (msgType uint16, lang string, msg string, success bool) {
+
+	success = true
+
+	if data, ok := body[2].(uint16); ok {
+		msgType = data
+	} else {
+		log.Printf("Could not parse msgType: %+v", body[2])
+		success = success && false
+	}
+
+	if message, ok := body[7].(map[string]string); ok {
+		for key, value := range message {
+			lang = key
+			msg = value
+		}
+	} else {
+		log.Printf("Could not parse message: %+v", body[7])
+		success = success && false
+	}
+
+	return
+}
+
+func (a *AllJoynBridge) processNotificationSignal(signal *dbus.Signal) bool {
+
+	if signal.Name != AJ_NOTIFICATION_MSG {
+		return false
+	}
+
+	if msgType, lang, message, ok := parseNotificationBody(signal.Body); ok {
+		log.Printf("NOTIFY: %v => [%s:%s]", msgType, lang, message)
+		C.SendNotification(C.uint16_t(msgType), C.CString(lang), C.CString(message))
+	} else {
+		log.Printf("ERROR PARSING NOTIFY BODY: %+v", signal.Body)
+	}
+
+	return true
+}
+
 func (a *AllJoynBridge) processSignals() {
 
 	// work on currently reveived signals only
@@ -454,13 +510,14 @@ func (a *AllJoynBridge) processSignals() {
 	a.signals = make(chan *dbus.Signal, 100)
 	close(signals)
 
-	//	C.SendNotification()
-	//	log.Printf("SendNotification")
-
 	// log.Printf("Processing signals: %d", len(signals))
 
 	for signal := range signals {
 		log.Printf("**** Incoming Signal: %+v", signal)
+
+		if a.processNotificationSignal(signal) {
+			continue
+		}
 
 		// get signal signature
 		msgId, _ := a.findSignal(signal)
@@ -526,7 +583,7 @@ func (a *AllJoynBridge) processSignals() {
 
 func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 	service := a.services[uuid]
-	objects := GetAllJoynObjects(service.objects)
+	objects, hasNotifications := GetAllJoynObjects(service.objects)
 
 	SubscribeToSignals(a.bus, service)
 
@@ -539,8 +596,11 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 	C.AJ_AboutRegisterPropStoreGetter((C.AJ_AboutPropGetter)(unsafe.Pointer(C.MyAboutPropGetter_cgo)))
 	C.AJ_SetMinProtoVersion(10)
 
-	C.InitNotificationContent()
-	status = C.AJNS_Producer_Start()
+	if hasNotifications {
+		log.Println("NOTIFICATIONS SUPPORTED")
+		//		C.InitNotificationContent()
+		status = C.AJNS_Producer_Start()
+	}
 
 	if status != C.AJ_OK {
 		log.Printf("Error: AJNS_Producer_Start()=> %v", status)
@@ -635,19 +695,19 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 						log.Printf("Session lost: %d as of reason %d", sessionId, reason)
 						a.removeSession(sessionId)
 					}
-				case uint32(msgId) == 0x1010003: // Config.GetConfigurations
-					// our forwardAllJoyn doesn't support encrypted messages which config service is,
-					// so we handle it here manually
-					{
-						//C.AJ_UnmarshalArgs(msg, "s", &language);
-						reply := C.Get_AJ_ReplyMessage()
-						C.AJ_MarshalReplyMsg((*C.AJ_Message)(msg), (*C.AJ_Message)(reply))
-						C.AJ_MarshalContainer((*C.AJ_Message)(reply), (*C.AJ_Arg)(C.Get_Arg()), C.AJ_ARG_ARRAY)
-						C.AJ_MarshalArgs_cgo((*C.AJ_Message)(reply), C.CString("{sv}"), C.CString("DeviceName"), C.CString("s"), C.CString("DeviceHiveVB"))
-						C.AJ_MarshalArgs_cgo((*C.AJ_Message)(reply), C.CString("{sv}"), C.CString("DefaultLanguage"), C.CString("s"), C.CString("en"))
-						C.AJ_MarshalCloseContainer((*C.AJ_Message)(reply), (*C.AJ_Arg)(C.Get_Arg()))
-						C.AJ_DeliverMsg((*C.AJ_Message)(reply))
-					}
+					//				case uint32(msgId) == 0x1010003: // Config.GetConfigurations
+					//					// our forwardAllJoyn doesn't support encrypted messages which config service is,
+					//					// so we handle it here manually
+					//					{
+					//						//C.AJ_UnmarshalArgs(msg, "s", &language);
+					//						reply := C.Get_AJ_ReplyMessage()
+					//						C.AJ_MarshalReplyMsg((*C.AJ_Message)(msg), (*C.AJ_Message)(reply))
+					//						C.AJ_MarshalContainer((*C.AJ_Message)(reply), (*C.AJ_Arg)(C.Get_Arg()), C.AJ_ARG_ARRAY)
+					//						C.AJ_MarshalArgs_cgo((*C.AJ_Message)(reply), C.CString("{sv}"), C.CString("DeviceName"), C.CString("s"), C.CString("DeviceHiveVB"))
+					//						C.AJ_MarshalArgs_cgo((*C.AJ_Message)(reply), C.CString("{sv}"), C.CString("DefaultLanguage"), C.CString("s"), C.CString("en"))
+					//						C.AJ_MarshalCloseContainer((*C.AJ_Message)(reply), (*C.AJ_Arg)(C.Get_Arg()))
+					//						C.AJ_DeliverMsg((*C.AJ_Message)(reply))
+					//					}
 				case (uint32(msgId) & 0x01000000) != 0:
 					{
 						myMessenger.forwardAllJoynMessage(uint32(msgId))

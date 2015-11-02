@@ -52,77 +52,34 @@ const char* AJSVC_PropertyStore_GetValueForLang(int8_t fieldIndex, int8_t langIn
 	switch(fieldIndex)
 	{
 	    case AJSVC_PROPERTY_STORE_DEVICE_ID:
-	        return "75b715e7e1a8411eb7c4b2719d3d0bc5";
+	        return "f85bda3742d04ff782c774f01b458cba";
 	    case AJSVC_PROPERTY_STORE_APP_ID:
-	        return "75b715e7e1a8411eb7c4b2719d3d0bc5";
+	        return "f85bda3742d04ff782c774f01b458cba";
 		case AJSVC_PROPERTY_STORE_DEVICE_NAME:
-	        return "DeviceHiveBulb";
+	        return "Clock";
 		case AJSVC_PROPERTY_STORE_APP_NAME:
-			return "TerminalLight";
+			return "Clock";
 	    default :
 	       return NULL;
 	}
 }
 
 
-const static char* lang1  = "en";
-const static char* lang2 = "de-AT";
-const static char* hello1 = "Hello AJ World";
-const static char* hello2 = "Hallo AJ Welt";
-const static char* onKey = "On";
-const static char* offKey = "Off";
-const static char* HelloVal = "Hello";
-const static char* GoodbyeVal = "Goodbye";
-const static char* Audio1URL = "http://www.getAudio1.org";
-const static char* Audio2URL = "http://www.getAudio2.org";
-const static char* Icon1URL = "http://www.getIcon1.org";
-const static char* richIconObjectPath = "/icon/MyDevice";
-const static char* richAudioObjectPath = "/audio/MyDevice";
-
-#define NUM_TEXTS   2
+#define NUM_TEXTS   1
 AJNS_DictionaryEntry textToSend[NUM_TEXTS];
 
-#define NUM_CUSTOMS 2
-AJNS_DictionaryEntry customAttributesToSend[NUM_CUSTOMS];
+static AJNS_NotificationContent notificationContent;
 
-#define NUM_RICH_AUDIO 2
-AJNS_DictionaryEntry richAudioUrls[NUM_RICH_AUDIO];
-
-
-AJNS_NotificationContent notificationContent;
-void InitNotificationContent()
+void SendNotification(uint16_t messageType, char * lang, char * msg)
 {
-    notificationContent.numCustomAttributes = NUM_CUSTOMS;
-    customAttributesToSend[0].key   = onKey;
-    customAttributesToSend[0].value = HelloVal;
-    customAttributesToSend[1].key   = offKey;
-    customAttributesToSend[1].value = GoodbyeVal;
-    notificationContent.customAttributes = customAttributesToSend;
-
-    notificationContent.numTexts = NUM_TEXTS;
-    textToSend[0].key   = lang1;
-    textToSend[0].value = hello1;
-    textToSend[1].key   = lang2;
-    textToSend[1].value = hello2;
-    notificationContent.texts = textToSend;
-
-    notificationContent.numAudioUrls = NUM_RICH_AUDIO;
-    richAudioUrls[0].key   = lang1;
-    richAudioUrls[0].value = Audio1URL;
-    richAudioUrls[1].key   = lang2;
-    richAudioUrls[1].value = Audio2URL;
-    notificationContent.richAudioUrls = richAudioUrls;
-
-    notificationContent.richIconUrl = Icon1URL;
-    notificationContent.richIconObjectPath = richIconObjectPath;
-    notificationContent.richAudioObjectPath = richAudioObjectPath;
-}
-
-void SendNotification()
-{
-    uint16_t messageType = AJNS_NOTIFICATION_MESSAGE_TYPE_INFO;
+//    uint16_t messageType = AJNS_NOTIFICATION_MESSAGE_TYPE_INFO;
     uint32_t ttl = AJNS_NOTIFICATION_TTL_MIN; // Note needs to be in the range AJNS_NOTIFICATION_TTL_MIN..AJNS_NOTIFICATION_TTL_MAX
     uint32_t serialNum;
+
+    notificationContent.numTexts = NUM_TEXTS;
+    textToSend[0].key   = lang;
+    textToSend[0].value = msg;
+    notificationContent.texts = textToSend;
 
     AJNS_Producer_SendNotification(&c_bus, &notificationContent, messageType, ttl, &serialNum);
 }
