@@ -28,6 +28,16 @@ AJ_Status AJ_MarshalArgs_cgo(AJ_Message* msg, char * a, char * b, char * c, char
 	return AJ_MarshalArgs(msg, a, b, c, d);
 }
 
+AJ_Status MarshalArg(AJ_Message* msg, char * sig, void * value) {
+	printf("SIG: %s\n", sig);
+	return AJ_MarshalArgs(msg, sig, value);
+}
+
+AJ_Status AJ_MarshalSignal_cgo(AJ_Message* msg, uint32_t msgId, uint32_t sessionId, uint8_t flags, uint32_t ttl) {
+	return AJ_MarshalSignal(&c_bus, msg, msgId, NULL, (AJ_SessionId) sessionId, flags, ttl);
+}
+
+
 uint32_t Get_AJ_Message_msgId() {
 	return c_message.msgId;
 }
@@ -56,11 +66,11 @@ const char * Get_AJ_Message_destination() {
    return c_message.destination;
 }
 
-void * Get_AJ_ReplyMessage() {
+AJ_Message * Get_AJ_ReplyMessage() {
 	return &c_reply;
 }
 
-void * Get_AJ_Message() {
+AJ_Message * Get_AJ_Message() {
 	return &c_message;
 }
 void * Get_AJ_BusAttachment() {
@@ -119,9 +129,19 @@ void * Create_AJ_Object(uint32_t index, void * array, char* path, AJ_InterfaceDe
 }
 
 AJ_Status MyAboutPropGetter_cgo(AJ_Message* reply, const char* language) {
-	printf("C.MyAboutPropGetter_cgo() called\n");
+	//printf("C.MyAboutPropGetter_cgo() called\n");
 	return MyAboutPropGetter(reply, language);
 }
+
+AJ_Status UnmarshalJoinSessionArgs(AJ_Message* msg, uint16_t * port, uint32_t * sessionId) {
+	char* joiner;
+	return AJ_UnmarshalArgs(msg, "qus", port, sessionId, &joiner);
+}
+
+AJ_Status UnmarshalLostSessionArgs(AJ_Message* msg, uint32_t * sessionId, uint32_t * reason) {
+	return AJ_UnmarshalArgs(msg, "uu", sessionId, reason);
+}
+
 
 int UnmarshalPort() {
 	uint16_t port;
