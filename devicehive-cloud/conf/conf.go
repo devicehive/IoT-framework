@@ -17,6 +17,11 @@ type Conf struct {
 
 	DeviceID   string `yaml:"DeviceID,omitempty"`
 	DeviceName string `yaml:"DeviceName,omitempty"`
+	DeviceKey  string `yaml:"DeviceKey,omitempty"`
+
+	NetworkName string `yaml:"NetworkName,omitempty"`
+	NetworkKey  string `yaml:"NetworkKey,omitempty"`
+	NetworkDesc string `yaml:"NetworkDescription,omitempty"`
 
 	// Optional
 	SendNotificatonQueueCapacity uint64 `yaml:"SendNotificatonQueueCapacity,omitempty"`
@@ -66,16 +71,11 @@ func TestConf() Conf {
 
 	c.DeviceID = "0B24431A-EC99-4887-8B4F-38C3CEAF1D03"
 	c.DeviceName = "snappy-go-gateway"
-
-	// c.DeviceID = "0B24431A-EC99-4887-8B4F-38C3CEAF1D05"
-	// c.DeviceName = "snappy-go-gateway-test2"
+	c.DeviceKey = "snappy-go-secret-key"
 
 	// c.LoggingLevel = "info"
-	c.LoggingLevel = "verbose"
 	// c.LoggingLevel = "debug"
-
-	// c.SendNotificatonQueueCapacity = 23
-	// c.DeviceNotifcationsReceive = DeviceNotificationReceiveByREST
+	c.LoggingLevel = "trace"
 
 	(&c).fix()
 	return c

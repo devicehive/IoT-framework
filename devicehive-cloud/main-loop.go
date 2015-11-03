@@ -122,6 +122,11 @@ func mainLoop(bus *dbus.Conn, service devicehive.Service, config conf.Conf) {
 	// registering device
 	device := devicehive.NewDevice(config.DeviceID, config.DeviceName,
 		devicehive.NewDeviceClass("go-gateway-class", "0.1"))
+	device.Key = config.DeviceKey
+	if len(config.NetworkName)!=0 || len(config.NetworkKey)!=0 {
+		device.Network = devicehive.NewNetwork(config.NetworkName, config.NetworkKey)
+		device.Network.Description = config.NetworkDesc
+	}
 	err = service.RegisterDevice(device, waitTimeout)
 	if err != nil {
 		log.Warnf("Cannot register device (error: %s)", err)
