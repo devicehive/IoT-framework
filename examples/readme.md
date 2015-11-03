@@ -2,8 +2,11 @@
 
 These are examples of usage IoT framework. To run each of them you have to install IoT framework on target machine. You may use this examples to find out how to use components of IoT ferameowork. For running each of this examples you will need to upload it to target machine and run there for Python examples. For `go` example you will need to compile them before.
 
-### cloud.py
-Simple application which uses cloud part of IoT framework. It replyes with echoes on each sended from cloud commands. Usage: run it, send command and check result of command. It should be the same.
+### echo.py
+Simple application which uses cloud part of IoT framework. It replyes with echoes
+on each sent command. Usage: run the echo.py, send command to device (for example
+via web admin page) and check command result - it should be the same. At the same
+time corresponding "echo" notification should be sent.
 
 ### cpu-stats.go
 Simple application which reads current system state(CPU, momory usage) and sends it to cloud with some period of time. Usage: run this demo and check DeviceHive server, it should recieve notifications with current machine status.

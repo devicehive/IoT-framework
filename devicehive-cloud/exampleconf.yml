@@ -1,8 +1,8 @@
-URL: http://dh-just-in-case.cloudapp.net:8080/dh/rest
-AccessKey: 1jwKgLYi/CdfBTI9KByfYxwyQ6HUIEfnGSgakdpFjgk=
+URL: http://playground.devicehive.com/api/rest
+AccessKey: <put a valid access key here>
 
-DeviceID: 0B24431A-EC99-4887-8B4F-38C3CEAF1D03
-DeviceName: snappy-go-gateway
+DeviceID: my-simple-gw
+DeviceName: my simple gw
+DeviceKey: my-device-secret-key
 
-SendNotificatonQueueCapacity: 2047
-LoggingLevel: verbose
+LoggingLevel: trace

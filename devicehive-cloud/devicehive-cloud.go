@@ -11,15 +11,14 @@ import (
 	"github.com/godbus/dbus"
 )
 
-func parseJSON(s string) (map[string]interface{}, error) {
-	var dat map[string]interface{}
-	b := []byte(s)
-	b = bytes.Trim(b, "\x00")
-	err := json.Unmarshal(b, &dat)
-
-	return dat, err
+// parse a string to custom JSON
+func parseJSON(s string) (dat interface{}, err error) {
+	b := bytes.Trim([]byte(s), "\x00")
+	err = json.Unmarshal(b, &dat)
+	return
 }
 
+// create new DBus error
 func newDHError(message string) *dbus.Error {
 	return dbus.NewError("com.devicehive.Error",
 		[]interface{}{message})
@@ -45,10 +44,10 @@ func main() {
 
 	bus, err := dbus.SystemBus()
 	if err != nil {
-		log.Warnf("Cannot get system bus with error: %s", err)
+		log.Warnf("Cannot get system bus (error: %s)", err)
 		log.Infof("Trying to use session bus for testing purposes...")
 		if bus, err = dbus.SessionBus(); err != nil {
-			log.Fatalf("Cannot get session bus with error: %s", err)
+			log.Fatalf("Cannot get session bus (error: %s)", err)
 			return
 		}
 	}
@@ -56,7 +55,7 @@ func main() {
 	reply, err := bus.RequestName(DBusConnName, dbus.NameFlagDoNotQueue)
 	switch {
 	case err != nil:
-		log.Fatalf("Cannot request name %q with error: %s", DBusConnName, err)
+		log.Fatalf("Cannot request name %q (error: %s)", DBusConnName, err)
 	case reply != dbus.RequestNameReplyPrimaryOwner:
 		log.Fatalf("The name %q already taken", DBusConnName)
 	}
@@ -65,6 +64,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create DeviceHive service (error: %s)", err)
 	}
+
 	log.Infof("Starting %v", s)
 	mainLoop(bus, s, config)
 }
