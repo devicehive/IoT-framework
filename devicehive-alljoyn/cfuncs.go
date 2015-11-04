@@ -7,6 +7,7 @@ package main
 #include <aj_creds.h>
 #include <aj_nvram.h>
 #include "alljoyn.h"
+#include "lib/hashmap.c"
 //#include "ServicesCommon.c"
 
 #include "alljoyn/services_common/PropertyStore.h"
@@ -19,6 +20,23 @@ AJ_Message c_reply;
 void * c_propGetter;
 AJ_Arg c_arg;
 AJ_SessionOpts session_opts = { AJ_SESSION_TRAFFIC_MESSAGES, AJ_SESSION_PROXIMITY_ANY, AJ_TRANSPORT_ANY, TRUE };
+
+map_t prop_map = NULL;
+
+void SetProperty(char* key, any_t * value){
+	if (!prop_map) prop_map = hashmap_new();
+	int error = hashmap_put(prop_map, key, value);
+    assert(error==MAP_OK);
+}
+
+
+any_t * GetProperty(char* key){
+	assert(prop_map != NULL);
+	any_t * value;
+	int error = hashmap_get(prop_map, key, (void**)(&value));
+    assert(error==MAP_OK);
+	return value;
+}
 
 // from "ServicesCommon.c"
 AJ_Status AJSVC_MarshalAppId(AJ_Message* msg, const char* appId)
@@ -49,16 +67,18 @@ const char* AJSVC_PropertyStore_GetValueForLang(int8_t fieldIndex, int8_t langIn
         return NULL;
     }
 
+
 	switch(fieldIndex)
 	{
+
 	    case AJSVC_PROPERTY_STORE_DEVICE_ID:
-	        return (char*)GetAboutProperty("DeviceId", "en");
+	        return (char*)GetProperty("DeviceId");
 	    case AJSVC_PROPERTY_STORE_APP_ID:
-	        return "f85bda3742d04ff782c774f01b458cba";
+	        return (char*)GetProperty("AppId");
 		case AJSVC_PROPERTY_STORE_DEVICE_NAME:
-	        return (char*)GetAboutProperty("DeviceIName", "en");
+	        return (char*)GetProperty("DeviceName");
 		case AJSVC_PROPERTY_STORE_APP_NAME:
-			return (char*)GetAboutProperty("AppName", "en");
+			return (char*)GetProperty("AppName");
 	    default :
 	       return NULL;
 	}

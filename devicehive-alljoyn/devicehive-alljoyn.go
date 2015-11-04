@@ -1,7 +1,7 @@
 package main
 
 /*
-#cgo CFLAGS: -Ialljoyn/core/ajtcl/inc -Ialljoyn/core/ajtcl/target/linux -Ialljoyn/services/base_tcl/notification/inc -Ialljoyn/services/base_tcl/services_common/inc -Ialljoyn/services/base_tcl/notification/src -Ialljoyn/services/base_tcl/services_common/src  -Ialljoyn/services/base_tcl/sample_apps/AppsCommon/inc -Ialljoyn/services/base_tcl/sample_apps/AppsCommon/src
+#cgo CFLAGS: -Ilib -Ialljoyn/core/ajtcl/inc -Ialljoyn/core/ajtcl/target/linux -Ialljoyn/services/base_tcl/notification/inc -Ialljoyn/services/base_tcl/services_common/inc -Ialljoyn/services/base_tcl/notification/src -Ialljoyn/services/base_tcl/services_common/src  -Ialljoyn/services/base_tcl/sample_apps/AppsCommon/inc -Ialljoyn/services/base_tcl/sample_apps/AppsCommon/src
 #cgo LDFLAGS: -Lalljoyn/core/ajtcl -lajtcl
 #include <stdio.h>
 #include <aj_debug.h>
@@ -32,9 +32,7 @@ void * Get_Arg();
 AJ_Status AJ_MarshalArgs_cgo(AJ_Message* msg, char * a, char * b, char * c, char * d);
 
 int UnmarshalPort();
-
 typedef void * (*AboutPropGetter)(const* name, const char* language);
-
 
 void free (void *__ptr);
 AJ_Status MarshalArg(AJ_Message* msg, char * sig, void * value);
@@ -42,6 +40,10 @@ AJ_Status AJ_DeliverMsg(AJ_Message* msg);
 AJ_Status AJ_MarshalSignal_cgo(AJ_Message* msg, uint32_t msgId, uint32_t sessionId, uint8_t flags, uint32_t ttl);
 AJ_Status UnmarshalJoinSessionArgs(AJ_Message* msg, uint16_t * port, uint32_t * sessionId);
 AJ_Status UnmarshalLostSessionArgs(AJ_Message* msg, uint32_t * sessionId, uint32_t * reason);
+
+void SetProperty(char* key, void * value);
+void * GetProperty(char* key);
+
 
 */
 import "C"
@@ -86,6 +88,7 @@ func newUUID() (string, error) {
 var interfaces []C.AJ_InterfaceDescription
 var myPropGetterFunction PropGetterFunction
 var myMessenger *AllJoynMessenger
+var aboutData map[string]dbus.Variant
 
 type PropGetterFunction func(reply *C.AJ_Message, language *C.char) C.AJ_Status
 
@@ -103,11 +106,10 @@ type AllJoynServiceInfo struct {
 }
 
 type AllJoynBridge struct {
-	bus       *dbus.Conn
-	signals   chan *dbus.Signal
-	services  map[string]*AllJoynServiceInfo
-	sessions  []uint32
-	aboutData map[string]dbus.Variant
+	bus      *dbus.Conn
+	signals  chan *dbus.Signal
+	services map[string]*AllJoynServiceInfo
+	sessions []uint32
 }
 
 type AllJoynMessenger struct {
@@ -126,7 +128,6 @@ func NewAllJoynBridge(bus *dbus.Conn) *AllJoynBridge {
 	bridge.signals = make(chan *dbus.Signal, 100)
 	bridge.services = make(map[string]*AllJoynServiceInfo)
 	bridge.sessions = []uint32{}
-	bridge.aboutData = make(map[string]dbus.Variant)
 
 	sbuffer := make(chan *dbus.Signal, 100)
 	go bridge.signalsPump(sbuffer)
@@ -602,17 +603,41 @@ func (a *AllJoynBridge) fetchAboutData(svcInfo *AllJoynServiceInfo, objInfo *All
 
 	//	fill aboutData with values
 
-	call.Store(&a.aboutData)
+	call.Store(&aboutData)
 
-	log.Printf("ABOUT: %+v", a.aboutData)
+	log.Printf("ABOUT: %+v", aboutData)
+
+	for key, value := range aboutData {
+		log.Printf("%s(%s)", key, value.Signature())
+		switch value.Signature().String() {
+		case "ay":
+			C.SetProperty(C.CString(key), unsafe.Pointer(C.CString(fmt.Sprintf("%x", value.Value()))))
+		default:
+			C.SetProperty(C.CString(key), unsafe.Pointer(C.CString(value.String())))
+
+		}
+
+	}
 
 	return nil
 }
 
-//export GetAboutProperty
-func GetAboutProperty(name *C.char, language *C.char) unsafe.Pointer {
-	return unsafe.Pointer(nil)
-}
+//var sigToType = map[byte]reflect.Type{
+//	'y': byteType,
+//	'b': boolType,
+//	'n': int16Type,
+//	'q': uint16Type,
+//	'i': int32Type,
+//	'u': uint32Type,
+//	'x': int64Type,
+//	't': uint64Type,
+//	'd': float64Type,
+//	's': stringType,
+//	'g': signatureType,
+//	'o': objectPathType,
+//	'v': variantType,
+//	'h': unixFDIndexType,
+//}
 
 func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 	service := a.services[uuid]
