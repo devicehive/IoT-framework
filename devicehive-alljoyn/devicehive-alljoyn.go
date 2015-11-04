@@ -24,14 +24,17 @@ AJ_Message * Get_AJ_Message();
 AJ_Status AJNS_Producer_Start();
 void SendNotification(uint16_t messageType, char * lang, char * msg);
 AJ_BusAttachment * Get_AJ_BusAttachment();
-void * Allocate_AJ_Object_Array(uint32_t array_size);
-void * Create_AJ_Object(uint32_t index, void * array, char* path, AJ_InterfaceDescription* interfaces, uint8_t flags, void* context);
+AJ_Object * Allocate_AJ_Object_Array(uint32_t array_size);
+void * Create_AJ_Object(uint32_t index, AJ_Object * array, char* path, AJ_InterfaceDescription* interfaces, uint8_t flags, void* context);
 AJ_Status MyAboutPropGetter_cgo(AJ_Message* reply, const char* language);
 void * Get_Session_Opts();
 void * Get_Arg();
 AJ_Status AJ_MarshalArgs_cgo(AJ_Message* msg, char * a, char * b, char * c, char * d);
 
 int UnmarshalPort();
+
+typedef void * (*AboutPropGetter)(const* name, const char* language);
+
 
 void free (void *__ptr);
 AJ_Status MarshalArg(AJ_Message* msg, char * sig, void * value);
@@ -59,6 +62,9 @@ import (
 
 const PORT = 900
 const AJ_CP_PORT = 1000
+const AJ_ABOUT_IF = "org.alljoyn.About"
+const AJ_ABOUT_GETABOUTDATA = "org.alljoyn.About.GetAboutData"
+
 const AJ_NOTIFICATION_IF = "org.alljoyn.Notification"
 const AJ_NOTIFICATION_MSG = "org.alljoyn.Notification.Notify"
 
@@ -97,10 +103,11 @@ type AllJoynServiceInfo struct {
 }
 
 type AllJoynBridge struct {
-	bus      *dbus.Conn
-	signals  chan *dbus.Signal
-	services map[string]*AllJoynServiceInfo
-	sessions []uint32
+	bus       *dbus.Conn
+	signals   chan *dbus.Signal
+	services  map[string]*AllJoynServiceInfo
+	sessions  []uint32
+	aboutData map[string]dbus.Variant
 }
 
 type AllJoynMessenger struct {
@@ -119,6 +126,7 @@ func NewAllJoynBridge(bus *dbus.Conn) *AllJoynBridge {
 	bridge.signals = make(chan *dbus.Signal, 100)
 	bridge.services = make(map[string]*AllJoynServiceInfo)
 	bridge.sessions = []uint32{}
+	bridge.aboutData = make(map[string]dbus.Variant)
 
 	sbuffer := make(chan *dbus.Signal, 100)
 	go bridge.signalsPump(sbuffer)
@@ -184,7 +192,7 @@ func ParseAllJoynInterfaces(interfaces []introspect.Interface) []C.AJ_InterfaceD
 		}
 
 		desc = append(desc, nil)
-		log.Print(desc)
+		//		log.Print(desc)
 		res = append(res, (C.AJ_InterfaceDescription)(&desc[0]))
 	}
 	res = append(res, nil)
@@ -215,21 +223,24 @@ func getAllJoynObjectFlags(service *AllJoynBindingInfo) C.uint8_t {
 	}
 }
 
-func hasNotificationInterface(object *AllJoynBindingInfo) bool {
+func hasInterface(object *AllJoynBindingInfo, ifname string) bool {
 	for _, iface := range object.introspectData.Interfaces {
-		if iface.Name == AJ_NOTIFICATION_IF {
+		if iface.Name == ifname {
 			return true
 		}
 	}
 	return false
 }
 
-func GetAllJoynObjects(objects []*AllJoynBindingInfo) (unsafe.Pointer, bool) {
+func GetAllJoynObjects(objects []*AllJoynBindingInfo) (*C.AJ_Object, bool, *AllJoynBindingInfo) {
 	array := C.Allocate_AJ_Object_Array(C.uint32_t(len(objects) + 1))
 	var hasNotifications bool
+	var aboutObj *AllJoynBindingInfo
 	for i, object := range objects {
-		if hasNotificationInterface(object) {
+		if hasInterface(object, AJ_NOTIFICATION_IF) {
 			hasNotifications = true
+		} else if hasInterface(object, AJ_ABOUT_IF) {
+			aboutObj = object
 		} else {
 			interfaces = ParseAllJoynInterfaces(object.introspectData.Interfaces)
 			flags := getAllJoynObjectFlags(object)
@@ -239,7 +250,7 @@ func GetAllJoynObjects(objects []*AllJoynBindingInfo) (unsafe.Pointer, bool) {
 		}
 		// log.Printf("*****Alljoyn Objects %s %s", object.introspectData.Name, &interfaces[0])
 	}
-	return array, hasNotifications
+	return array, hasNotifications, aboutObj
 }
 
 //export MyAboutPropGetter
@@ -581,9 +592,33 @@ func (a *AllJoynBridge) processSignals() {
 	}
 }
 
+func (a *AllJoynBridge) fetchAboutData(svcInfo *AllJoynServiceInfo, objInfo *AllJoynBindingInfo) error {
+	obj := a.bus.Object(svcInfo.dbusService, dbus.ObjectPath(objInfo.dbusPath))
+	call := obj.Call(AJ_ABOUT_GETABOUTDATA, 0, "en")
+	if call.Err != nil {
+		log.Printf("Error calling %s: %v", AJ_ABOUT_GETABOUTDATA, call.Err)
+		return call.Err
+	}
+
+	//	fill aboutData with values
+
+	call.Store(&a.aboutData)
+
+	log.Printf("ABOUT: %+v", a.aboutData)
+
+	return nil
+}
+
+//export GetAboutProperty
+func GetAboutProperty(name *C.char, language *C.char) unsafe.Pointer {
+	return unsafe.Pointer(nil)
+}
+
 func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 	service := a.services[uuid]
-	objects, hasNotifications := GetAllJoynObjects(service.objects)
+	objects, hasNotifications, aboutObj := GetAllJoynObjects(service.objects)
+
+	a.fetchAboutData(service, aboutObj)
 
 	SubscribeToSignals(a.bus, service)
 

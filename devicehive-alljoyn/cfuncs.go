@@ -52,13 +52,13 @@ const char* AJSVC_PropertyStore_GetValueForLang(int8_t fieldIndex, int8_t langIn
 	switch(fieldIndex)
 	{
 	    case AJSVC_PROPERTY_STORE_DEVICE_ID:
-	        return "f85bda3742d04ff782c774f01b458cba";
+	        return (char*)GetAboutProperty("DeviceId", "en");
 	    case AJSVC_PROPERTY_STORE_APP_ID:
 	        return "f85bda3742d04ff782c774f01b458cba";
 		case AJSVC_PROPERTY_STORE_DEVICE_NAME:
-	        return "Clock";
+	        return (char*)GetAboutProperty("DeviceIName", "en");
 		case AJSVC_PROPERTY_STORE_APP_NAME:
-			return "Clock";
+			return (char*)GetAboutProperty("AppName", "en");
 	    default :
 	       return NULL;
 	}
@@ -151,11 +151,11 @@ AJ_BusAttachment * Get_AJ_BusAttachment() {
 	return &c_bus;
 }
 
-void * Allocate_AJ_Object_Array(uint32_t array_size) {
-	return AJ_Malloc(sizeof(AJ_Object)*array_size);
+AJ_Object * Allocate_AJ_Object_Array(uint32_t array_size) {
+	return (AJ_Object*)AJ_Malloc(sizeof(AJ_Object)*array_size);
 }
 
-void * Create_AJ_Object(uint32_t index, void * array, char* path, AJ_InterfaceDescription* interfaces, uint8_t flags, void* context) {
+void * Create_AJ_Object(uint32_t index, AJ_Object * array, char* path, AJ_InterfaceDescription* interfaces, uint8_t flags, void* context) {
 	// BE CAREFULL WHEN YOU WILL IMPLEMENT OBJECT DELETION
 	// YOU MUST DELETE ALL ALLOCS
 	AJ_Object * obj = array + index * sizeof(AJ_Object);
