@@ -26,7 +26,7 @@ func mainInfinityLoop() {
 	control := rest.NewPollAsync()
 	out := make(chan rest.DeviceCmdResource, 16)
 
-	go rest.DeviceCmdPollAsync(c.URL, c.DeviceID, c.AccessKey, "", out, control)
+	go rest.DeviceCmdPollAsync(c.URL, c.DeviceID, c.AccessKey, out, control)
 
 	for {
 		select {
@@ -42,7 +42,7 @@ func mainInfinityLoopWithInterruption() {
 	control := rest.NewPollAsync()
 	out := make(chan rest.DeviceCmdResource, 16)
 
-	go rest.DeviceCmdPollAsync(c.URL, c.DeviceID, c.AccessKey, "", out, control)
+	go rest.DeviceCmdPollAsync(c.URL, c.DeviceID, c.AccessKey, out, control)
 
 	for {
 		select {

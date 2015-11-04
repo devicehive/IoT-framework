@@ -87,7 +87,10 @@ Bus Name: `com.devicehive.gpio`
 Path: `/com/devicehive/gpio/{PIN}`
 
 #### Methods:
-`init(direction)` - initialize pin for input `in` or output `out`
+`init(mode)` - initialize pin. For digital pins mode can be `out` for output, `in` for input, 
+               `rising` or `falling` or `both` for input with enabled notifications
+               analog pins recieve period in miliseconds as mode. It sends notifications with
+               analog value every choosen period of time. 
 
 `deinit()` - deinitialize pin and free all resource
 
@@ -97,7 +100,7 @@ Path: `/com/devicehive/gpio/{PIN}`
 
 `clear()` - set pin state to `0`
 
-`get()` - read pin state
+`get()` - read pin state or value for analog inputs
 
 `toggle()` - toggle pin state from `0` to `1` or from `1` to `0`
 

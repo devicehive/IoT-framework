@@ -5,6 +5,27 @@ Develop apps connected to devices, peripherials and cloud using commonly availab
 
 ![](framework.png?raw=true)
 
+## Contents
+
+Currently this framework contains few components:
+
+`devicehive-alljoyn` - our custom API to communicate with AllJoyn devices with the easiest way
+
+`devicehive-ble` - our custom API for access BLE(Bluetooth low energy) GATT services
+
+`devicehive-cloud` - our API for access to DeviceHive cloud services
+
+`devicehive-enocean` - our simple API for access to EnOcean devices
+
+`devicehive-gpio` - our API for access to device's pins
+
+`examples` - samples of usage out IoT framework
+
+`build` - build system for our IoT framework
+
+Each directory contains more detailed information about component, see details there in readme files.
+
+
 ## Cloning
 
 This repository uses submodules so to clonse fresh copy use command
@@ -29,4 +50,3 @@ To build `Ubuntu Snappy` package navigate to `build/snappy` and run
 #for sample apps
 ./build-apps.sh
 ```
-

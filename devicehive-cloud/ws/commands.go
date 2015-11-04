@@ -5,31 +5,47 @@ import (
 	"github.com/devicehive/IoT-framework/devicehive-cloud/say"
 )
 
-func (c *Conn) RegisterDevice(deviceID, deviceName string) {
+func (c *Conn) RegisterDevice(deviceID, deviceName, deviceKey, networkName, networkKey, networkDesc string) {
+
+	// device class
+	dc := map[string]interface{}{
+		"name":           "go-gateway-class",
+		"version":        "0.1",
+		"offlineTimeout": 10}
+
+	// network (optional)
+	n := map[string]interface{}{
+		"name":        networkName,
+		"key":         networkKey,
+		"description": networkDesc}
+
+	// device
+	d := map[string]interface{}{
+		"key":    deviceKey,
+		"name":   deviceName,
+		"status": "Online",
+		"deviceClass": dc}
+
+	// omit "network" if all fields are empty
+	if len(networkName)!=0 || len(networkKey)!=0 || len(networkDesc)!=0 {
+		d["network"] = n
+	}
+
+	// action message
 	m := map[string]interface{}{
 		"action":    "device/save",
 		"deviceId":  deviceID,
-		"deviceKey": "00000000-0000-0000-0000-000000000000",
-		"device": map[string]interface{}{
-			"key":    "00000000-0000-0000-0000-000000000000",
-			"name":   deviceName,
-			"status": "online",
-			"network": map[string]interface{}{
-				"name":        "default",
-				"description": "default network"},
-			"deviceClass": map[string]interface{}{
-				"name":           "go-gateway-class",
-				"version":        "0.1",
-				"offlineTimeout": 10}}}
+		"deviceKey": deviceKey, // authentication
+		"device": d}
 
 	c.SendCommand(m)
 }
 
-func (c *Conn) Authenticate() {
+func (c *Conn) Authenticate(deviceID, deviceKey string) {
 	m := map[string]interface{}{
 		"action":    "authenticate",
-		"deviceId":  c.DeviceID(),
-		"deviceKey": "00000000-0000-0000-0000-000000000000"}
+		"deviceId":  deviceID,
+		"deviceKey": deviceKey}
 	c.SendCommand(m)
 }
 

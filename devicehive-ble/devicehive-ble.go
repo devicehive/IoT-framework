@@ -271,7 +271,7 @@ func (w *BleDbusWrapper) Disconnect(mac string) *dbus.Error {
 		return nil
 	}
 
-	return newDHError(fmt.Sprintf("MAC [%s] wasn't descovered, use Scan Start/Stop first", mac))
+	return newDHError(fmt.Sprintf("MAC [%s] wasn't discovered, use Scan Start/Stop first", mac))
 }
 
 func (w *BleDbusWrapper) handleGattCommand(mac string, uuid string, message string, handler gattCommandHandler) (string, *dbus.Error) {

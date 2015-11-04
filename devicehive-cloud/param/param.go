@@ -3,6 +3,8 @@ package param
 import (
 	"fmt"
 	"net/url"
+
+	"github.com/devicehive/IoT-framework/devicehive-cloud/say"
 )
 
 type I interface {
@@ -10,12 +12,36 @@ type I interface {
 	String() string
 }
 
-func IntegrateWithUrl(baseURL *url.URL, params []I) {
-	q := baseURL.Query()
-	for _, p := range params {
-		q.Set(p.Name(), p.String())
+// func IntegrateWithUrl(baseURL *url.URL, params []I) {
+// 	if params != nil && len(params) > 0 {
+// 		q := baseURL.Query()
+// 		for _, p := range params {
+// 			q.Set(p.Name(), p.String())
+// 		}
+// 		baseURL.RawQuery = q.Encode()
+// 	}
+
+// }
+
+func IntegrateWithUrl(baseUrl string, params []I) (resultUrl string) {
+	resultUrl = baseUrl
+	if params == nil || len(params) < 1 {
+		return
 	}
-	baseURL.RawQuery = q.Encode()
+
+	u, err := url.Parse(baseUrl)
+	if err != nil {
+		say.Verbosef("params: IntegrateWithUrl error: %s", err.Error())
+		return
+	}
+
+	q := u.Query()
+	for _, p := range params {
+		q.Add(p.Name(), p.String())
+	}
+	u.RawQuery = q.Encode()
+	resultUrl = u.String()
+	return
 }
 
 func UrlConcat(params []I) string {
