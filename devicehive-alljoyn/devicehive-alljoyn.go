@@ -3,50 +3,10 @@ package main
 /*
 #cgo CFLAGS: -Ilib -Ialljoyn/core/ajtcl/inc -Ialljoyn/core/ajtcl/target/linux -Ialljoyn/services/base_tcl/notification/inc -Ialljoyn/services/base_tcl/services_common/inc -Ialljoyn/services/base_tcl/notification/src -Ialljoyn/services/base_tcl/services_common/src  -Ialljoyn/services/base_tcl/sample_apps/AppsCommon/inc -Ialljoyn/services/base_tcl/sample_apps/AppsCommon/src
 #cgo LDFLAGS: -Lalljoyn/core/ajtcl -lajtcl
-#include <stdio.h>
-#include <aj_debug.h>
-#include <aj_guid.h>
-#include <aj_creds.h>
-#include <aj_peer.h>
-#include <aj_link_timeout.h>
-#include "alljoyn.h"
-
-uint32_t Get_AJ_Message_msgId();
-uint32_t Get_AJ_Message_bodyLen();
-const char * Get_AJ_Message_signature();
-const char * Get_AJ_Message_objPath();
-const char * Get_AJ_Message_iface();
-const char * Get_AJ_Message_member();
-const char * Get_AJ_Message_destination();
-AJ_Message * Get_AJ_ReplyMessage();
-AJ_Message * Get_AJ_Message();
-//void InitNotificationContent();
-AJ_Status AJNS_Producer_Start();
-void SendNotification(uint16_t messageType, char * lang, char * msg);
-AJ_BusAttachment * Get_AJ_BusAttachment();
-AJ_Object * Allocate_AJ_Object_Array(uint32_t array_size);
-void * Create_AJ_Object(uint32_t index, AJ_Object * array, char* path, AJ_InterfaceDescription* interfaces, uint8_t flags, void* context);
-AJ_Status MyAboutPropGetter_cgo(AJ_Message* reply, const char* language);
-void * Get_Session_Opts();
-void * Get_Arg();
-AJ_Status AJ_MarshalArgs_cgo(AJ_Message* msg, char * a, char * b, char * c, char * d);
-
-int UnmarshalPort();
-typedef void * (*AboutPropGetter)(const* name, const char* language);
-
-void free (void *__ptr);
-AJ_Status MarshalArg(AJ_Message* msg, char * sig, void * value);
-AJ_Status AJ_DeliverMsg(AJ_Message* msg);
-AJ_Status AJ_MarshalSignal_cgo(AJ_Message* msg, uint32_t msgId, uint32_t sessionId, uint8_t flags, uint32_t ttl);
-AJ_Status UnmarshalJoinSessionArgs(AJ_Message* msg, uint16_t * port, uint32_t * sessionId);
-AJ_Status UnmarshalLostSessionArgs(AJ_Message* msg, uint32_t * sessionId, uint32_t * reason);
-
-void SetProperty(char* key, void * value);
-void * GetProperty(char* key);
-
-
+#include "cfuncs.h"
 */
 import "C"
+
 import (
 	"bytes"
 	"crypto/rand"
@@ -254,25 +214,25 @@ func GetAllJoynObjects(objects []*AllJoynBindingInfo) (*C.AJ_Object, bool, *AllJ
 	return array, hasNotifications, aboutObj
 }
 
-//export MyAboutPropGetter
-func MyAboutPropGetter(reply *C.AJ_Message, language *C.char) C.AJ_Status {
-	return myMessenger.MyAboutPropGetter_member(reply, language)
-}
+////export MyAboutPropGetter
+//func MyAboutPropGetter(reply *C.AJ_Message, language *C.char) C.AJ_Status {
+//	return myMessenger.MyAboutPropGetter_member(reply, language)
+//}
 
-func (m *AllJoynMessenger) MyAboutPropGetter_member(reply *C.AJ_Message, language *C.char) C.AJ_Status {
-	// log.Printf("MyAboutPropGetter_member(): %+v", m)
-	aboutInterfacePath := m.binding[0].dbusPath
+//func (m *AllJoynMessenger) MyAboutPropGetter_member(reply *C.AJ_Message, language *C.char) C.AJ_Status {
+//	// log.Printf("MyAboutPropGetter_member(): %+v", m)
+//	aboutInterfacePath := m.binding[0].dbusPath
 
-	log.Printf("About interface path: %s", aboutInterfacePath)
-	err := m.callRemoteMethod(reply, aboutInterfacePath, "org.alljoyn.About.GetAboutData", []interface{}{C.GoString(language)})
-	if err != nil {
-		log.Printf("Error calling org.alljoyn.About for [%+v]: %s", m.binding, err)
-		return C.AJ_ERR_NO_MATCH
-	}
+//	log.Printf("About interface path: %s", aboutInterfacePath)
+//	err := m.callRemoteMethod(reply, aboutInterfacePath, "org.alljoyn.About.GetAboutData", []interface{}{C.GoString(language)})
+//	if err != nil {
+//		log.Printf("Error calling org.alljoyn.About for [%+v]: %s", m.binding, err)
+//		return C.AJ_ERR_NO_MATCH
+//	}
 
-	// log.Printf("About message signature, offset: %s, %d", C.GoString(reply.signature), reply.sigOffset)
-	return C.AJ_OK
-}
+//	// log.Printf("About message signature, offset: %s, %d", C.GoString(reply.signature), reply.sigOffset)
+//	return C.AJ_OK
+//}
 
 func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member string, arguments []interface{}) (err error) {
 	log.Printf("MSG: message.hdr=%p", message.hdr)
@@ -608,7 +568,7 @@ func (a *AllJoynBridge) fetchAboutData(svcInfo *AllJoynServiceInfo, objInfo *All
 	log.Printf("ABOUT: %+v", aboutData)
 
 	for key, value := range aboutData {
-		log.Printf("%s(%s)", key, value.Signature())
+		//		log.Printf("%s(%s)", key, value.Signature())
 		switch value.Signature().String() {
 		case "ay":
 			C.SetProperty(C.CString(key), unsafe.Pointer(C.CString(fmt.Sprintf("%x", value.Value()))))
@@ -651,9 +611,14 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 
 	var status C.AJ_Status = C.AJ_OK
 
+	// C.AJ_PrintXML((*C.AJ_Object)(objects))
+	connected := false
+	busAttachment := C.Get_AJ_BusAttachment()
+
 	C.AJ_Initialize()
+	C.AJ_RegisterDescriptionLanguages((**C.char)(C.getLanguages()))
+	C.AJ_AboutRegisterPropStoreGetter((C.AJ_AboutPropGetter)(unsafe.Pointer(C.MyAboutPropGetter)))
 	C.AJ_RegisterObjects((*C.AJ_Object)(objects), nil)
-	C.AJ_AboutRegisterPropStoreGetter((C.AJ_AboutPropGetter)(unsafe.Pointer(C.MyAboutPropGetter_cgo)))
 	C.AJ_SetMinProtoVersion(10)
 
 	if hasNotifications {
@@ -666,9 +631,6 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 		log.Printf("Error: AJNS_Producer_Start()=> %v", status)
 	}
 
-	// C.AJ_PrintXML((*C.AJ_Object)(objects))
-	connected := false
-	busAttachment := C.Get_AJ_BusAttachment()
 	msg := C.Get_AJ_Message()
 	C.AJ_ClearAuthContext()
 
@@ -681,19 +643,22 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 				defer C.free(unsafe.Pointer(busNodeName))
 
 				status = C.AJ_StartService(busAttachment,
-					busNodeName,
+					//					(*C.char)(busNodeName),
+					(*C.char)(unsafe.Pointer(nil)),
 					60*1000, // TODO: Move connection timeout to config
 					C.FALSE,
 					C.uint16_t(PORT), // TODO: Move port to config
 					C.CString(service.allJoynService),
 					C.AJ_NAME_REQ_DO_NOT_QUEUE,
-					(*C.AJ_SessionOpts)(C.Get_Session_Opts()))
-
-				if status != C.AJ_OK {
-					continue
-				}
+					(*C.AJ_SessionOpts)(C.Get_Session_Opts()),
+				)
 
 				log.Printf("StartService returned %d, %+v", status, busAttachment)
+
+				if status != C.AJ_OK {
+
+					continue
+				}
 
 				connected = true
 

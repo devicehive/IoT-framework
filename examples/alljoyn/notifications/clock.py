@@ -115,9 +115,9 @@ class Clock():
             'ModelNumber': 'example',
             'SupportedLanguages': ['en'],
             'Description': 'DeviceHive Alljoyn Clock Device',
-            'SoftwareVersion': '1.0',
-            'HardwareVersion': '1.0',
-            'SupportUrl': 'devicehive.com'
+            # 'SoftwareVersion': '1.0',
+            # 'HardwareVersion': '1.0',
+            # 'SupportUrl': 'devicehive.com'
 
         }
 
