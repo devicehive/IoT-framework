@@ -23,7 +23,7 @@ AJ_Message * Get_AJ_Message();
 //void InitNotificationContent();
 AJ_Status AJNS_Producer_Start();
 void SendNotification(uint16_t messageType, char * lang, char * msg);
-void * Get_AJ_BusAttachment();
+AJ_BusAttachment * Get_AJ_BusAttachment();
 void * Allocate_AJ_Object_Array(uint32_t array_size);
 void * Create_AJ_Object(uint32_t index, void * array, char* path, AJ_InterfaceDescription* interfaces, uint8_t flags, void* context);
 AJ_Status MyAboutPropGetter_cgo(AJ_Message* reply, const char* language);
@@ -620,7 +620,7 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 				busNodeName := C.CString("org.alljoyn.BusNode")
 				defer C.free(unsafe.Pointer(busNodeName))
 
-				status = C.AJ_StartService((*C.AJ_BusAttachment)(busAttachment),
+				status = C.AJ_StartService(busAttachment,
 					busNodeName,
 					60*1000, // TODO: Move connection timeout to config
 					C.FALSE,
@@ -638,7 +638,7 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 				connected = true
 
 				// Start Control Panel by binding a session port
-				status = C.AJ_BusBindSessionPort((*C.AJ_BusAttachment)(busAttachment),
+				status = C.AJ_BusBindSessionPort(busAttachment,
 					AJ_CP_PORT, (*C.AJ_SessionOpts)(C.Get_Session_Opts()), 0)
 
 				if status != C.AJ_OK {
@@ -647,7 +647,7 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 
 			}
 
-			status = C.AJ_UnmarshalMsg((*C.AJ_BusAttachment)(busAttachment), (*C.AJ_Message)(msg), 100) // TODO: Move unmarshal timeout to config
+			status = C.AJ_UnmarshalMsg(busAttachment, (*C.AJ_Message)(msg), 100) // TODO: Move unmarshal timeout to config
 
 			if C.AJ_ERR_TIMEOUT == status {
 				a.processSignals()
@@ -744,11 +744,11 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 
 			// if status == C.AJ_OK {
 			// 	log.Print("***C.AJ_AboutAnnounce***")
-			// 	C.AJ_AboutAnnounce((*C.AJ_BusAttachment)(busAttachment))
+			// 	C.AJ_AboutAnnounce(busAttachment)
 			// }
 
 			if status == C.AJ_ERR_READ {
-				C.AJ_Disconnect((*C.AJ_BusAttachment)(busAttachment))
+				C.AJ_Disconnect(busAttachment)
 				log.Print("AllJoyn disconnected, retrying")
 				connected = false
 				C.AJ_Sleep(1000 * 2) // TODO: Move sleep time to const

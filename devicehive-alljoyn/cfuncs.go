@@ -147,7 +147,7 @@ AJ_Message * Get_AJ_ReplyMessage() {
 AJ_Message * Get_AJ_Message() {
 	return &c_message;
 }
-void * Get_AJ_BusAttachment() {
+AJ_BusAttachment * Get_AJ_BusAttachment() {
 	return &c_bus;
 }
 
