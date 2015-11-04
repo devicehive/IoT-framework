@@ -8,7 +8,9 @@ Develop apps connected to devices, peripherials and cloud using commonly availab
 ## Cloning
 
 This repository uses submodules so to clonse fresh copy use command
-```git clone --recurisve https://github.com/devicehive/IoT-framework.git```
+```
+git clone --recurisve https://github.com/devicehive/IoT-framework.git
+```
 
 Or if doing pull to existing repo use
 ```
