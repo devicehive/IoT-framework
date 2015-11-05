@@ -79,10 +79,9 @@ class Hello():
     self._container = core.BusContainer(busname, DBUS_BUS_PATH + '/' + self.id)
 
     self._services = [
-       core.AboutService(self._container, about_props)
-      # ,core.ConfigService(self._container, self.name)      
-      ,core.ConfigService(self._container, self.name)
+       core.AboutService(self._container, about_props)      
       ,HelloService(self._container)
+      # ,core.ConfigService(self._container, self.name)
     ]
 
     print("Registered %s on dbus" % self.name)

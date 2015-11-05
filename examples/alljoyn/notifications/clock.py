@@ -53,7 +53,6 @@ class ClockService(core.PropertiesServiceInterface):
             timestr = time.strftime(FORMAT, time.localtime())
             self.Set(CLOCK_SVC, 'Time', dbus.String(timestr, variant_level=1))
             print("Time: %s" % timestr)
-            self.Alarm(timestr)
 
             if self._alarm is not None:
                 alarmstr = time.strftime(FORMAT, self._alarm)
@@ -89,7 +88,7 @@ class ClockService(core.PropertiesServiceInterface):
     @dbus.service.method(CLOCK_SVC, in_signature='s', out_signature='')
     def SetAlarm(self, timestr):
         self._alarm = time.strptime(timestr, FORMAT)
-        print("Alarm Set To: %s" % self._alarm)
+        print("Alarm set to: %s" + timestr)
 
     @dbus.service.signal(CLOCK_SVC, signature='s')
     def Alarm(self, timestr):

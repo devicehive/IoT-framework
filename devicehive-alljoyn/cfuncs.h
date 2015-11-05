@@ -13,7 +13,10 @@ const char * Get_AJ_Message_objPath();
 const char * Get_AJ_Message_iface();
 const char * Get_AJ_Message_member();
 const char * Get_AJ_Message_destination();
+const char* AJ_StatusText(AJ_Status status);
+
 AJ_Message * Get_AJ_ReplyMessage();
+
 AJ_Message * Get_AJ_Message();
 //void InitNotificationContent();
 AJ_Status AJNS_Producer_Start();

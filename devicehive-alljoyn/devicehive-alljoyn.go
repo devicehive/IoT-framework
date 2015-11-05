@@ -22,6 +22,7 @@ import (
 	"unsafe"
 )
 
+const UNMARSHAL_TIMEOUT = 100
 const PORT = 900
 const AJ_CP_PORT = 1000
 const AJ_ABOUT_IF = "org.alljoyn.About"
@@ -29,6 +30,9 @@ const AJ_ABOUT_GETABOUTDATA = "org.alljoyn.About.GetAboutData"
 
 const AJ_NOTIFICATION_IF = "org.alljoyn.Notification"
 const AJ_NOTIFICATION_MSG = "org.alljoyn.Notification.Notify"
+
+const AJ_CP_PREFIX = "org.alljoyn.ControlPanel."
+const AJ_CP_INTERFACE = "org.alljoyn.ControlPanel.ControlPanel"
 
 // newUUID generates a random UUID according to RFC 4122
 func newUUID() (string, error) {
@@ -59,10 +63,11 @@ type AllJoynBindingInfo struct {
 }
 
 type AllJoynServiceInfo struct {
-	allJoynService  string
-	dbusService     string // unique bus id name
-	dbusServiceName string // friendly name
-	objects         []*AllJoynBindingInfo
+	allJoynService    string
+	dbusService       string // unique bus id name
+	dbusServiceName   string // friendly name
+	objects           []*AllJoynBindingInfo
+	registeredObjects []*AllJoynBindingInfo
 }
 
 type AllJoynBridge struct {
@@ -153,15 +158,12 @@ func ParseAllJoynInterfaces(interfaces []introspect.Interface) []C.AJ_InterfaceD
 		}
 
 		desc = append(desc, nil)
-		//		log.Print(desc)
+		//		log.Println(desc)
 		res = append(res, (C.AJ_InterfaceDescription)(&desc[0]))
 	}
 	res = append(res, nil)
 	return res
 }
-
-const AJ_CP_PREFIX = "org.alljoyn.ControlPanel."
-const AJ_CP_INTERFACE = "org.alljoyn.ControlPanel.ControlPanel"
 
 func getAllJoynObjectFlags(service *AllJoynBindingInfo) C.uint8_t {
 
@@ -193,25 +195,35 @@ func hasInterface(object *AllJoynBindingInfo, ifname string) bool {
 	return false
 }
 
-func GetAllJoynObjects(objects []*AllJoynBindingInfo) (*C.AJ_Object, bool, *AllJoynBindingInfo) {
-	array := C.Allocate_AJ_Object_Array(C.uint32_t(len(objects) + 1))
-	var hasNotifications bool
-	var aboutObj *AllJoynBindingInfo
-	for i, object := range objects {
+func GetKnownObjects(objects []*AllJoynBindingInfo) (*AllJoynBindingInfo, *AllJoynBindingInfo, []*AllJoynBindingInfo) {
+
+	other := make([]*AllJoynBindingInfo, 0, len(objects))
+
+	var notificationsObj, aboutObj *AllJoynBindingInfo
+
+	for _, object := range objects {
 		if hasInterface(object, AJ_NOTIFICATION_IF) {
-			hasNotifications = true
+			notificationsObj = object
 		} else if hasInterface(object, AJ_ABOUT_IF) {
 			aboutObj = object
 		} else {
-			interfaces = ParseAllJoynInterfaces(object.introspectData.Interfaces)
-			flags := getAllJoynObjectFlags(object)
-			log.Printf("Creating Object %s %u", object.introspectData.Name, flags)
-			C.Create_AJ_Object(C.uint32_t(i), array, C.CString(object.introspectData.Name), &interfaces[0], flags, unsafe.Pointer(nil))
-			C.Create_AJ_Object(C.uint32_t(i+1), array, nil, nil, 0, nil)
+			other = append(other, object)
 		}
-		// log.Printf("*****Alljoyn Objects %s %s", object.introspectData.Name, &interfaces[0])
 	}
-	return array, hasNotifications, aboutObj
+	return notificationsObj, aboutObj, other
+}
+
+func GetAllJoynObjects(objects []*AllJoynBindingInfo) *C.AJ_Object {
+	array := C.Allocate_AJ_Object_Array(C.uint32_t(len(objects) + 1))
+
+	for i, object := range objects {
+		interfaces = ParseAllJoynInterfaces(object.introspectData.Interfaces)
+		flags := getAllJoynObjectFlags(object)
+		log.Printf("Creating Object %s %b", object.introspectData.Name, flags)
+		C.Create_AJ_Object(C.uint32_t(i), array, C.CString(object.introspectData.Name), &interfaces[0], flags, unsafe.Pointer(nil))
+	}
+	C.Create_AJ_Object(C.uint32_t(len(objects)+1), array, nil, nil, 0, nil)
+	return array
 }
 
 ////export MyAboutPropGetter
@@ -275,10 +287,12 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 	//	} else {
 	//		message.hdr.flags &= ^C.uint8_t(C.AJ_FLAG_ENCRYPTED)
 	//	}
-	log.Printf("MSG: message.hdr=%p", message.hdr)
-	C.AJ_DeliverMsgPartial((*C.AJ_Message)(message), C.uint32_t(len(newBuf)))
-	log.Printf("MSG: message.hdr=%p", message.hdr)
+
 	if len(newBuf) > 0 {
+		log.Printf("MSG: message.hdr=%p", message.hdr)
+		C.AJ_DeliverMsgPartial((*C.AJ_Message)(message), C.uint32_t(len(newBuf)))
+		log.Printf("MSG: message.hdr=%p", message.hdr)
+
 		C.AJ_MarshalRaw((*C.AJ_Message)(message), unsafe.Pointer(&newBuf[0]), C.size_t(len(newBuf)))
 	} else {
 		C.AJ_MarshalRaw((*C.AJ_Message)(message), unsafe.Pointer(&newBuf), C.size_t(0))
@@ -293,27 +307,27 @@ func (m *AllJoynMessenger) callRemoteMethod(message *C.AJ_Message, path, member 
 }
 
 func safeString(p *C.char) string {
-	if p == nil {
+
+	if p == nil || unsafe.Pointer(p) == unsafe.Pointer(nil) {
 		return ""
 	} else {
 		return C.GoString(p)
 	}
 }
 
-func dumpMessage(prefix string) {
+func dumpMessage() string {
 
-	msgId := uint32(C.Get_AJ_Message_msgId())
-	objPath := "" //safeString(C.Get_AJ_Message_objPath())
+	objPath := safeString(C.Get_AJ_Message_objPath())
 	member := safeString(C.Get_AJ_Message_member())
 	destination := safeString(C.Get_AJ_Message_destination())
 	iface := safeString(C.Get_AJ_Message_iface())
 
-	log.Printf("%s \r\n\tmsgId: %d \r\n\tobjPath: %s \r\n\tmember: %s \r\n\tiface: %s \r\n\tdestination: %s", prefix, msgId, objPath, member, iface, destination)
+	return fmt.Sprintf("\tPath: %s \r\n\tMember: %s.%s \r\n\tDestination: %s", objPath, iface, member, destination)
 
 }
 
 func (m *AllJoynMessenger) forwardAllJoynMessage(msgId uint32) (err error) {
-	log.Printf("****forwardAllJoynMessage****")
+	log.Printf("Passing msgId 0x%x to DBus", msgId)
 	msg := C.Get_AJ_Message()
 	reply := C.Get_AJ_ReplyMessage()
 
@@ -355,7 +369,7 @@ func (m *AllJoynMessenger) forwardAllJoynMessage(msgId uint32) (err error) {
 	destination := C.GoString(C.Get_AJ_Message_destination())
 	iface := C.GoString(C.Get_AJ_Message_iface())
 
-	log.Printf("****Message [objPath, member, iface, destination]: %s, %s, %s, %s", objPath, member, iface, destination)
+	log.Printf("Message [objPath, member, iface, destination]: %s, %s, %s, %s", objPath, member, iface, destination)
 
 	for _, service := range m.binding {
 		if service.allJoynPath == objPath {
@@ -404,7 +418,8 @@ func (a *AllJoynBridge) findSignal(signal *dbus.Signal) (uint32, *introspect.Sig
 		if service.dbusService == signal.Sender {
 			log.Printf("Found matching service: %s", service.dbusServiceName)
 
-			for objIdx, object := range service.objects {
+			// using registeredObjects here as index is calculated for registered alljoyn objects
+			for objIdx, object := range service.registeredObjects {
 				if object.dbusPath == string(signal.Path) {
 					for ifIdx, iface := range object.introspectData.Interfaces {
 						if iface.Name == singalInterface {
@@ -505,7 +520,7 @@ func (a *AllJoynBridge) processSignals() {
 			msg := C.Get_AJ_Message()
 
 			status = C.AJ_MarshalSignal_cgo((*C.AJ_Message)(msg), C.uint32_t(msgId), C.uint32_t(sessionId), C.uint8_t(0), C.uint32_t(0))
-			log.Printf("**** AJ_MarshalSignal: %d", status)
+			log.Printf("**** AJ_MarshalSignal: %s", status)
 
 			// for _, arg := range signal.Body {
 			// 	log.Printf("**** ARG: %v", arg)
@@ -530,24 +545,22 @@ func (a *AllJoynBridge) processSignals() {
 
 				newBuf := buf.Bytes()[(int)(msg.bodyBytes)+pad:]
 
-				status = C.AJ_DeliverMsgPartial((*C.AJ_Message)(msg), C.uint32_t(len(newBuf)))
-				log.Printf("**** AJ_DeliverMsgPartial: %d", status)
-
 				if len(newBuf) > 0 {
+					status = C.AJ_DeliverMsgPartial((*C.AJ_Message)(msg), C.uint32_t(len(newBuf)))
+					log.Printf("**** AJ_DeliverMsgPartial: %s", status)
 					status = C.AJ_MarshalRaw((*C.AJ_Message)(msg), unsafe.Pointer(&newBuf[0]), C.size_t(len(newBuf)))
-					log.Printf("**** AJ_MarshalRaw: %d", status)
 				} else {
 					status = C.AJ_MarshalRaw((*C.AJ_Message)(msg), unsafe.Pointer(&newBuf), C.size_t(0))
-					log.Printf("**** AJ_MarshalRaw: %d", status)
 				}
+				log.Printf("**** AJ_MarshalRaw: %s", status)
 
 			}
 
 			status = C.AJ_DeliverMsg((*C.AJ_Message)(msg))
-			log.Printf("**** AJ_DeliverMsg: %d", status)
+			log.Printf("**** AJ_DeliverMsg: %s", status)
 
 			status = C.AJ_CloseMsg((*C.AJ_Message)(msg))
-			log.Printf("**** AJ_CloseMsg: %d", status)
+			log.Printf("**** AJ_CloseMsg: %s", status)
 		}
 
 	}
@@ -582,32 +595,23 @@ func (a *AllJoynBridge) fetchAboutData(svcInfo *AllJoynServiceInfo, objInfo *All
 	return nil
 }
 
-//var sigToType = map[byte]reflect.Type{
-//	'y': byteType,
-//	'b': boolType,
-//	'n': int16Type,
-//	'q': uint16Type,
-//	'i': int32Type,
-//	'u': uint32Type,
-//	'x': int64Type,
-//	't': uint64Type,
-//	'd': float64Type,
-//	's': stringType,
-//	'g': signatureType,
-//	'o': objectPathType,
-//	'v': variantType,
-//	'h': unixFDIndexType,
-//}
+func (status C.AJ_Status) String() string {
+	return C.GoString(C.AJ_StatusText(status))
+}
 
 func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 	service := a.services[uuid]
-	objects, hasNotifications, aboutObj := GetAllJoynObjects(service.objects)
+
+	notificationsObj, aboutObj, otherObjects := GetKnownObjects(service.objects)
+
+	objects := GetAllJoynObjects(otherObjects)
+	service.registeredObjects = otherObjects
 
 	a.fetchAboutData(service, aboutObj)
 
 	SubscribeToSignals(a.bus, service)
 
-	myMessenger = NewAllJoynMessenger(service.dbusService, a.bus, service.objects)
+	myMessenger = NewAllJoynMessenger(service.dbusService, a.bus, otherObjects)
 
 	var status C.AJ_Status = C.AJ_OK
 
@@ -621,14 +625,14 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 	C.AJ_RegisterObjects((*C.AJ_Object)(objects), nil)
 	C.AJ_SetMinProtoVersion(10)
 
-	if hasNotifications {
-		log.Println("NOTIFICATIONS SUPPORTED")
+	if notificationsObj != nil {
+		log.Println("NOTIFICATIONS ENABLED")
 		//		C.InitNotificationContent()
 		status = C.AJNS_Producer_Start()
 	}
 
 	if status != C.AJ_OK {
-		log.Printf("Error: AJNS_Producer_Start()=> %v", status)
+		log.Printf("Error: AJNS_Producer_Start()=> %s", status)
 	}
 
 	msg := C.Get_AJ_Message()
@@ -653,7 +657,7 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 					(*C.AJ_SessionOpts)(C.Get_Session_Opts()),
 				)
 
-				log.Printf("StartService returned %d, %+v", status, busAttachment)
+				log.Printf("StartService returned %s, %+v", status, busAttachment)
 
 				if status != C.AJ_OK {
 
@@ -672,20 +676,21 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 
 			}
 
-			status = C.AJ_UnmarshalMsg(busAttachment, (*C.AJ_Message)(msg), 100) // TODO: Move unmarshal timeout to config
+			status = C.AJ_UnmarshalMsg(busAttachment, msg, UNMARSHAL_TIMEOUT)
 
 			if C.AJ_ERR_TIMEOUT == status {
+				// no incoming messages, we can do our work
 				a.processSignals()
 				continue
 			}
 
-			log.Printf("AJ_UnmarshalMsg: %+v", status)
+			log.Printf("----------------------------")
+			log.Printf("AJ_UnmarshalMsg: %s", status)
 
 			if C.AJ_OK == status {
 
 				msgId := C.Get_AJ_Message_msgId()
-				log.Printf("****Got a message, ID: 0x%X", msgId)
-				dumpMessage("****Message Detais: ")
+				log.Printf("MSG ID: 0x%X\n%s", msgId, dumpMessage())
 
 				switch {
 				case msgId == C.AJ_METHOD_ACCEPT_SESSION:
@@ -754,9 +759,9 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 						}
 					} else {
 						/* Pass to the built-in handlers. */
-						log.Printf("Passing msgId %+v to AllJoyn", uint32(msgId))
+						log.Printf("Passing msgId 0x%x to AllJoyn", uint32(msgId))
 						status = C.AJ_BusHandleBusMessage((*C.AJ_Message)(msg))
-						log.Printf("AllJoyn returned %d", status)
+						log.Printf("AllJoyn returned %s", status)
 					}
 				}
 
@@ -835,7 +840,7 @@ func (a *AllJoynBridge) AddService(dbusService, dbusPath, allJoynService string)
 		log.Printf("Found Object: %s with %d interfaces", allJoynPath, len(node.Interfaces))
 	})
 
-	a.services[uuid] = &AllJoynServiceInfo{allJoynService, dbusServiceId, dbusService, bindings}
+	a.services[uuid] = &AllJoynServiceInfo{allJoynService, dbusServiceId, dbusService, bindings, nil}
 
 	log.Printf("Added %s service with %d AJ objects", allJoynService, len(bindings))
 

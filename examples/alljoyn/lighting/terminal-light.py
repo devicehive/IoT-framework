@@ -58,8 +58,7 @@ class Lamp():
       'Description': 'DeviceHive Alljoyn Bridge Device',
       'SoftwareVersion': '1.0',
       'HardwareVersion': '1.0',
-      'SupportUrl': 'devicehive.com',
-      'AJSoftwareVersion': '14.06.00a Tag "v14.06.00a"'
+      'SupportUrl': 'devicehive.com'
 
     }
 

@@ -36,10 +36,10 @@ void SetProperty(char* key, void * value){
 void * GetProperty(char* key){
 	assert(prop_map != NULL);
 	any_t * value;
-	fprintf(stdout,"*** GetProperty(%s)\n", key);
+//	fprintf(stdout,"*** GetProperty(%s)\n", key);
 	int error = hashmap_get(prop_map, key, (void**)(&value));
     if (error==MAP_OK) {
-		fprintf(stdout,"*** GetProperty(%s): %s\n", key, (char*)value);
+//		fprintf(stdout,"*** GetProperty(%s): %s\n", key, (char*)value);
 		fflush(stdout);
 		return value;
 	} else {
@@ -153,8 +153,9 @@ const char * Get_AJ_Message_signature() {
 	return c_message.signature;
 }
 
-const char * Get_AJ_Message_objPath() {
-   return c_message.objPath;
+const char * Get_AJ_Message_objPath() {	
+	// somehow AJ sets objPath pointer to 0x6 when empty
+	return (long)c_message.objPath == 0x6 ? NULL : c_message.objPath;
 }
 
 const char * Get_AJ_Message_iface() {
@@ -246,10 +247,7 @@ AJ_Status MyAboutPropGetter(AJ_Message* reply, const char* language)
 	if (status != AJ_OK) {
         return status;
     }
-	
-	fprintf(stdout,"*** MyAboutPropGetter(%i): %i\n", 2, status);
-	fflush(stdout);
-	
+		
     AJ_Arg array;
     
 //    char guidStr[16 * 2 + 1];
@@ -278,26 +276,24 @@ AJ_Status MyAboutPropGetter(AJ_Message* reply, const char* language)
         return status;
     }
 	
-fprintf(stdout,"*** MyAboutPropGetter(%i): %i\n", 3, status);
-	fflush(stdout);
 	
     status = AJ_MarshalContainer(reply, &array, AJ_ARG_ARRAY);
     if (status == AJ_OK) {
         status = AJ_MarshalArgs(reply, "{sv}", "AppId", "ay", appId, 16);
     }
     if (status == AJ_OK) {
-		printf("AppName: %s\n", (char*)GetProperty("AppName"));
+//		printf("AppName: %s\n", (char*)GetProperty("AppName"));
         status = AJ_MarshalArgs(reply, "{sv}", "AppName", "s", (char*)GetProperty("AppName"));
     }
     if (status == AJ_OK) {
-		printf("DeviceId: %s\n", (char*)GetProperty("guidStr"));
+//		printf("DeviceId: %s\n", propDeviceId);
         status = AJ_MarshalArgs(reply, "{sv}", "DeviceId", "s", propDeviceId);
     }
     if (status == AJ_OK) {
 		// not mandatory
 		char * DeviceName = (char*)GetProperty("DeviceName");
 		if (DeviceName){
-			printf("DeviceName: %s\n", DeviceName);
+//			printf("DeviceName: %s\n", DeviceName);
 			status = AJ_MarshalArgs(reply, "{sv}", "DeviceName", "s", DeviceName);
 		}
     }
