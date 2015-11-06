@@ -25,7 +25,7 @@ _testmain.go
 *.exe
 *.test
 *.prof
-
+*.nvram
 
 *.*~
 devicehive-cloud/astaff.conf
@@ -33,3 +33,6 @@ devicehive-cloud/astaff.conf
 devicehive-alljoyn/libajtcl.so
 
 *.DS_Store
+
+__pycache__
+*.pyc
