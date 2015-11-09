@@ -61,13 +61,13 @@ func main() {
 		say.Fatalf("The name '%s' already taken.", DBusConnName)
 	}
 
-	if config.DeviceNotifcationsReceive == conf.DeviceNotificationReceiveByWS {
+	if config.DeviceNotificationReceive == conf.DeviceNotificationReceiveByWS {
 		say.Infof("Starting as websocket...")
 		wsImplementation(bus, config)
 		return
 	}
 
-	if config.DeviceNotifcationsReceive == conf.DeviceNotificationReceiveByREST {
+	if config.DeviceNotificationReceive == conf.DeviceNotificationReceiveByREST {
 		say.Infof("Starting as rest...")
 		restImplementation(bus, config)
 		return

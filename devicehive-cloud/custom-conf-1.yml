@@ -7,4 +7,4 @@ DeviceName: snappy-go-gateway
 SendNotificatonQueueCapacity: 2047
 LoggingLevel: verbose
 
-DeviceNotifcationsReceive: REST
+DeviceNotificationReceive: REST
