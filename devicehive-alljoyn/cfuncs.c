@@ -40,7 +40,7 @@ void * GetProperty(char* key){
 	int error = hashmap_get(prop_map, key, (void**)(&value));
     if (error==MAP_OK) {
 //		fprintf(stdout,"*** GetProperty(%s): %s\n", key, (char*)value);
-		fflush(stdout);
+//		fflush(stdout);
 		return value;
 	} else {
 		return NULL;
@@ -379,4 +379,11 @@ int UnmarshalPort() {
 
 	AJ_UnmarshalArgs(&c_message, "qus", &port, &sessionId, &joiner);
 	return port;
+}
+
+const char* MyTranslator(uint32_t descId, const char* lang) {
+//	char ** pointer;
+//	GetMemberDescription(descId, lang, pointer);
+//	return (char*)*pointer;
+	return "Description";
 }

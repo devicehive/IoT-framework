@@ -71,10 +71,11 @@ type AllJoynServiceInfo struct {
 }
 
 type AllJoynBridge struct {
-	bus      *dbus.Conn
-	signals  chan *dbus.Signal
-	services map[string]*AllJoynServiceInfo
-	sessions []uint32
+	bus        *dbus.Conn
+	signals    chan *dbus.Signal
+	services   map[string]*AllJoynServiceInfo
+	sessions   []uint32
+	signalCahe map[string]uint32
 }
 
 type AllJoynMessenger struct {
@@ -93,6 +94,7 @@ func NewAllJoynBridge(bus *dbus.Conn) *AllJoynBridge {
 	bridge.signals = make(chan *dbus.Signal, 100)
 	bridge.services = make(map[string]*AllJoynServiceInfo)
 	bridge.sessions = []uint32{}
+	bridge.signalCahe = make(map[string]uint32)
 
 	sbuffer := make(chan *dbus.Signal, 100)
 	go bridge.signalsPump(sbuffer)
@@ -182,7 +184,9 @@ func getAllJoynObjectFlags(service *AllJoynBindingInfo) C.uint8_t {
 			return C.uint8_t(0) //C.AJ_OBJ_FLAG_HIDDEN
 		}
 	} else {
-		return C.AJ_OBJ_FLAG_ANNOUNCED //| C.AJ_OBJ_FLAG_DESCRIBED
+		return C.AJ_OBJ_FLAG_ANNOUNCED
+		// it has to be C.AJ_OBJ_FLAG_DESCRIBED
+		// but not yet compatible with AJ Explorer #151
 	}
 }
 
@@ -193,6 +197,13 @@ func hasInterface(object *AllJoynBindingInfo, ifname string) bool {
 		}
 	}
 	return false
+}
+
+//export GetMemberDescription
+func GetMemberDescription(memberIdx C.uint32_t, lang *C.char, result *unsafe.Pointer) {
+	language := safeString(lang)
+	log.Printf("GetMemberDescription (%s, %s)", memberIdx, language)
+	*result = unsafe.Pointer(C.CString("GO!"))
 }
 
 func GetKnownObjects(objects []*AllJoynBindingInfo) (*AllJoynBindingInfo, *AllJoynBindingInfo, []*AllJoynBindingInfo) {
@@ -406,7 +417,14 @@ func (a *AllJoynBridge) removeSession(sessionId uint32) {
 	}
 }
 
-func (a *AllJoynBridge) findSignal(signal *dbus.Signal) (uint32, *introspect.Signal) {
+func (a *AllJoynBridge) findSignal(signal *dbus.Signal) uint32 {
+
+	key := signal.Name + string(signal.Path) + signal.Sender
+
+	// check for cached value
+	if idx, ok := a.signalCahe[key]; ok {
+		return idx
+	}
 
 	sepPos := strings.LastIndex(signal.Name, ".")
 	singalInterface := signal.Name[:sepPos]
@@ -430,23 +448,26 @@ func (a *AllJoynBridge) findSignal(signal *dbus.Signal) (uint32, *introspect.Sig
 									signalMessageId := 0x01000000 | (uint32(objIdx) << 16) | (uint32(ifIdx) << 8) | uint32(memberIdx)
 									log.Printf("##### Signal: %s => 0x%X  (%d %d %d)", signal.Name, signalMessageId, objIdx, ifIdx, memberIdx)
 
-									return signalMessageId, &sgn
+									// cache value for future use
+									a.signalCahe[key] = signalMessageId
+
+									return signalMessageId
 								}
 							}
 							// log.Printf("Could not find any matching signal for: %+v", signal)
-							return 0, nil
+							return 0
 						}
 					}
 					// log.Printf("Could not find any matching interface for: %+v", signal)
-					return 0, nil
+					return 0
 				}
 			}
 			// log.Printf("Could not find any matching obejct for: %+v", signal)
-			return 0, nil
+			return 0
 		}
 	}
 	// log.Printf("Could not find any matching service for: %+v", signal)
-	return 0, nil
+	return 0
 }
 
 func parseNotificationBody(body []interface{}) (msgType uint16, lang string, msg string, success bool) {
@@ -507,7 +528,7 @@ func (a *AllJoynBridge) processSignals() {
 		}
 
 		// get signal signature
-		msgId, _ := a.findSignal(signal)
+		msgId := a.findSignal(signal)
 
 		if msgId == 0 {
 			log.Printf("Could not find any matching service for signal: %+v", signal)
@@ -519,7 +540,7 @@ func (a *AllJoynBridge) processSignals() {
 			var status C.AJ_Status = C.AJ_OK
 			msg := C.Get_AJ_Message()
 
-			status = C.AJ_MarshalSignal_cgo((*C.AJ_Message)(msg), C.uint32_t(msgId), C.uint32_t(sessionId), C.uint8_t(0), C.uint32_t(0))
+			status = C.AJ_MarshalSignal_cgo(msg, C.uint32_t(msgId), C.uint32_t(sessionId), C.uint8_t(0), C.uint32_t(0))
 			log.Printf("**** AJ_MarshalSignal: %s", status)
 
 			// for _, arg := range signal.Body {
@@ -615,15 +636,18 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 
 	var status C.AJ_Status = C.AJ_OK
 
-	// C.AJ_PrintXML((*C.AJ_Object)(objects))
 	connected := false
 	busAttachment := C.Get_AJ_BusAttachment()
 
 	C.AJ_Initialize()
 	C.AJ_RegisterDescriptionLanguages((**C.char)(C.getLanguages()))
 	C.AJ_AboutRegisterPropStoreGetter((C.AJ_AboutPropGetter)(unsafe.Pointer(C.MyAboutPropGetter)))
-	C.AJ_RegisterObjects((*C.AJ_Object)(objects), nil)
+	C.AJ_RegisterObjectListWithDescriptions(objects, 1, (C.AJ_DescriptionLookupFunc)(C.MyTranslator))
+	//	C.AJ_RegisterObjects(objects, nil)
 	C.AJ_SetMinProtoVersion(10)
+
+	C.AJ_PrintXML(objects)
+	C.AJ_PrintXMLWithDescriptions(objects, C.CString("en"))
 
 	if notificationsObj != nil {
 		log.Println("NOTIFICATIONS ENABLED")

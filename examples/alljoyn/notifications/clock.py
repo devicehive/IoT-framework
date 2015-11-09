@@ -83,6 +83,7 @@ class ClockService(core.PropertiesServiceInterface):
                 <arg type="s"/>
               </signal>
            </interface>
+
         """ + core.PropertiesServiceInterface.IntrospectionXml(self)
 
     @dbus.service.method(CLOCK_SVC, in_signature='s', out_signature='')
@@ -95,6 +96,80 @@ class ClockService(core.PropertiesServiceInterface):
         print("ALARM: %s" % timestr)
         self._notification_handler(timestr)
 
+#     @dbus.service.method("org.allseen.Introspectable", in_signature='', out_signature='as')
+#     def GetDescriptionLanguages(self):
+#         return ["en"]
+
+#     @dbus.service.method("org.allseen.Introspectable", in_signature='s', out_signature='s')
+#     def IntrospectWithDescription(self, lang):
+#         return """
+#         <node name="/Service">
+# <description language="en">Description</description>
+#            <interface name="org.allseen.SmartHome.Clock">
+# <description language="en">Description</description>
+#   <method name="SetAlarm">
+#     <arg name="time" type="s" direction="in">
+#         <description language="en">Description</description>
+#     </arg>
+#     <description language="en">Description</description>
+#   </method>
+#   <signal name="Alarm" sessionless="false">
+#     <arg type="s">
+#         <description language="en">Description</description>
+#     </arg>
+#     <description language="en">Description</description>
+#   </signal>
+#   <property name="Time" type="s" access="read">
+#     <description language="en">Description</description>
+#   </property>
+# </interface>
+# <interface name="org.freedesktop.DBus.Properties">
+# <description language="en">Description</description>
+#   <method name="Get">
+#     <arg name="interface" type="s" direction="in">
+#         <description language="en">Description</description>
+#     </arg>
+#     <arg name="propname" type="s" direction="in">
+#         <description language="en">Description</description>
+#     </arg>
+#     <arg name="value" type="v" direction="out">
+#         <description language="en">Description</description>
+#     </arg>
+#     <description language="en">Description</description>
+#   </method>
+#   <method name="GetAll">
+#     <arg name="interface" type="s" direction="in">
+#         <description language="en">Description</description>
+#     </arg>
+#     <arg name="props" type="a{sv}" direction="out">
+#         <description language="en">Description</description>
+#     </arg>
+#     <description language="en">Description</description>
+#   </method>
+#   <method name="Set">
+#     <arg name="interface" type="s" direction="in">
+#         <description language="en">Description</description>
+#     </arg>
+#     <arg name="propname" type="s" direction="in">
+#         <description language="en">Description</description>
+#     </arg>
+#     <arg name="value" type="v" direction="in">
+#         <description language="en">Description</description>
+#     </arg>
+#     <description language="en">Description</description>
+#   </method>
+# </interface>
+# <interface name="org.freedesktop.DBus.Introspectable">
+# <description language="en">Description</description>
+#   <method name="Introspect">
+#     <arg name="out" type="s" direction="out">
+#         <description language="en">Description</description>
+#     </arg>
+#     <description language="en">Description</description>
+#   </method>
+# </interface>
+# </node>
+#         """
 
 
 class Clock():

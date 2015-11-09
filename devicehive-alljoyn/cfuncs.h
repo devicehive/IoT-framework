@@ -15,6 +15,8 @@ const char * Get_AJ_Message_member();
 const char * Get_AJ_Message_destination();
 const char* AJ_StatusText(AJ_Status status);
 
+const char* MyTranslator(uint32_t descId, const char* lang) ;
+
 AJ_Message * Get_AJ_ReplyMessage();
 
 AJ_Message * Get_AJ_Message();
@@ -46,3 +48,4 @@ AJ_Status MyAboutPropGetter(AJ_Message* reply, const char* language);
 void AJ_RegisterDescriptionLanguages(const char* const* languages);
 
 char ** getLanguages();
+//void AJ_PrintXMLWithDescriptions(const AJ_Object* objs, const char* languageTag);
