@@ -9,7 +9,8 @@ import time
 DBusGMainLoop(set_as_default=True)
 
 def get_ble():
-    return dbus.Interface(dbus.SystemBus().get_object("com.devicehive.bluetooth", '/com/devicehive/bluetooth'), "com.devicehive.bluetooth")
+    obj = dbus.SystemBus().get_object("com.devicehive.bluetooth", "/com/devicehive/bluetooth")
+    return dbus.Interface(obj, "com.devicehive.bluetooth")
 
 ble = get_ble()
 def device_discovered(mac, name, rssi):
@@ -22,7 +23,7 @@ def device_discovered(mac, name, rssi):
         ble.ScanStart()
 
 def device_connected(mac):
-    print("Connected to %s" % (mac))    
+    print("Connected to %s" % (mac))
     try:
         ble.GattIndications(mac, "299d64102f6111e281c10800200c9a66", True)
 
@@ -33,8 +34,8 @@ def indication_received(mac, uuid, message):
     print("MAC: %s, UUID: %s, Received: %s" % (mac, uuid, message))
 
 def main():
-    ble.connect_to_signal("DeviceDiscovered", device_discovered)
-    ble.connect_to_signal("DeviceConnected", device_connected)
+    ble.connect_to_signal("PeripheralDiscovered", device_discovered)
+    ble.connect_to_signal("PeripheralConnected", device_connected)
     ble.connect_to_signal("IndiacationReceived", indication_received)
 
     ble.ScanStart()

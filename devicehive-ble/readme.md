@@ -1,6 +1,8 @@
-#DeviceHive BLE D-Bus Daemon
+# DeviceHive BLE D-Bus Daemon
 
-##Consumer example:
+This daemon provides access to BLE peripheral devices via D-Bus.
+
+## Consumer example:
 
 ```python
 #!/usr/bin/env python
@@ -13,7 +15,8 @@ import array
 DBusGMainLoop(set_as_default=True)
 
 def get_ble():
-    return dbus.Interface(dbus.SystemBus().get_object("com.devicehive.bluetooth", '/com/devicehive/bluetooth'), "com.devicehive.bluetooth")
+    obj = dbus.SystemBus().get_object("com.devicehive.bluetooth", "/com/devicehive/bluetooth")
+    return dbus.Interface(obj, "com.devicehive.bluetooth")
 
 ble = get_ble()
 def device_discovered(mac, name, rssi):
@@ -27,8 +30,8 @@ def device_connected(mac):
 
 def main():
     ble.ScanStart()
-    ble.connect_to_signal("DeviceDiscovered", device_discovered)
-    ble.connect_to_signal("DeviceConnected", device_connected)
+    ble.connect_to_signal("PeripheralDiscovered", device_discovered)
+    ble.connect_to_signal("PeripheralConnected", device_connected)
 
     GObject.MainLoop().run()
 

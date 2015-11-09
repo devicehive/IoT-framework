@@ -138,7 +138,7 @@ func (w *BleDbusWrapper) OnPeripheralDiscovered(p gatt.Peripheral, a *gatt.Adver
 	id, _ := normalizeHex(p.ID())
 	name := strings.Trim(p.Name(), "\x00")
 
-	dev, ok := w.devicesDiscovered[id]	
+	dev, ok := w.devicesDiscovered[id]
 	if !ok {
 		w.devicesDiscovered[id] = &DiscoveredDeviceInfo{name: name, rssi: rssi, peripheral: p, ready: false, connectedOnce: false}
 		w.emitPeripheralDiscovered(id, name, int16(rssi))
@@ -530,15 +530,14 @@ func main() {
 	bus.Export(introspect.NewIntrospectable(n), "/com/devicehive/bluetooth", "org.freedesktop.DBus.Introspectable")
 
 	root := &introspect.Node{
-			Children: []introspect.Node{
-				{
-					Name:    "com/devicehive/bluetooth",
-				},
+		Children: []introspect.Node{
+			{
+				Name: "com/devicehive/bluetooth",
 			},
-		}
+		},
+	}
 
 	bus.Export(introspect.NewIntrospectable(root), "/", "org.freedesktop.DBus.Introspectable")
-
 
 	select {}
 }
