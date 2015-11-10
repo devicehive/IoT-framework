@@ -8,8 +8,8 @@ from gi.repository import GObject
 
 DBusGMainLoop(set_as_default=True)
 
-ble = dbus.Interface(dbus.SystemBus().get_object("com.devicehive.bluetooth", '/com/devicehive/bluetooth'), "com.devicehive.bluetooth")
-cloud = dbus.Interface(dbus.SystemBus().get_object("com.devicehive.cloud", '/com/devicehive/cloud'), "com.devicehive.cloud")
+ble = dbus.Interface(dbus.SystemBus().get_object("com.devicehive.bluetooth", "/com/devicehive/bluetooth"), "com.devicehive.bluetooth")
+cloud = dbus.Interface(dbus.SystemBus().get_object("com.devicehive.cloud", "/com/devicehive/cloud"), "com.devicehive.cloud")
 
 sensors = {}
 DEFAULT_PRIORITY = 100
@@ -57,7 +57,7 @@ init = {
 }
 
 
-def device_discovered(mac, name, rssi):    
+def device_discovered(mac, name, rssi):
     if 'SensorTag' not in name: return
     print("Discovered %s (%s) %s" % (mac, name, rssi))
     if mac in sensors and sensors[mac][1]: return
@@ -65,7 +65,7 @@ def device_discovered(mac, name, rssi):
     sensors[mac] = (name, False)
     ble.Connect(mac, False, ignore_reply = True)
 
-def device_connected(mac):    
+def device_connected(mac):
     if mac not in sensors: return
     print("Connected: %s (%s)" % (sensors[mac][0], mac))
     name = sensors[mac][0]
@@ -122,7 +122,7 @@ def worker():
 def main():
 
     # init d-bus
-    GObject.threads_init()    
+    GObject.threads_init()
     dbus.mainloop.glib.threads_init()
 
     # start mainloop

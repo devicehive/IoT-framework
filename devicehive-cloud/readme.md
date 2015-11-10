@@ -1,17 +1,23 @@
-#DeviceHive Cloud Gateway D-Bus Daemon 
+# DeviceHive Cloud Gateway D-Bus Daemon
 
-##Decription
-Devicehive-cloud provides d-bus interface to access DeviceHive cloud server. It can also serves as a refrence implementation of general purpose cloud conntectivity service for (ex: PubNub). As a binary it starts as a daemon loading cloud configuration from .yml file. While running it maintains cloud connectivity and responds to d-bus API calls from client applications, as well as notifies applications of incoming messages or status changes. 
+## Decription
+`devicehive-cloud` provides D-Bus interface to access DeviceHive cloud server.
+It can also be served as a reference implementation of general purpose cloud
+conntectivity service (ex: PubNub). It starts as a daemon loading cloud
+configuration from `.yml` file. While running it maintains cloud connectivity
+and responds to D-Bus API calls from client applications, as well as notifies
+applications of incoming messages or status changes.
 
 ## Installation
 ### Ubuntu Snappy Core
-Ubuntu Snappy Core runs Raspberry Pi 2, Beagle Bone Black, and a veriety of ARM and x86 devices, so it can be a good choice for hassle free deployment for a frameowrk.
+Ubuntu Snappy Core runs Raspberry Pi 2, Beagle Bone Black, and a veriety of ARM and
+x86 devices, so it can be a good choice for hassle free deployment for a framework.
 
 Steps:
 * Install Ubuntu Snappy Core on your favorite system: https://developer.ubuntu.com/en/snappy/start/
 * Once Snappy is up and running on your device, install DeviceHive IoT Toolkit:
 * Download IoT Toolkit snap from: https://github.com/devicehive/IoT-framework/releases/download/1.0.0-RC1/devicehive-iot-toolkit_1.0.0_multi.snap
-* Copy it on your Snappy Device: 
+* Copy it on your Snappy Device:
 ```
 scp *.snap ubuntu@snappy-host:~
 ```
@@ -25,31 +31,34 @@ sudo tail -n 100 /var/log/syslog
 ```
 
 ## Configuration
-If you are running devicehive-cloud as a part of Snappy Framework you can run ```sudo snappy config devicehive-cloud config.yml```, or if you are running it on other system as a standalone binary, a configuration file can be supplied in ```--conf``` parameter. 
+If you are running `devicehive-cloud` as a part of Snappy Framework you can run
+`sudo snappy config devicehive-cloud config.yml`, or if you are running it on other
+system as a standalone executable, a configuration file can be supplied
+with `--conf` command line argument.
 
 Sample config:
 ```
-URL: http://52.1.250.210:8080/dh/rest
-AccessKey: 1jwKgLYi/CdfBTI9KByfYxwyQ6HUIEfnGSgakdpFjgk=
+URL: http://playground.devicehive.com/api/rest
+AccessKey: <put a valid access key here>
 
-DeviceID: 0B24431A-EC99-4887-8B4F-38C3CEAF1D03
-DeviceName: snappy-go-gateway
-
-SendNotificatonQueueCapacity: 2047	# Optional: default value is 2048
-LoggingLevel: verbose               # Optional: can be 'info', 'verbose', 'debug'
-                                    # Default: 'info'
+DeviceID: my-simple-gw
+DeviceName: my simple gw
 ```
 
-## Dbus configuration for Ubuntu
-In ``/etc/dbus-1/system.conf`` you should replace:
+## D-Bus configuration for Ubuntu
+In some cases to run `devicehive-cloud` additional system configuration
+changes should be made. Need to provide appropriate D-Bus security file
+`/etc/dbus-1/system.d/com.devicehive.cloud.conf`:
+
 ```
-<deny own="*"/>
-<deny send_type="method_call"/>
-```
-on
-```
-<allow own="*"/>
-<allow send_type="method_call"/>
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <policy user="root">
+    <allow own="com.devicehive.cloud"/>
+    <allow send_type="method_call"/>
+  </policy>
+</busconfig>
 ```
 
 ## API Reference
@@ -59,10 +68,10 @@ TBD
 ###How to make a binary?
 ```
 go get github.com/devicehive/IoT-framework/tree/master/devicehive-cloud
-cd $GOPATH/src/github.com/devicehive/IoT-framework/tree/master/devicehive-cloud
-go install
+go install github.com/devicehive/IoT-framework/tree/master/devicehive-cloud
 ```
-###How to run?
+
+### How to run?
 ```
-$GOPATH/bin/devicehive-cloud -conf=deviceconf.yml
+$GOPATH/bin/devicehive-cloud --conf deviceconf.yml
 ```

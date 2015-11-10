@@ -8,17 +8,18 @@ import array
 DBusGMainLoop(set_as_default=True)
 
 def get_ble():
-    return dbus.Interface(dbus.SystemBus().get_object("com.devicehive.bluetooth", '/com/devicehive/bluetooth'), "com.devicehive.bluetooth")
+    obj = dbus.SystemBus().get_object("com.devicehive.bluetooth", "/com/devicehive/bluetooth")
+    return dbus.Interface(obj, "com.devicehive.bluetooth")
 
 ble = get_ble()
 def device_discovered(mac, name, rssi):
     print("Discovered %s (%s) %s" % (mac, name, rssi))
     if ((name == 'SensorTag')):
         ble.ScanStop()
-        ble.Connect(mac)
+        ble.Connect(mac, True)
 
 def device_connected(mac):
-    print("Connected to %s" % (mac))    
+    print("Connected to %s" % (mac))
     try:
         ble.GattWrite(mac, "F000AA1204514000b000000000000000", "01")
         ble.GattWrite(mac, "F000AA1304514000b000000000000000", "0A")
@@ -40,3 +41,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
