@@ -2,7 +2,7 @@
 
 
 ## Parameters in source code
-* in configuration file (or `testConf()` in `conf/conf.go`) you can change `SendNotificatonQueueCapacity` (for example `23`, default=`2048`)
+* in configuration file (or `testConf()` in `conf/conf.go`) you can change `SendNotificationQueueCapacity` (for example `23`, default=`2048`)
 * see `const sendCommandSleeperSeconds` in `ws/send.go` to simulate duration of sending a notification (for example `10`, default=`0`)
 
 ## Utilites
