@@ -24,18 +24,18 @@ type Conf struct {
 	NetworkDesc string `yaml:"NetworkDescription,omitempty"`
 
 	// Optional
-	DeviceNotifcationsReceive    string `yaml:"DeviceNotifcationsReceive,omitempty"`
-	SendNotificatonQueueCapacity uint64 `yaml:"SendNotificatonQueueCapacity,omitempty"`
+	DeviceNotificationReceive    string `yaml:"DeviceNotificationReceive,omitempty"`
+	SendNotificationQueueCapacity uint64 `yaml:"SendNotificationQueueCapacity,omitempty"`
 	LoggingLevel                 string `yaml:"LoggingLevel,omitempty"`
 }
 
 func (c *Conf) fix() {
-	if len(c.DeviceNotifcationsReceive) == 0 {
-		c.DeviceNotifcationsReceive = DeviceNotificationReceiveByWS
+	if len(c.DeviceNotificationReceive) == 0 {
+		c.DeviceNotificationReceive = DeviceNotificationReceiveByWS
 	}
 
-	if c.SendNotificatonQueueCapacity == 0 {
-		c.SendNotificatonQueueCapacity = 2048
+	if c.SendNotificationQueueCapacity == 0 {
+		c.SendNotificationQueueCapacity = 2048
 	}
 
 	if len(c.LoggingLevel) == 0 {
@@ -84,8 +84,8 @@ func TestConf() Conf {
 	c.LoggingLevel = "verbose"
 	// c.LoggingLevel = "debug"
 
-	// c.SendNotificatonQueueCapacity = 23
-	// c.DeviceNotifcationsReceive = DeviceNotificationReceiveByREST
+	// c.SendNotificationQueueCapacity = 23
+	// c.DeviceNotificationReceive = DeviceNotificationReceiveByREST
 
 	(&c).fix()
 	return c

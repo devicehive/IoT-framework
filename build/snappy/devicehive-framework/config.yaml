@@ -2,6 +2,6 @@ URL: http://52.6.240.235:8080/dh/rest
 AccessKey: 1jwKgLYi/CdfBTI9KByfYxwyQ6HUIEfnGSgakdpFjgk=
 DeviceID: snappy-device
 DeviceName: snappy-device 
-DeviceNotifcationsReceive: WS
-SendNotificatonQueueCapacity: 2048 
+DeviceNotificationReceive: WS
+SendNotificationQueueCapacity: 2048 
 LoggingLevel: info
