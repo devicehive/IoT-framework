@@ -95,12 +95,13 @@ def notification_received(mac, uuid, message):
     handler = init[name][uuid]['handler']
     result = handler(mac, uuid, message)
 
-    notification = init[name][uuid]['notification']
+    notification = 'NotificationReceived' #init[name][uuid]['notification']
 
     print("MAC: %s, UUID: %s => %s" % (mac, uuid, result))
     cloud.SendNotification(notification, json.dumps({
-        'SensorTag': mac,
-        'Value': result
+        'mac': mac,
+        'uuid': uuid,
+        'value': result['abs']
         }), DEFAULT_PRIORITY
         , error_handler=lambda err: print(err)
         , reply_handler=lambda *args: None)
