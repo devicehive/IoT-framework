@@ -53,6 +53,7 @@ var interfaces []C.AJ_InterfaceDescription
 var myPropGetterFunction PropGetterFunction
 var myMessenger *AllJoynMessenger
 var aboutData map[string]dbus.Variant
+var descriptionsCache map[uint32]*C.char = make(map[uint32]*C.char)
 
 type PropGetterFunction func(reply *C.AJ_Message, language *C.char) C.AJ_Status
 
@@ -205,13 +206,23 @@ func hasInterface(object *AllJoynBindingInfo, ifname string) bool {
 
 //export GetMemberDescription
 func GetMemberDescription(memberIdx C.uint32_t, lang *C.char) *C.char {
+
+	mid := uint32(memberIdx)
+
+	//check cache
+	if desc, ok := descriptionsCache[mid]; ok {
+		return desc
+	}
+
 	if memberDescriptionProvider == nil {
 		return (*C.char)(unsafe.Pointer(nil))
 	}
 
 	language := safeString(lang)
 	log.Printf("GetMemberDescription (%s, %s)", memberIdx, language)
-	return C.CString(memberDescriptionProvider(uint32(memberIdx), language))
+	desc := C.CString(memberDescriptionProvider(mid, language))
+	descriptionsCache[mid] = desc
+	return desc
 }
 
 func GetKnownObjects(objects []*AllJoynBindingInfo) (*AllJoynBindingInfo, *AllJoynBindingInfo, []*AllJoynBindingInfo) {
