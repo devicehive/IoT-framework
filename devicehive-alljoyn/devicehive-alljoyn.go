@@ -56,6 +56,10 @@ var aboutData map[string]dbus.Variant
 
 type PropGetterFunction func(reply *C.AJ_Message, language *C.char) C.AJ_Status
 
+type MemberDescriptionProvider func(memberIdx uint32, lang string) string
+
+var memberDescriptionProvider MemberDescriptionProvider
+
 type AllJoynBindingInfo struct {
 	allJoynPath    string
 	dbusPath       string
@@ -200,10 +204,14 @@ func hasInterface(object *AllJoynBindingInfo, ifname string) bool {
 }
 
 //export GetMemberDescription
-func GetMemberDescription(memberIdx C.uint32_t, lang *C.char, result *unsafe.Pointer) {
+func GetMemberDescription(memberIdx C.uint32_t, lang *C.char) *C.char {
+	if memberDescriptionProvider == nil {
+		return (*C.char)(unsafe.Pointer(nil))
+	}
+
 	language := safeString(lang)
 	log.Printf("GetMemberDescription (%s, %s)", memberIdx, language)
-	*result = unsafe.Pointer(C.CString("GO!"))
+	return C.CString(memberDescriptionProvider(uint32(memberIdx), language))
 }
 
 func GetKnownObjects(objects []*AllJoynBindingInfo) (*AllJoynBindingInfo, *AllJoynBindingInfo, []*AllJoynBindingInfo) {
@@ -620,6 +628,63 @@ func (status C.AJ_Status) String() string {
 	return C.GoString(C.AJ_StatusText(status))
 }
 
+func parseMemberId(id uint32) (objIdx int, ifIdx int, memberIdx int, argIdx int) {
+	objIdx = int((id >> 24) & 0xFF)
+	ifIdx = int((id >> 16) & 0xFF)
+	memberIdx = int((id >> 8) & 0xFF)
+	argIdx = int(id & 0xFF)
+
+	log.Printf("PARSE IDX(0x%X): %d, %d, %d, %d", id, objIdx, ifIdx, memberIdx, argIdx)
+	return
+}
+
+func (service *AllJoynServiceInfo) MemberDescriptionProvider(memberFullIdx uint32, lang string) string {
+
+	objIdx, ifIdx, memberIdx, argIdx := parseMemberId(memberFullIdx)
+
+	obj := service.registeredObjects[objIdx].introspectData
+
+	// zero position means obejct/interface/member own description rather than child position
+	if ifIdx == 0 {
+		log.Printf("MEMBER DESC (0x%x) => %s", memberFullIdx, obj.Name)
+		return obj.Name
+	}
+
+	iface := obj.Interfaces[ifIdx-1]
+	methods, signals, properties := len(iface.Methods), len(iface.Signals), len(iface.Properties)
+
+	if memberIdx == 0 {
+		log.Printf("MEMBER DESC (0x%x) => %s", memberFullIdx, iface.Name)
+		return iface.Name
+	} else {
+		memberIdx = memberIdx - 1
+	}
+
+	var name string
+
+	if memberIdx < methods {
+		if argIdx == 0 {
+			name = iface.Methods[memberIdx].Name
+		} else {
+			name = iface.Methods[memberIdx].Args[argIdx-1].Name
+		}
+	} else if memberIdx < methods+signals {
+		if argIdx == 0 {
+			name = iface.Methods[memberIdx-methods].Name
+		} else {
+			name = iface.Methods[memberIdx-methods].Args[argIdx-1].Name
+		}
+	} else if memberIdx < methods+signals+properties {
+		name = iface.Properties[memberIdx-methods-signals].Name
+	} else {
+		name = fmt.Sprintf("Unknown 0x%X", memberFullIdx)
+	}
+
+	log.Printf("MEMBER DESC (0x%x) => %s", memberFullIdx, name)
+
+	return name
+}
+
 func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 	service := a.services[uuid]
 
@@ -627,6 +692,8 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 
 	objects := GetAllJoynObjects(otherObjects)
 	service.registeredObjects = otherObjects
+
+	memberDescriptionProvider = service.MemberDescriptionProvider
 
 	a.fetchAboutData(service, aboutObj)
 

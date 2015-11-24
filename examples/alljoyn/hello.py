@@ -49,6 +49,7 @@ class HelloService(core.PropertiesServiceInterface):
 
   @dbus.service.method(HELLO_SVC, in_signature='', out_signature='s')
   def Greet(self):
+    print("Hello, %s!" % self.Get(HELLO_SVC, "Name"))
     return "Hello, %s!" % self.Get(HELLO_SVC, "Name")
 
 
