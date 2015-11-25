@@ -1,3 +1,5 @@
+#include "_cgo_export.h"
+
 #include <stdio.h>
 #include <aj_debug.h>
 #include <aj_guid.h>
@@ -382,8 +384,8 @@ int UnmarshalPort() {
 }
 
 const char* MyTranslator(uint32_t descId, const char* lang) {
-	char * desc = (char*)(void*)GetMemberDescription(descId, lang);
-	
+	char * desc = GetMemberDescription(descId, (char*)lang);
+
 	fprintf(stdout,"GetMemberDescription(%d, %s): %p - %p\n", descId, lang, desc, (char*)(void*)desc);
 	fprintf(stdout,"GetMemberDescription(%d, %s): %s\n", descId, lang, desc);
 	fflush(stdout);
