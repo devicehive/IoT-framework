@@ -1,0 +1,21 @@
+name: devicehive-alljoyn
+version: 1
+type: framework
+vendor: DataArt <info@devicehive.com>
+icon: meta/dh.png
+architecture: [amd64, armhf]
+services:
+  - name: alljoyn-daemon
+    description: "AllJoyn Daemon"
+    start: bin/hello # alljoyn-daemon
+    security-policy:
+      apparmor: meta/alljoyn-daemon.apparmor
+  - name: devicehive-alljoyn
+    description: "DeviceHive AllJoyn Service"
+    start: bin/hello # devicehive-alljoyn
+#    bus-name: "com.devicehive.alljoyn.bridge"
+    security-policy:
+      apparmor: meta/devicehive-alljoyn.apparmor
+#ports:
+#    required: 9955
+
