@@ -32,7 +32,7 @@ void * Get_Arg();
 AJ_Status AJ_MarshalArgs_cgo(AJ_Message* msg, char * a, char * b, char * c, char * d);
 
 int UnmarshalPort();
-typedef void * (*AboutPropGetter)(const* name, const char* language);
+typedef void * (*AboutPropGetter)(const char* name, const char* language);
 
 void free (void *__ptr);
 AJ_Status MarshalArg(AJ_Message* msg, char * sig, void * value);

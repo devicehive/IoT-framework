@@ -418,3 +418,4 @@ const char* MyTranslator(uint32_t descId, const char* lang) {
 	return result;
 	
 }
+

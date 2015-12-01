@@ -1,8 +1,8 @@
 package main
 
 /*
-#cgo CFLAGS: -Ilib -Ialljoyn/core/ajtcl/inc -Ialljoyn/core/ajtcl/target/linux -Ialljoyn/services/base_tcl/notification/inc -Ialljoyn/services/base_tcl/services_common/inc -Ialljoyn/services/base_tcl/notification/src -Ialljoyn/services/base_tcl/services_common/src  -Ialljoyn/services/base_tcl/sample_apps/AppsCommon/inc -Ialljoyn/services/base_tcl/sample_apps/AppsCommon/src
-#cgo LDFLAGS: -Lalljoyn/core/ajtcl -lajtcl
+#cgo CFLAGS: -I${SRCDIR}/lib -I${SRCDIR}/alljoyn/core/ajtcl/inc -I${SRCDIR}/alljoyn/core/ajtcl/target/linux -I${SRCDIR}/alljoyn/services/base_tcl/notification/inc -I${SRCDIR}/alljoyn/services/base_tcl/services_common/inc -I${SRCDIR}/alljoyn/services/base_tcl/notification/src -I${SRCDIR}/alljoyn/services/base_tcl/services_common/src  -I${SRCDIR}/alljoyn/services/base_tcl/sample_apps/AppsCommon/inc -I${SRCDIR}/alljoyn/services/base_tcl/sample_apps/AppsCommon/src
+#cgo LDFLAGS: -L${SRCDIR}/alljoyn/core/ajtcl -lajtcl
 #include "cfuncs.h"
 */
 import "C"
