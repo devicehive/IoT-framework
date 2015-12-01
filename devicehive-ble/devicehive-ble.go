@@ -137,7 +137,6 @@ func (w *BleDbusWrapper) OnPeripheralDiscovered(p gatt.Peripheral, a *gatt.Adver
 
 	id, _ := normalizeHex(p.ID())
 	name := strings.Trim(p.Name(), "\x00")
-
 	dev, ok := w.devicesDiscovered[id]
 	if !ok {
 		w.devicesDiscovered[id] = &DiscoveredDeviceInfo{name: name, rssi: rssi, peripheral: p, ready: false, connectedOnce: false}
@@ -151,6 +150,7 @@ func (w *BleDbusWrapper) OnPeripheralDiscovered(p gatt.Peripheral, a *gatt.Adver
 }
 
 func (w *BleDbusWrapper) emitPeripheralDiscovered(id, name string, rssi int16) {
+	log.Printf("Discovered: %s - %s (%v)", id, name, rssi)
 	w.bus.Emit("/com/devicehive/bluetooth", "com.devicehive.bluetooth.PeripheralDiscovered", id, name, int16(rssi))
 }
 
@@ -171,6 +171,7 @@ func (w *BleDbusWrapper) emitIndicationReceived(mac, uuid, m string) {
 }
 
 func (w *BleDbusWrapper) ScanStart() *dbus.Error {
+	log.Printf("ScanStart")
 	if !w.connected {
 		return newDHError("HCI is disconnected")
 	}
@@ -178,6 +179,7 @@ func (w *BleDbusWrapper) ScanStart() *dbus.Error {
 	// Just let them know devices that are cached, as they might be connected and
 	// no longer advertising. Put RSSI to 0.
 	go func() {
+		// log.Printf("devicesDiscovered: %+v", w.devicesDiscovered)
 		for k, v := range w.devicesDiscovered {
 			w.emitPeripheralDiscovered(k, v.name, int16(0))
 		}
@@ -193,6 +195,7 @@ func (w *BleDbusWrapper) ScanStart() *dbus.Error {
 }
 
 func (w *BleDbusWrapper) ScanStop() *dbus.Error {
+	log.Printf("ScanStop")
 	if !w.connected {
 		return newDHError("HCI is disconnected")
 	}
@@ -202,6 +205,7 @@ func (w *BleDbusWrapper) ScanStop() *dbus.Error {
 }
 
 func (w *BleDbusWrapper) Connect(mac string, random bool) (bool, *dbus.Error) {
+	log.Printf("Connect: %s", mac)
 	mac, err := normalizeHex(mac)
 	w.connecting = true
 	defer func() { w.connecting = false }()
@@ -527,7 +531,16 @@ func main() {
 		},
 	}
 
+	root := &introspect.Node{
+		Children: []introspect.Node{
+			{
+				Name: "com/devicehive/bluetooth",
+			},
+		},
+	}
+
 	bus.Export(introspect.NewIntrospectable(n), dbus.ObjectPath("/com/devicehive/bluetooth"), "org.freedesktop.DBus.Introspectable")
+	bus.Export(introspect.NewIntrospectable(root), "/", "org.freedesktop.DBus.Introspectable") // workaroud for dbus issue #14
 
 	select {}
 }

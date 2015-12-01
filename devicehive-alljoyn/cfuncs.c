@@ -267,9 +267,6 @@ AJ_Status MyAboutPropGetter(AJ_Message* reply, const char* language)
 //	}
 	
 	char* propAppId = (char*)GetProperty("AppId");
-//	if (!propAppId){
-//		propAppId = guidStr;		 
-//	} 
 
 	status = AJ_HexToRaw(propAppId, 0, appId, 16);
     if (status != AJ_OK) {
@@ -285,6 +282,7 @@ AJ_Status MyAboutPropGetter(AJ_Message* reply, const char* language)
 //		printf("AppName: %s\n", (char*)GetProperty("AppName"));
         status = AJ_MarshalArgs(reply, "{sv}", "AppName", "s", (char*)GetProperty("AppName"));
     }
+	
     if (status == AJ_OK) {
 //		printf("DeviceId: %s\n", propDeviceId);
         status = AJ_MarshalArgs(reply, "{sv}", "DeviceId", "s", propDeviceId);
@@ -381,12 +379,42 @@ int UnmarshalPort() {
 	return port;
 }
 
-const char* MyTranslator(uint32_t descId, const char* lang) {
-	char * desc = (char*)(void*)GetMemberDescription(descId, lang);
-	
-	fprintf(stdout,"GetMemberDescription(%d, %s): %p - %p\n", descId, lang, desc, (char*)(void*)desc);
-	fprintf(stdout,"GetMemberDescription(%d, %s): %s\n", descId, lang, desc);
-	fflush(stdout);
+char***** translations = NULL;
 
-	return desc;
+
+const char* MyTranslator(uint32_t descId, const char* lang) {
+	
+	uint32_t objIdx = (descId >> 24) & 0xFF;
+	uint32_t ifIdx = (descId >> 16) & 0xFF;
+	uint32_t memberIdx = (descId >> 8) & 0xFF;
+	uint32_t argIdx = descId & 0xFF;
+	
+	if (!translations) {
+		translations = (char*****) calloc(0xFF, sizeof(char****));
+	} 
+	
+	if (!translations[objIdx]) {
+		translations[objIdx] = (char****) calloc(0xFF, sizeof(char***));
+	}
+	
+	if (!translations[objIdx][ifIdx]) {
+		translations[objIdx][ifIdx] = (char***) calloc(0xFF, sizeof(char**));
+	}
+	
+	if (!translations[objIdx][ifIdx][memberIdx]) {
+		translations[objIdx][ifIdx][memberIdx] = (char**) calloc(0xFF, sizeof(char*));
+	}
+
+	if (!translations[objIdx][ifIdx][memberIdx][argIdx]) {
+		// 0xFF - Assumes 256 is the craziest they will go!
+		translations[objIdx][ifIdx][memberIdx][argIdx] = (char*)malloc(0xFF * sizeof(char));
+		PutMemberDescription(objIdx, ifIdx, memberIdx, argIdx, lang, translations[objIdx][ifIdx][memberIdx][argIdx], 0xFF);
+	}
+	
+	char * result = translations[objIdx][ifIdx][memberIdx][argIdx];
+	
+	printf("MyTranslator: 0x%x => %s\n", descId, result);
+	
+	return result;
+	
 }

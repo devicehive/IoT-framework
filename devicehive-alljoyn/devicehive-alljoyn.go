@@ -34,6 +34,11 @@ const AJ_NOTIFICATION_MSG = "org.alljoyn.Notification.Notify"
 const AJ_CP_PREFIX = "org.alljoyn.ControlPanel."
 const AJ_CP_INTERFACE = "org.alljoyn.ControlPanel.ControlPanel"
 
+const AJ_PROP_IF = "org.freedesktop.Dbus.Properties"
+
+const ANN_SIGNAL_NAME = "com.devicehive.alljoyn.signal"
+const ANN_SIGNAL_SESSIONLESS = "sessionless"
+
 // newUUID generates a random UUID according to RFC 4122
 func newUUID() (string, error) {
 	uuid := make([]byte, 16)
@@ -53,11 +58,10 @@ var interfaces []C.AJ_InterfaceDescription
 var myPropGetterFunction PropGetterFunction
 var myMessenger *AllJoynMessenger
 var aboutData map[string]dbus.Variant
-var descriptionsCache map[uint32]*C.char = make(map[uint32]*C.char)
 
 type PropGetterFunction func(reply *C.AJ_Message, language *C.char) C.AJ_Status
 
-type MemberDescriptionProvider func(memberIdx uint32, lang string) string
+type MemberDescriptionProvider func(objIdx int, ifIdx int, memberIdx int, argIdx int, lang string) string
 
 var memberDescriptionProvider MemberDescriptionProvider
 
@@ -76,11 +80,12 @@ type AllJoynServiceInfo struct {
 }
 
 type AllJoynBridge struct {
-	bus        *dbus.Conn
-	signals    chan *dbus.Signal
-	services   map[string]*AllJoynServiceInfo
-	sessions   []uint32
-	signalCahe map[string]uint32
+	bus           *dbus.Conn
+	signals       chan *dbus.Signal
+	services      map[string]*AllJoynServiceInfo
+	sessions      []uint32
+	signalCahe    map[string]*introspect.Signal
+	signalIdxCahe map[string]uint32
 }
 
 type AllJoynMessenger struct {
@@ -99,7 +104,8 @@ func NewAllJoynBridge(bus *dbus.Conn) *AllJoynBridge {
 	bridge.signals = make(chan *dbus.Signal, 100)
 	bridge.services = make(map[string]*AllJoynServiceInfo)
 	bridge.sessions = []uint32{}
-	bridge.signalCahe = make(map[string]uint32)
+	bridge.signalCahe = make(map[string]*introspect.Signal)
+	bridge.signalIdxCahe = make(map[string]uint32)
 
 	sbuffer := make(chan *dbus.Signal, 100)
 	go bridge.signalsPump(sbuffer)
@@ -152,7 +158,16 @@ func ParseAllJoynInterfaces(interfaces []introspect.Interface) []C.AJ_InterfaceD
 		}
 
 		for _, signal := range iface.Signals {
-			signalString := "!" + signal.Name
+
+			var prefix string
+
+			if isSessionless(&signal) {
+				prefix = "!&"
+			} else {
+				prefix = "!"
+			}
+
+			signalString := prefix + signal.Name
 			argString := ParseArguments(signal.Args)
 			// log.Print(signalString + argString)
 			desc = append(desc, C.CString(signalString+argString))
@@ -204,25 +219,23 @@ func hasInterface(object *AllJoynBindingInfo, ifname string) bool {
 	return false
 }
 
-//export GetMemberDescription
-func GetMemberDescription(memberIdx C.uint32_t, lang *C.char) *C.char {
+//export PutMemberDescription
+func PutMemberDescription(objIdx C.uint32_t, ifIdx C.uint32_t,
+	memberIdx C.uint32_t, argIdx C.uint32_t,
+	language *C.char, dest *C.char, maxlen C.uint32_t) {
 
-	mid := uint32(memberIdx)
+	desc := memberDescriptionProvider(int(objIdx), int(ifIdx), int(memberIdx), int(argIdx), C.GoString(language))
 
-	//check cache
-	if desc, ok := descriptionsCache[mid]; ok {
-		return desc
+	if len(desc) >= int(maxlen) {
+		desc = desc[0:int(maxlen)]
 	}
 
-	if memberDescriptionProvider == nil {
-		return (*C.char)(unsafe.Pointer(nil))
-	}
-
-	language := safeString(lang)
-	log.Printf("GetMemberDescription (%s, %s)", memberIdx, language)
-	desc := C.CString(memberDescriptionProvider(mid, language))
-	descriptionsCache[mid] = desc
-	return desc
+	buff := C.CString(desc)
+	defer C.free(unsafe.Pointer(buff))
+	C.strcpy(dest, buff)
+	//	for i := 0; i < len(desc) && i < int(maxlen); i++ {
+	//		dest  = C.char(desc[i])
+	//	}
 }
 
 func GetKnownObjects(objects []*AllJoynBindingInfo) (*AllJoynBindingInfo, *AllJoynBindingInfo, []*AllJoynBindingInfo) {
@@ -436,13 +449,27 @@ func (a *AllJoynBridge) removeSession(sessionId uint32) {
 	}
 }
 
-func (a *AllJoynBridge) findSignal(signal *dbus.Signal) uint32 {
+func isSessionless(sig *introspect.Signal) bool {
+	if sig == nil || len(sig.Annotations) == 0 {
+		return false
+	}
+
+	for _, a := range sig.Annotations {
+		if a.Name == ANN_SIGNAL_NAME && a.Value == ANN_SIGNAL_SESSIONLESS {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (a *AllJoynBridge) findSignal(signal *dbus.Signal) (*introspect.Signal, uint32) {
 
 	key := signal.Name + string(signal.Path) + signal.Sender
 
 	// check for cached value
-	if idx, ok := a.signalCahe[key]; ok {
-		return idx
+	if sig, ok := a.signalCahe[key]; ok {
+		return sig, a.signalIdxCahe[key]
 	}
 
 	sepPos := strings.LastIndex(signal.Name, ".")
@@ -468,25 +495,26 @@ func (a *AllJoynBridge) findSignal(signal *dbus.Signal) uint32 {
 									log.Printf("##### Signal: %s => 0x%X  (%d %d %d)", signal.Name, signalMessageId, objIdx, ifIdx, memberIdx)
 
 									// cache value for future use
-									a.signalCahe[key] = signalMessageId
+									a.signalCahe[key] = &sgn
+									a.signalIdxCahe[key] = signalMessageId
 
-									return signalMessageId
+									return &sgn, signalMessageId
 								}
 							}
 							// log.Printf("Could not find any matching signal for: %+v", signal)
-							return 0
+							return nil, 0
 						}
 					}
 					// log.Printf("Could not find any matching interface for: %+v", signal)
-					return 0
+					return nil, 0
 				}
 			}
 			// log.Printf("Could not find any matching obejct for: %+v", signal)
-			return 0
+			return nil, 0
 		}
 	}
 	// log.Printf("Could not find any matching service for: %+v", signal)
-	return 0
+	return nil, 0
 }
 
 func parseNotificationBody(body []interface{}) (msgType uint16, lang string, msg string, success bool) {
@@ -547,29 +575,21 @@ func (a *AllJoynBridge) processSignals() {
 		}
 
 		// get signal signature
-		msgId := a.findSignal(signal)
+		sigIntrospect, msgId := a.findSignal(signal)
 
 		if msgId == 0 {
 			log.Printf("Could not find any matching service for signal: %+v", signal)
 			continue
 		}
-
-		for _, sessionId := range a.sessions {
+		log.Printf("%v", sigIntrospect)
+		if isSessionless(sigIntrospect) {
+			log.Printf("SESSIONLESS SIGNAL!")
 
 			var status C.AJ_Status = C.AJ_OK
 			msg := C.Get_AJ_Message()
 
-			status = C.AJ_MarshalSignal_cgo(msg, C.uint32_t(msgId), C.uint32_t(sessionId), C.uint8_t(0), C.uint32_t(0))
+			status = C.AJ_MarshalSignal_cgo(msg, C.uint32_t(msgId), C.uint32_t(0), C.AJ_FLAG_SESSIONLESS, C.uint32_t(0))
 			log.Printf("**** AJ_MarshalSignal: %s", status)
-
-			// for _, arg := range signal.Body {
-			// 	log.Printf("**** ARG: %v", arg)
-			// 	signature := dbus.SignatureOf(arg).String()
-			// 	sig := C.CString(signature)
-			// 	defer C.free(unsafe.Pointer(sig))
-			// 	status = C.MarshalArg((*C.AJ_Message)(msg), sig, unsafe.Pointer(&arg))
-			// 	log.Printf("**** MarshalArg: (%s, %v) => %d", signature, arg, status)
-			// }
 
 			if len(signal.Body) > 0 {
 
@@ -601,8 +621,49 @@ func (a *AllJoynBridge) processSignals() {
 
 			status = C.AJ_CloseMsg((*C.AJ_Message)(msg))
 			log.Printf("**** AJ_CloseMsg: %s", status)
-		}
 
+		} else {
+
+			for _, sessionId := range a.sessions {
+
+				var status C.AJ_Status = C.AJ_OK
+				msg := C.Get_AJ_Message()
+
+				status = C.AJ_MarshalSignal_cgo(msg, C.uint32_t(msgId), C.uint32_t(sessionId), C.uint8_t(0), C.uint32_t(0))
+				log.Printf("**** AJ_MarshalSignal: %s", status)
+
+				if len(signal.Body) > 0 {
+
+					buf := new(bytes.Buffer)
+					buf.Write(make([]byte, (int)(msg.bodyBytes)))
+					enc := ajmarshal.NewEncoderAtOffset(buf, (int)(msg.bodyBytes), binary.LittleEndian)
+					pad, err := enc.Encode(signal.Body...)
+
+					if err != nil {
+						log.Printf("Error encoding result: %s", err)
+						continue
+					}
+
+					newBuf := buf.Bytes()[(int)(msg.bodyBytes)+pad:]
+
+					if len(newBuf) > 0 {
+						status = C.AJ_DeliverMsgPartial((*C.AJ_Message)(msg), C.uint32_t(len(newBuf)))
+						log.Printf("**** AJ_DeliverMsgPartial: %s", status)
+						status = C.AJ_MarshalRaw((*C.AJ_Message)(msg), unsafe.Pointer(&newBuf[0]), C.size_t(len(newBuf)))
+					} else {
+						status = C.AJ_MarshalRaw((*C.AJ_Message)(msg), unsafe.Pointer(&newBuf), C.size_t(0))
+					}
+					log.Printf("**** AJ_MarshalRaw: %s", status)
+
+				}
+
+				status = C.AJ_DeliverMsg((*C.AJ_Message)(msg))
+				log.Printf("**** AJ_DeliverMsg: %s", status)
+
+				status = C.AJ_CloseMsg((*C.AJ_Message)(msg))
+				log.Printf("**** AJ_CloseMsg: %s", status)
+			}
+		}
 	}
 }
 
@@ -639,25 +700,22 @@ func (status C.AJ_Status) String() string {
 	return C.GoString(C.AJ_StatusText(status))
 }
 
-func parseMemberId(id uint32) (objIdx int, ifIdx int, memberIdx int, argIdx int) {
-	objIdx = int((id >> 24) & 0xFF)
-	ifIdx = int((id >> 16) & 0xFF)
-	memberIdx = int((id >> 8) & 0xFF)
-	argIdx = int(id & 0xFF)
+//func parseMemberId(id uint32) (objIdx int, ifIdx int, memberIdx int, argIdx int) {
+//	objIdx = int((id >> 24) & 0xFF)
+//	ifIdx = int((id >> 16) & 0xFF)
+//	memberIdx = int((id >> 8) & 0xFF)
+//	argIdx = int(id & 0xFF)
+//	log.Printf("PARSE IDX(0x%X): %d, %d, %d, %d", id, objIdx, ifIdx, memberIdx, argIdx)
+//	return
+//}
 
-	log.Printf("PARSE IDX(0x%X): %d, %d, %d, %d", id, objIdx, ifIdx, memberIdx, argIdx)
-	return
-}
-
-func (service *AllJoynServiceInfo) MemberDescriptionProvider(memberFullIdx uint32, lang string) string {
-
-	objIdx, ifIdx, memberIdx, argIdx := parseMemberId(memberFullIdx)
+func (service *AllJoynServiceInfo) MemberDescriptionProvider(objIdx int, ifIdx int, memberIdx int, argIdx int, lang string) string {
 
 	obj := service.registeredObjects[objIdx].introspectData
 
 	// zero position means obejct/interface/member own description rather than child position
 	if ifIdx == 0 {
-		log.Printf("MEMBER DESC (0x%x) => %s", memberFullIdx, obj.Name)
+		log.Printf("MEMBER DESC (%v, %v, %v ,%v) => %s", objIdx, ifIdx, memberIdx, argIdx, obj.Name)
 		return obj.Name
 	}
 
@@ -665,7 +723,7 @@ func (service *AllJoynServiceInfo) MemberDescriptionProvider(memberFullIdx uint3
 	methods, signals, properties := len(iface.Methods), len(iface.Signals), len(iface.Properties)
 
 	if memberIdx == 0 {
-		log.Printf("MEMBER DESC (0x%x) => %s", memberFullIdx, iface.Name)
+		log.Printf("MEMBER DESC (%v, %v, %v ,%v) => %s", objIdx, ifIdx, memberIdx, argIdx, iface.Name)
 		return iface.Name
 	} else {
 		memberIdx = memberIdx - 1
@@ -681,17 +739,17 @@ func (service *AllJoynServiceInfo) MemberDescriptionProvider(memberFullIdx uint3
 		}
 	} else if memberIdx < methods+signals {
 		if argIdx == 0 {
-			name = iface.Methods[memberIdx-methods].Name
+			name = iface.Signals[memberIdx-methods].Name
 		} else {
-			name = iface.Methods[memberIdx-methods].Args[argIdx-1].Name
+			name = iface.Signals[memberIdx-methods].Args[argIdx-1].Name
 		}
 	} else if memberIdx < methods+signals+properties {
 		name = iface.Properties[memberIdx-methods-signals].Name
 	} else {
-		name = fmt.Sprintf("Unknown 0x%X", memberFullIdx)
+		name = fmt.Sprintf("Unknown %v, %v, %v ,%v", objIdx, ifIdx, memberIdx, argIdx)
 	}
 
-	log.Printf("MEMBER DESC (0x%x) => %s", memberFullIdx, name)
+	log.Printf("MEMBER DESC (%v, %v, %v ,%v) => %s", objIdx, ifIdx, memberIdx, argIdx, name)
 
 	return name
 }
@@ -759,7 +817,7 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 					(*C.AJ_SessionOpts)(C.Get_Session_Opts()),
 				)
 
-				log.Printf("StartService returned %s, %+v", status, busAttachment)
+				log.Printf("StartService returned %s", status)
 
 				if status != C.AJ_OK {
 
@@ -902,8 +960,9 @@ func traverseDbusObjects(bus *dbus.Conn, dbusService, dbusPath string, fn func(p
 		log.Printf("Error getting introspect from [%s, %s]: %s", dbusService, dbusPath, err)
 	}
 
-	// log.Printf("Introspect Data: %s", xmldata)
 	err = xml.NewDecoder(strings.NewReader(xmldata)).Decode(&node)
+
+	//	log.Printf("Introspect: %+v", node)
 
 	if node.Name != "" && len(node.Interfaces) > 0 {
 		fn(dbusPath, &node)
