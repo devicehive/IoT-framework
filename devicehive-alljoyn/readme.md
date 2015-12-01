@@ -3,8 +3,8 @@
 To be able to compile and run devicehive-alljoyn bridge:
 
 
-1. Clone and build `/alljoyn` submodule recursivel
-2. Set environment variable to `libajtcl.so` file
+1. Clone and build `/alljoyn` submodule recursively
+2. Set `LD_LIBRARY_PATH` environment variable to access `libajtcl.so` file
 ```
 LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$GOPATH/src/github.com/devicehive/IoT-framework/devicehive-alljoyn/alljoyn/core/ajtcl
 ```
@@ -19,8 +19,6 @@ LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$GOPATH/src/github.com/devicehive/IoT-framework
     <allow own_prefix="com.devicehive" />
     <allow own="com.devicehive.alljoyn.bridge" />
     <allow send_destination="*" />
-    
   </policy>
-
 </busconfig>
 ```
