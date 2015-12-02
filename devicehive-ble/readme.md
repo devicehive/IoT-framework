@@ -19,7 +19,7 @@ ble = get_ble()
 def device_discovered(mac, name, rssi):
     if (name == 'DELIGHT'):
         ble.ScanStop()
-        ble.Connect(mac)
+        ble.Connect(mac, False)
 
 def device_connected(mac):
     print "Connected to %s" % (mac)
@@ -27,8 +27,8 @@ def device_connected(mac):
 
 def main():
     ble.ScanStart()
-    ble.connect_to_signal("DeviceDiscovered", device_discovered)
-    ble.connect_to_signal("DeviceConnected", device_connected)
+    ble.connect_to_signal("PeripheralDiscovered", device_discovered)
+    ble.connect_to_signal("PeripheralConnected", device_connected)
 
     GObject.MainLoop().run()
 
