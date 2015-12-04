@@ -15,6 +15,14 @@ Devices can be described with simple DSL and logic can be implemented on any pro
 
 DeviceHive AllJoyn Bridge can be used on any Embedded Linux device.  
 
+Bridge supports number of AllJoyn standards out of the box and any new can be implemented by adding more interface implementations. Currently supported:
+*	About
+*	Configuration
+*	Events and Actions 
+*	Notification
+*	ControlPanel 
+*	Lighting Service Framework
+
 
 ## Running in development
 
