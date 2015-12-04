@@ -12,12 +12,11 @@ AJ_CPP=$AJ_PATH/alljoyn/core/alljoyn/build/linux/$platform/$variant/dist/cpp
 mkdir -p $OUT_DIR/bin/$platform/
 mkdir -p $OUT_DIR/lib/$platform/
 
-# ensure libssl.a & libcap.so are available on ARM
+# patch alljoyn and ensure libcap.so is available on ARM
 case $platform in
     arm|armhf|RPi|RPi2|BBB)
         [ -d $AJ_PATH/alljoyn/core/alljoyn/build_core/conf/linux/armhf ] || patch -d $AJ_PATH/alljoyn/core/alljoyn -p1 -i $DIR/alljoyn-armhf.patch
         [ -e /usr/arm-linux-gnueabihf/lib/libcap.so ] || sudo ln -s $DIR/armhf/libcap.so /usr/arm-linux-gnueabihf/lib/libcap.so
-        [ -e /usr/arm-linux-gnueabihf/lib/libssl.a ] || sudo ln -s $DIR/armhf/libssl.a /usr/arm-linux-gnueabihf/lib/libssl.a
         # TODO: remove these symbolic links at the end
         ;;
 esac
