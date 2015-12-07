@@ -144,8 +144,8 @@ func (w *BleDbusWrapper) OnPeripheralDiscovered(p gatt.Peripheral, a *gatt.Adver
 	} else {
 		if (dev.name == "") && (name != "") {
 			dev.name = name
-			w.emitPeripheralDiscovered(id, name, int16(rssi))
 		}
+		w.emitPeripheralDiscovered(id, dev.name, int16(rssi))
 	}
 }
 
@@ -179,7 +179,6 @@ func (w *BleDbusWrapper) ScanStart() *dbus.Error {
 	// Just let them know devices that are cached, as they might be connected and
 	// no longer advertising. Put RSSI to 0.
 	go func() {
-		// log.Printf("devicesDiscovered: %+v", w.devicesDiscovered)
 		for k, v := range w.devicesDiscovered {
 			w.emitPeripheralDiscovered(k, v.name, int16(0))
 		}

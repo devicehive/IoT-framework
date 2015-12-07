@@ -24,16 +24,11 @@ type Conf struct {
 	NetworkDesc string `yaml:"NetworkDescription,omitempty"`
 
 	// Optional
-	DeviceNotifcationsReceive    string `yaml:"DeviceNotifcationsReceive,omitempty"`
 	SendNotificatonQueueCapacity uint64 `yaml:"SendNotificatonQueueCapacity,omitempty"`
 	LoggingLevel                 string `yaml:"LoggingLevel,omitempty"`
 }
 
 func (c *Conf) fix() {
-	if len(c.DeviceNotifcationsReceive) == 0 {
-		c.DeviceNotifcationsReceive = DeviceNotificationReceiveByWS
-	}
-
 	if c.SendNotificatonQueueCapacity == 0 {
 		c.SendNotificatonQueueCapacity = 2048
 	}
@@ -76,16 +71,11 @@ func TestConf() Conf {
 
 	c.DeviceID = "0B24431A-EC99-4887-8B4F-38C3CEAF1D03"
 	c.DeviceName = "snappy-go-gateway"
-
-	// c.DeviceID = "0B24431A-EC99-4887-8B4F-38C3CEAF1D05"
-	// c.DeviceName = "snappy-go-gateway-test2"
+	c.DeviceKey = "snappy-go-secret-key"
 
 	// c.LoggingLevel = "info"
-	c.LoggingLevel = "verbose"
 	// c.LoggingLevel = "debug"
-
-	// c.SendNotificatonQueueCapacity = 23
-	// c.DeviceNotifcationsReceive = DeviceNotificationReceiveByREST
+	c.LoggingLevel = "trace"
 
 	(&c).fix()
 	return c

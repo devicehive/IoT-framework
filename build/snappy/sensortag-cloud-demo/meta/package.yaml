@@ -1,0 +1,14 @@
+name: sensortag-cloud-demo
+version: 1.0.0
+type: app
+vendor: DataArt <info@devicehive.com>
+icon: meta/dh.png
+architecture: [amd64, armhf]
+frameworks:
+  - devicehive-iot-toolkit
+services:
+    - name: service
+      description: "Send data from SensorTag to the cloud"
+      start: bin/sensortag-cloud.py
+      security-policy:
+        apparmor: meta/devicehive.apparmor

@@ -5,6 +5,8 @@ Develop apps connected to devices, peripherials and cloud using commonly availab
 
 ![](framework.png?raw=true)
 
+Documentation is here: http://docs.devicehive.com/docs/iot-toolkit-overview
+
 ## Contents
 
 Currently this framework contains few components:

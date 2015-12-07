@@ -4,6 +4,8 @@ type: app
 vendor: Loïc Minier <loic.minier@canonical.com>
 icon: meta/heart.png
 architecture: [amd64, armhf]
+frameworks:
+  - devicehive-iot-toolkit
 services:
     - name: service
       description: "Combine various frameworks in one demo: BLE Cloud EnOcean"
