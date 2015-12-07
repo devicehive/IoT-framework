@@ -15,7 +15,7 @@ services:
   - name: devicehive-alljoyn
     description: "DeviceHive AllJoyn Service"
     start: devicehive-alljoyn
-#    bus-name: "com.devicehive.alljoyn.bridge"
+    bus-name: "com.devicehive.alljoyn.bridge"
     security-policy:
         apparmor: meta/devicehive-alljoyn.apparmor
 
