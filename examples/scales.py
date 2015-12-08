@@ -18,7 +18,7 @@ def device_discovered(mac, name, rssi):
     if (mac == 'e4c95cc8bbc1'):
         print("Connecting")
         ble.ScanStop()
-        ble.Connect(mac)
+        ble.Connect(mac, False)
         time.sleep(10)
         ble.ScanStart()
 

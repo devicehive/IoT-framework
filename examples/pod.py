@@ -18,7 +18,7 @@ def device_discovered(mac, name, rssi):
     if (name == 'POD'):
         ble.ScanStop()
         time.sleep(5)
-        ble.Connect(mac)
+        ble.Connect(mac, False)
 
 def device_connected(mac):
     print("Connected to %s" % (mac))
