@@ -6,11 +6,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-const (
-	DeviceNotificationReceiveByWS   = "WS"
-	DeviceNotificationReceiveByREST = "REST"
-)
-
 type Conf struct {
 	URL       string `yaml:"URL,omitempty"`
 	AccessKey string `yaml:"AccessKey,omitempty"`

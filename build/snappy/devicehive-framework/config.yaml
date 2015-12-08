@@ -1,7 +1,7 @@
-URL: http://52.6.240.235:8080/dh/rest
-AccessKey: 1jwKgLYi/CdfBTI9KByfYxwyQ6HUIEfnGSgakdpFjgk=
+URL: http://playground.devicehive.com/api/rest
+AccessKey: <put a valid access key here>
+
 DeviceID: snappy-device
-DeviceName: snappy-device 
-DeviceNotificationReceive: WS
-SendNotificationQueueCapacity: 2048 
+DeviceName: snappy-device
+SendNotificationQueueCapacity: 2048
 LoggingLevel: info
