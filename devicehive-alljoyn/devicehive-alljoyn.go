@@ -1,7 +1,7 @@
 package main
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/lib -I${SRCDIR}/alljoyn/core/ajtcl/inc -I${SRCDIR}/alljoyn/core/ajtcl/target/linux -I${SRCDIR}/alljoyn/services/base_tcl/notification/inc -I${SRCDIR}/alljoyn/services/base_tcl/services_common/inc -I${SRCDIR}/alljoyn/services/base_tcl/notification/src -I${SRCDIR}/alljoyn/services/base_tcl/services_common/src  -I${SRCDIR}/alljoyn/services/base_tcl/sample_apps/AppsCommon/inc -I${SRCDIR}/alljoyn/services/base_tcl/sample_apps/AppsCommon/src
+#cgo CFLAGS: -DNDEBUG -I${SRCDIR}/lib -I${SRCDIR}/alljoyn/core/ajtcl/inc -I${SRCDIR}/alljoyn/core/ajtcl/target/linux -I${SRCDIR}/alljoyn/services/base_tcl/notification/inc -I${SRCDIR}/alljoyn/services/base_tcl/services_common/inc -I${SRCDIR}/alljoyn/services/base_tcl/notification/src -I${SRCDIR}/alljoyn/services/base_tcl/services_common/src  -I${SRCDIR}/alljoyn/services/base_tcl/sample_apps/AppsCommon/inc -I${SRCDIR}/alljoyn/services/base_tcl/sample_apps/AppsCommon/src
 #cgo LDFLAGS: -L${SRCDIR}/alljoyn/core/ajtcl -lajtcl
 #include "cfuncs.h"
 */
@@ -782,8 +782,9 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 	//	C.AJ_RegisterObjects(objects, nil)
 	C.AJ_SetMinProtoVersion(10)
 
-	C.AJ_PrintXML(objects)
-	C.AJ_PrintXMLWithDescriptions(objects, C.CString("en"))
+	// DEBUG
+	// C.AJ_PrintXML(objects)
+	// C.AJ_PrintXMLWithDescriptions(objects, C.CString("en"))
 
 	if notificationsObj != nil {
 		log.Println("NOTIFICATIONS ENABLED")

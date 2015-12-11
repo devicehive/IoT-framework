@@ -1,3 +1,5 @@
+#include "_cgo_export.h"
+
 #include <stdio.h>
 #include <aj_debug.h>
 #include <aj_guid.h>
@@ -408,7 +410,7 @@ const char* MyTranslator(uint32_t descId, const char* lang) {
 	if (!translations[objIdx][ifIdx][memberIdx][argIdx]) {
 		// 0xFF - Assumes 256 is the craziest they will go!
 		translations[objIdx][ifIdx][memberIdx][argIdx] = (char*)malloc(0xFF * sizeof(char));
-		PutMemberDescription(objIdx, ifIdx, memberIdx, argIdx, lang, translations[objIdx][ifIdx][memberIdx][argIdx], 0xFF);
+		PutMemberDescription(objIdx, ifIdx, memberIdx, argIdx, (char*)lang, translations[objIdx][ifIdx][memberIdx][argIdx], 0xFF);
 	}
 	
 	char * result = translations[objIdx][ifIdx][memberIdx][argIdx];
