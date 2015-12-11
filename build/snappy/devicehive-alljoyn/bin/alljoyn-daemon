@@ -24,16 +24,6 @@ export LD_LIBRARY_PATH="$app_path/lib/$platform/:$LD_LIBRARY_PATH"
 export PATH="$app_path/bin/$platform/:$PATH"
 mkdir -p "$app_data" # system creates this folder only after service has started for the first time
 
-app_conf=$app_data/config.yaml
-
-# temporary solution for initial config
-if [ ! -f $app_conf ]; then
-    echo "Config not found, use default one:"
-    cat $app_path/config.yaml
-    #copy default config
-    cp $app_path/config.yaml $app_conf
-fi
-
 # run it
 $app_path/bin/$platform/alljoyn-daemon
 #-conf=$app_conf

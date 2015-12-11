@@ -5,12 +5,12 @@ vendor: DataArt <info@devicehive.com>
 icon: meta/dh.png
 architecture: [amd64, armhf]
 services:
-  - name: enocean-service
-    description: "DeviceHive Enocean Service"
-    start: bin/enocean-service
-    bus-name: "com.devicehive.enocean"
-    security-policy:
-      apparmor: meta/enocean.apparmor
+  # - name: enocean-service
+  #   description: "DeviceHive Enocean Service"
+  #   start: bin/enocean-service
+  #   bus-name: "com.devicehive.enocean"
+  #   security-policy:
+  #     apparmor: meta/enocean.apparmor
   - name: gpio-service
     description: "DeviceHive GPIO Service"
     start: bin/gpio-service
