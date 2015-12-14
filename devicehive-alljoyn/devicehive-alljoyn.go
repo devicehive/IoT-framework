@@ -80,12 +80,12 @@ type AllJoynServiceInfo struct {
 }
 
 type AllJoynBridge struct {
-	bus           *dbus.Conn
-	signals       chan *dbus.Signal
-	services      map[string]*AllJoynServiceInfo
-	sessions      []uint32
-	signalCahe    map[string]*introspect.Signal
-	signalIdxCahe map[string]uint32
+	bus            *dbus.Conn
+	signals        chan *dbus.Signal
+	services       map[string]*AllJoynServiceInfo
+	sessions       []uint32
+	signalCache    map[string]*introspect.Signal
+	signalIdxCache map[string]uint32
 }
 
 type AllJoynMessenger struct {
@@ -104,8 +104,8 @@ func NewAllJoynBridge(bus *dbus.Conn) *AllJoynBridge {
 	bridge.signals = make(chan *dbus.Signal, 100)
 	bridge.services = make(map[string]*AllJoynServiceInfo)
 	bridge.sessions = []uint32{}
-	bridge.signalCahe = make(map[string]*introspect.Signal)
-	bridge.signalIdxCahe = make(map[string]uint32)
+	bridge.signalCache = make(map[string]*introspect.Signal)
+	bridge.signalIdxCache = make(map[string]uint32)
 
 	sbuffer := make(chan *dbus.Signal, 100)
 	go bridge.signalsPump(sbuffer)
@@ -468,8 +468,8 @@ func (a *AllJoynBridge) findSignal(signal *dbus.Signal) (*introspect.Signal, uin
 	key := signal.Name + string(signal.Path) + signal.Sender
 
 	// check for cached value
-	if sig, ok := a.signalCahe[key]; ok {
-		return sig, a.signalIdxCahe[key]
+	if sig, ok := a.signalCache[key]; ok {
+		return sig, a.signalIdxCache[key]
 	}
 
 	sepPos := strings.LastIndex(signal.Name, ".")
@@ -495,8 +495,8 @@ func (a *AllJoynBridge) findSignal(signal *dbus.Signal) (*introspect.Signal, uin
 									log.Printf("##### Signal: %s => 0x%X  (%d %d %d)", signal.Name, signalMessageId, objIdx, ifIdx, memberIdx)
 
 									// cache value for future use
-									a.signalCahe[key] = &sgn
-									a.signalIdxCahe[key] = signalMessageId
+									a.signalCache[key] = &sgn
+									a.signalIdxCache[key] = signalMessageId
 
 									return &sgn, signalMessageId
 								}
@@ -976,17 +976,23 @@ func traverseDbusObjects(bus *dbus.Conn, dbusService, dbusPath string, fn func(p
 }
 
 func (a *AllJoynBridge) AddService(dbusService, dbusPath, allJoynService string) (string, *dbus.Error) {
+	// generate unique UUID
+	var uuid string
+	for {
+		uuid, err := newUUID()
+		if err != nil {
+			log.Printf("Error: %v", err)
+			return "", dbus.NewError("com.devicehive.Error", []interface{}{err.Error})
+		}
 
-	// TODO: make sure uuid is really unique and not present in a.services
-	uuid, err := newUUID()
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return "", dbus.NewError("com.devicehive.Error", []interface{}{err.Error})
+		if _, exists = a.services[uuid]; !exists {
+			break // UUID is unique, done
+		}
+
+		// otherwise generate new one at next iteration...
 	}
 
 	// go func() {
-
-	var bindings []*AllJoynBindingInfo
 
 	var dbusServiceId string
 	err = a.bus.BusObject().Call("org.freedesktop.DBus.GetNameOwner", 0, dbusService).Store(&dbusServiceId)
@@ -996,6 +1002,7 @@ func (a *AllJoynBridge) AddService(dbusService, dbusPath, allJoynService string)
 
 	log.Printf("Traversing objects tree for %s (%s [%s] at %s)", uuid, dbusService, dbusServiceId, dbusPath)
 
+	var bindings []*AllJoynBindingInfo
 	traverseDbusObjects(a.bus, dbusServiceId, dbusPath, func(path string, node *introspect.Node) {
 		allJoynPath := strings.TrimPrefix(path, dbusPath)
 		bindings = append(bindings, &AllJoynBindingInfo{allJoynPath, path, node})
