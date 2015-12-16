@@ -20,6 +20,9 @@ import (
 	"log"
 	"strings"
 	"unsafe"
+	"flag"
+	"os/exec"
+	"os"
 )
 
 const UNMARSHAL_TIMEOUT = 100
@@ -92,6 +95,24 @@ type AllJoynMessenger struct {
 	dbusService string
 	bus         *dbus.Conn
 	binding     []*AllJoynBindingInfo
+}
+
+var (
+	spawnUUID      = ""
+	spawnDbusServiceId = ""
+	spawnDbusService = ""
+	spawnDbusPath = ""
+	spawnAlljoynService = ""
+)
+
+// initialize test environment
+func init() {
+	flag.StringVar(&spawnUUID, "spawn-uuid", "", "(do not use directly)")
+	flag.StringVar(&spawnDbusServiceId, "spawn-dbus-service-id", "", "(do not use directly)")
+	flag.StringVar(&spawnDbusService, "spawn-dbus-service", "", "(do not use directly)")
+	flag.StringVar(&spawnDbusPath, "spawn-dbus-path", "", "(do not use directly)")
+	flag.StringVar(&spawnAlljoynService, "spawn-alljoyn-service", "", "(do not use directly)")
+	flag.Parse()
 }
 
 func NewAllJoynMessenger(dbusService string, bus *dbus.Conn, binding []*AllJoynBindingInfo) *AllJoynMessenger {
@@ -427,7 +448,6 @@ func (m *AllJoynMessenger) forwardAllJoynMessage(msgId uint32) (err error) {
 }
 
 func SubscribeToSignals(bus *dbus.Conn, service *AllJoynServiceInfo) {
-
 	for _, obj := range service.objects {
 		query := "type='signal',sender='" + service.dbusService + "',path='" + obj.dbusPath + "'"
 		bus.BusObject().Call("org.freedesktop.DBus.AddMatch", 0, query)
@@ -950,7 +970,6 @@ func (a *AllJoynBridge) startAllJoyn(uuid string) *dbus.Error {
 }
 
 func traverseDbusObjects(bus *dbus.Conn, dbusService, dbusPath string, fn func(path string, node *introspect.Node)) {
-
 	var xmldata string
 	var node introspect.Node
 
@@ -962,8 +981,10 @@ func traverseDbusObjects(bus *dbus.Conn, dbusService, dbusPath string, fn func(p
 	}
 
 	err = xml.NewDecoder(strings.NewReader(xmldata)).Decode(&node)
-
-	//	log.Printf("Introspect: %+v", node)
+	if err != nil {
+		log.Printf("Error decoding introspect from [%s, %s]: %s", dbusService, dbusPath, err)
+	}
+	// log.Printf("Introspect: %+v", node)
 
 	if node.Name != "" && len(node.Interfaces) > 0 {
 		fn(dbusPath, &node)
@@ -972,35 +993,43 @@ func traverseDbusObjects(bus *dbus.Conn, dbusService, dbusPath string, fn func(p
 	for _, child := range node.Children {
 		traverseDbusObjects(bus, dbusService, dbusPath+"/"+child.Name, fn)
 	}
-
 }
 
-func (a *AllJoynBridge) AddService(dbusService, dbusPath, allJoynService string) (string, *dbus.Error) {
+func (a *AllJoynBridge) AddService(dbusService, dbusPath, alljoynService string, sender dbus.Sender) (string, *dbus.Error) {
 	// generate unique UUID
 	var uuid string
+	var err error
 	for {
-		uuid, err := newUUID()
+		uuid, err = newUUID()
 		if err != nil {
 			log.Printf("Error: %v", err)
 			return "", dbus.NewError("com.devicehive.Error", []interface{}{err.Error})
 		}
 
-		if _, exists = a.services[uuid]; !exists {
+		if _, exists := a.services[uuid]; !exists {
 			break // UUID is unique, done
 		}
 
 		// otherwise generate new one at next iteration...
 	}
 
-	// go func() {
+	// a.addService(uuid, string(sender), dbusService, dbusPath, alljoynService)
+	async := exec.Command(os.Args[0],
+			"--spawn-uuid", uuid,
+			"--spawn-dbus-service-id", string(sender),
+			"--spawn-dbus-service", dbusService,
+			"--spawn-dbus-path", dbusPath,
+			"--spawn-alljoyn-service", alljoynService)
+	async.Stdout = os.Stdout
+	async.Stderr = os.Stderr
+	async.Start()
+	// TODO: add 'async' to the list for management purposes
 
-	var dbusServiceId string
-	err = a.bus.BusObject().Call("org.freedesktop.DBus.GetNameOwner", 0, dbusService).Store(&dbusServiceId)
-	if err != nil {
-		return "", dbus.NewError("com.devicehive.Error", []interface{}{err.Error})
-	}
+	return uuid, nil
+}
 
-	log.Printf("Traversing objects tree for %s (%s [%s] at %s)", uuid, dbusService, dbusServiceId, dbusPath)
+func (a *AllJoynBridge) addService(uuid, dbusServiceId, dbusService, dbusPath, alljoynService string) {
+	log.Printf("Traversing objects tree for %s (%s [%s] at %s):", uuid, dbusService, dbusServiceId, dbusPath)
 
 	var bindings []*AllJoynBindingInfo
 	traverseDbusObjects(a.bus, dbusServiceId, dbusPath, func(path string, node *introspect.Node) {
@@ -1009,13 +1038,13 @@ func (a *AllJoynBridge) AddService(dbusService, dbusPath, allJoynService string)
 		log.Printf("Found Object: %s with %d interfaces", allJoynPath, len(node.Interfaces))
 	})
 
-	a.services[uuid] = &AllJoynServiceInfo{allJoynService, dbusServiceId, dbusService, bindings, nil}
+	a.services[uuid] = &AllJoynServiceInfo{alljoynService, dbusServiceId, dbusService, bindings, nil}
 
-	log.Printf("Added %s service with %d AJ objects", allJoynService, len(bindings))
+	log.Printf("Added %s service with %d AJ objects", alljoynService, len(bindings))
 
-	go a.startAllJoyn(uuid)
-
-	return uuid, nil
+	if len(bindings)!=0 {
+		go a.startAllJoyn(uuid)
+	}
 }
 
 func main() {
@@ -1023,6 +1052,14 @@ func main() {
 
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	// run as a child
+	if len(spawnUUID)!=0 && len(spawnDbusServiceId)!=0 && len(spawnDbusPath)!=0 {
+		allJoynBridge := NewAllJoynBridge(bus)
+		allJoynBridge.addService(spawnUUID, spawnDbusServiceId, spawnDbusService, spawnDbusPath, spawnAlljoynService)
+		select {} // exit?
+		return
 	}
 
 	res, err := bus.RequestName("com.devicehive.alljoyn.bridge",

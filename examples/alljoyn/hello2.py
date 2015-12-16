@@ -25,7 +25,7 @@ DBUS_BRIDGE_PATH = '/com/devicehive/alljoyn/bridge'
 DBUS_BUS_NAME = 'com.devicehive.alljoyn.SmartHome'
 DBUS_BUS_PATH = '/com/devicehive/alljoyn/SmartHome'
 
-HELLO_SVC = 'org.allseen.SmartHome.Hello'
+HELLO_SVC = 'org.allseen.SmartHome.Hello2'
 
 bus = dbus.SystemBus()
 bus_name = dbus.service.BusName(DBUS_BUS_NAME, bus)
@@ -34,12 +34,12 @@ bus_name = dbus.service.BusName(DBUS_BUS_NAME, bus)
 class HelloService(core.PropertiesServiceInterface):
   def __init__(self, container):
     core.PropertiesServiceInterface.__init__(self, container, "/Service", 
-      {HELLO_SVC : {'Name': 'AllJoyn'}})
+      {HELLO_SVC : {'Name': 'AllJoyn2'}})
     
 
   def IntrospectionXml(self):
     return """
-        <interface name="org.allseen.SmartHome.Hello">
+        <interface name="org.allseen.SmartHome.Hello2">
           <property name="Name" type="s" access="readwrite"/>
           <method name="Greet">
              <arg name="greeting" type="s" direction="out"/>
@@ -49,8 +49,8 @@ class HelloService(core.PropertiesServiceInterface):
 
   @dbus.service.method(HELLO_SVC, in_signature='', out_signature='s')
   def Greet(self):
-    print("Hello, %s!" % self.Get(HELLO_SVC, "Name"))
-    return "Hello, %s!" % self.Get(HELLO_SVC, "Name")
+    print("Hello2, %s!" % self.Get(HELLO_SVC, "Name"))
+    return "Hello2, %s!" % self.Get(HELLO_SVC, "Name")
 
 
 class Hello():
@@ -65,12 +65,12 @@ class Hello():
       'DefaultLanguage': 'en',
       'DeviceName': self.name,
       'DeviceId': self.id,
-      'AppName': 'Hello',
+      'AppName': 'Hello2',
       'Manufacturer': 'DeviceHive',
       'DateOfManufacture': '2015-10-28',
       'ModelNumber': 'example',
       'SupportedLanguages': ['en'],
-      'Description': 'DeviceHive Alljoyn Hello Device',
+      'Description': 'DeviceHive Alljoyn Hello2 Device',
       'SoftwareVersion': '1.0',
       'HardwareVersion': '1.0',
       'SupportUrl': 'devicehive.com'
@@ -110,7 +110,7 @@ def worker():
     try:
         bridge = dbus.Interface(bus.get_object(DBUS_BRIDGE_NAME, DBUS_BRIDGE_PATH),
                                 dbus_interface='com.devicehive.alljoyn.bridge')
-        plug = Hello(bus_name, 'Hello')
+        plug = Hello(bus_name, 'Hello2')
         plug.publish(bridge)
     except Exception as err:
         print(err)
