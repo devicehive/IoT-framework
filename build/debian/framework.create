@@ -1,0 +1,59 @@
+#!/bin/bash -e
+
+# For manual modification
+TEMPLATE=framework.template
+export VERSION=0.1.0
+
+DIR="$(dirname "$(readlink -f "$0")")"
+ROOT=$DIR/../..
+variant=${VARIANT:-release}
+
+function render_template() {
+  envsubst < $1 > $1.new
+  rm $1
+  mv $1.new $1
+}
+
+# Automatic update packages
+pushd $ROOT/devicehive-cloud
+go get -u github.com/godbus/dbus
+go get -u github.com/gorilla/websocket
+popd
+
+# Automatic calculate revision
+export GITHASH=$(git rev-parse HEAD)
+
+# TODO: add GITHASH to VERSION?
+
+# Automatic amd64
+DEBNAME="$DIR/devicehive-IoT_${VERSION}_amd64"
+[ -d "$DEBNAME" ] && rm -rf "$DEBNAME"
+cp -rv "$TEMPLATE" "$DEBNAME"
+GOOS=linux GOARCH=amd64 go build -o "$DEBNAME/usr/bin/devicehive-cloud" $ROOT/devicehive-cloud/*.go
+GOOS=linux GOARCH=amd64 go build -o "$DEBNAME/usr/bin/devicehive-ble" $ROOT/devicehive-ble/*.go
+pushd $ROOT/devicehive-alljoyn/alljoyn && PLATFORM=x86_64 ./build-thin-linux-core && popd
+cp -fv  $ROOT/devicehive-alljoyn/alljoyn/core/alljoyn/build/linux/x86_64/$variant/dist/cpp/bin/alljoyn-daemon "$DEBNAME/usr/bin/"
+cp -fv  $ROOT/devicehive-alljoyn/alljoyn/core/alljoyn/build/linux/x86_64/$variant/dist/cpp/lib/liballjoyn.so "$DEBNAME/usr/lib/"
+cp -fv  $ROOT/devicehive-alljoyn/alljoyn/core/ajtcl/libajtcl.so "$DEBNAME/usr/lib/"
+# TODO: do we need update LD_LIBRARY_PATH?
+pushd $ROOT/devicehive-alljoyn && GOOS=linux GOARCH=amd64 go build -o "$DEBNAME/usr/bin/devicehive-alljoyn" && popd
+ARCHITECTURE=amd64 render_template "$DEBNAME/DEBIAN/control"
+dpkg-deb --build $DEBNAME && rm -rf "$DEBNAME"
+
+# Automatic armv7
+DEBNAME="$DIR/devicehive-IoT_${VERSION}_arm"
+[ -d "$DEBNAME" ] && rm -rf "$DEBNAME"
+cp -rv "$TEMPLATE" "$DEBNAME"
+GOOS=linux GOARCH=arm GOARM=7 go build -o "$DEBNAME/usr/bin/devicehive-cloud" $ROOT/devicehive-cloud/*.go
+GOOS=linux GOARCH=arm GOARM=7 go build -o "$DEBNAME/usr/bin/devicehive-ble" $ROOT/devicehive-ble/*.go
+[ -d $ROOT/devicehive-alljoyn/alljoyn/core/alljoyn/build_core/conf/linux/armhf ] || patch -d $ROOT/devicehive-alljoyn/alljoyn/core/alljoyn -p1 -i $ROOT/build/snappy/devicehive-alljoyn-tools/alljoyn-armhf.patch
+[ -e /usr/arm-linux-gnueabihf/lib/libcap.so ] || sudo ln -s $ROOT/build/snappy/devicehive-alljoyn-tools/armhf/libcap.so /usr/arm-linux-gnueabihf/lib/libcap.so
+pushd $ROOT/devicehive-alljoyn/alljoyn && PLATFORM=armhf ./build-thin-linux-core && popd
+cp -fv  $ROOT/devicehive-alljoyn/alljoyn/core/alljoyn/build/linux/armhf/$variant/dist/cpp/bin/alljoyn-daemon "$DEBNAME/usr/bin/"
+cp -fv  $ROOT/devicehive-alljoyn/alljoyn/core/alljoyn/build/linux/armhf/$variant/dist/cpp/lib/liballjoyn.so "$DEBNAME/usr/lib/"
+cp -fv  $ROOT/devicehive-alljoyn/alljoyn/core/ajtcl/libajtcl.so "$DEBNAME/usr/lib/"
+# TODO: do we need update LD_LIBRARY_PATH?
+pushd $ROOT/devicehive-alljoyn && GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=1 CC=arm-linux-gnueabihf-gcc CXX=arm-linux-gnueabihf-g++ go build -o "$DEBNAME/usr/bin/devicehive-alljoyn" && popd
+ARCHITECTURE=arm render_template "$DEBNAME/DEBIAN/control"
+dpkg-deb --build $DEBNAME && rm -rf "$DEBNAME"
+
