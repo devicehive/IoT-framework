@@ -11,11 +11,25 @@ services:
     security-policy:
         apparmor: meta/alljoyn-daemon.apparmor
     ports:
-        required: 9955
+        external:
+            alljoyn-tcp:
+                port: 9955-9966/tcp
+                negotiable: no
+            alljoyn-udp:
+                port: 9955-9966/udp
+                negotiable: no
+
   - name: devicehive-alljoyn
     description: "DeviceHive AllJoyn Service"
     bus-name: "com.devicehive.alljoyn.bridge"
     start: bin/devicehive-alljoyn
     security-policy:
         apparmor: meta/devicehive-alljoyn.apparmor
-
+    ports:
+        internal:
+            alljoyn-tcp:
+                port: 9955-9966/tcp
+                negotiable: no
+            alljoyn-udp:
+                port: 9955-9966/udp
+                negotiable: no
