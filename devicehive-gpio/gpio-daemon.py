@@ -178,10 +178,10 @@ class GPIOPin(dbus.service.Object):
 
 class GPIOService(dbus.service.Object):
     def __init__(self, bus_name, pin_services):
-        self.m_pin_services = pin_services       
+        self.m_pin_services = pin_services
         self.bus_name = bus_name 
         dbus.service.Object.__init__(self, bus_name, DBUS_PATH)
-    
+
     ## org.freedesktop.DBus.ObjectManager
     # standard interface t oenumerate child services
     @dbus.service.method(OBJECT_MANAGER_INTERFACE, out_signature = "a{oa{sa{sv}}}")

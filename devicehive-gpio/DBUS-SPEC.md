@@ -1,42 +1,38 @@
-# DeviceHive GPIO DBus Spec
+# DeviceHive GPIO D-Bus Spec
 
-### Interface com.devicehive.gpio.GpioService
-Bus Name: `com.devicehive.gpio`
-Path: `/com/devicehive/gpio`
+### Interface com.devicehive.gpio.Service
+- Bus Name: `com.devicehive.gpio`
+- Path: `/com/devicehive/gpio`
 
-#### Methods:
-`list()` - returns list of available gpio pins
-
-`add(pin, port)` - Register pin to expose a physical port
-
-`rm(pin)` - Unregister exposed pin
-
-`clear()` - Unregister all exposed pins
-
-`add_profile(pin_port_pairs)` - Register multiple pins
+#### Methods
+The following methods are supported by the service:
+- `GetAllPins()` - returns dict of created pins/ports
+- `CreatePin(pin, port)` - Register pin to expose a physical port
+- `CreatePins(pins)` - Register multiple pins/ports (as a dict)
+- `DeletePin(pin)` - Unregister exposed pin
+- `DeleteAllPins()` - Unregister all exposed pins
 
 
-#### Introspection:
+#### Introspection
 ```xml
 <!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
 "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
 <node name="/com/devicehive/gpio">
-  <interface name="com.devicehive.gpio.GpioService">
-    <method name="clear">
+  <interface name="com.devicehive.gpio.Service">
+    <method name="GetAllPins">
+      <arg direction="out" type="a{ss}" />
     </method>
-    <method name="list">
-      <arg direction="out" type="as" />
-    </method>
-    <method name="add_profile">
-      <arg direction="in"  type="a{ss}" name="pins" />
-    </method>
-    <method name="add">
+    <method name="CreatePin">
       <arg direction="in"  type="s" name="pin" />
       <arg direction="in"  type="s" name="port" />
     </method>
-    <method name="remove">
-      <arg direction="in"  type="v" name="pin" />
-      <arg direction="in"  type="v" name="in_signature" />
+    <method name="CreatePins">
+      <arg direction="in"  type="a{ss}" name="pins" />
+    </method>
+    <method name="DeletePin">
+      <arg direction="in"  type="s" name="pin" />
+    </method>
+    <method name="DeleteAllPins">
     </method>
   </interface>
   <interface name="org.freedesktop.DBus.ObjectManager">
@@ -139,6 +135,4 @@ Path: `/com/devicehive/gpio/{PIN}`
     </method>
   </interface>
 </node>
-
 ```
-
