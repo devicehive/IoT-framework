@@ -78,27 +78,22 @@ The following methods are supported by the service:
 ```
 
 
-### Interface com.devicehive.gpio.GpioPin
-Bus Name: `com.devicehive.gpio`
-Path: `/com/devicehive/gpio/{PIN}`
+### Interface com.devicehive.gpio.Pin
+- Bus Name: `com.devicehive.gpio`
+- Path: `/com/devicehive/gpio/{PIN}`
 
-#### Methods:
-`init(mode)` - initialize pin. For digital pins mode can be `out` for output, `in` for input, 
-               `rising` or `falling` or `both` for input with enabled notifications
-               analog pins recieve period in miliseconds as mode. It sends notifications with
-               analog value every choosen period of time. 
-
-`deinit()` - deinitialize pin and free all resource
-
-`set_value(value)` - set pin state, where value is ether `0` or `1`
-
-`set()` - set pin state to `1`
-
-`clear()` - set pin state to `0`
-
-`get()` - read pin state or value for analog inputs
-
-`toggle()` - toggle pin state from `0` to `1` or from `1` to `0`
+#### Methods
+The following methods are supported by the service:
+- `Start(mode)` - initialize pin. For digital pins mode can be `"out"` for output, `"in"` for input,
+         `"rising"` or `"falling"` or `"both"` for input with enabled notifications.
+          analog pins receive report period in miliseconds as mode, `"500ms"`.
+          It sends notifications with analog value every choosen period of time.
+- `Stop()` - deinitialize pin and free all resources
+- `SetValue(value)` - set pin state, where value is ether `"0"` or `"1"`
+- `Set()` - set pin state to `"1"`
+- `Clear()` - set pin state to `"0"`
+- `Get()` - read pin state or value for analog inputs
+- `Toggle()` - toggle pin state from `"0"` to `"1"` or from `"1"` to `"0"`
 
 
 #### Introspection:
@@ -111,27 +106,27 @@ Path: `/com/devicehive/gpio/{PIN}`
       <arg direction="out" type="s" />
     </method>
   </interface>
-  <interface name="com.devicehive.gpio.GpioPin">
-    <method name="deinit">
+  <interface name="com.devicehive.gpio.Pin">
+    <method name="Stop">
     </method>
-    <method name="get">
+    <method name="Get">
       <arg direction="out" type="s" />
     </method>
-    <method name="set">
+    <method name="Set">
     </method>
-    <method name="set_value">
+    <method name="SetValue">
       <arg direction="in"  type="s" name="value" />
     </method>
-    <method name="clear">
+    <method name="Clear">
     </method>
-    <signal name="pin_value_changed">
+    <signal name="ValueChanged">
       <arg type="s" name="pin" />
-      <arg type="v" name="value" />
+      <arg type="s" name="value" />
     </signal>
-    <method name="init">
+    <method name="Start">
       <arg direction="in"  type="s" name="mode" />
     </method>
-    <method name="toggle">
+    <method name="Toggle">
     </method>
   </interface>
 </node>
