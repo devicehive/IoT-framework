@@ -135,9 +135,9 @@ func (s *Service) createPin(pin string, port string) error {
 		p.export(s.dbusConn)
 
 		// emit ObjectManager.InterfacesAdded
-//	self.InterfacesAdded(self.m_pin_services[pin].m_service_path, {DBUS_PIN_INTERFACE: dict()})
-//		s.dbusConn.Emit(ServicePath, fmt.Sprintf("%s.InterfacesAdded", ManagerIFace),
-//			p.dbusPath, )
+		//	self.InterfacesAdded(self.m_pin_services[pin].m_service_path, {DBUS_PIN_INTERFACE: dict()})
+		//		s.dbusConn.Emit(ServicePath, fmt.Sprintf("%s.InterfacesAdded", ManagerIFace),
+		//			p.dbusPath, )
 	}
 	s.pins[pin] = p
 	return nil // OK
@@ -185,11 +185,11 @@ func (s *Service) deletePin(pin string) error {
 
 	if s.dbusConn != nil {
 		p.unexport(s.dbusConn)
-		
+
 		// emit ObjectManager.InterfacesRemoved
-	//	self.InterfacesRemoved(self.m_pin_services[pin].m_service_path, {DBUS_PIN_INTERFACE: dict()})
-//		s.dbusConn.Emit(ServicePath, fmt.Sprintf("%s.InterfacesRemoved", ManagerIFace),
-//			p.dbusPath, )
+		//	self.InterfacesRemoved(self.m_pin_services[pin].m_service_path, {DBUS_PIN_INTERFACE: dict()})
+		//		s.dbusConn.Emit(ServicePath, fmt.Sprintf("%s.InterfacesRemoved", ManagerIFace),
+		//			p.dbusPath, )
 	}
 
 	delete(s.pins, pin)

@@ -48,3 +48,7 @@ To set pin value to `"0"`:
 `sudo dbus-send --system --dest=com.devicehive.gpio --print-reply --type=method_call /com/devicehive/gpio/PIN3 com.devicehive.gpio.Pin.Clear`
 
 `sudo dbus-send --system --dest=com.devicehive.gpio --print-reply --type=method_call /com/devicehive/gpio/PIN3 com.devicehive.gpio.Pin.SetValue string:"0"`
+
+Watch for `ValueChanged` signal:
+
+`sudo dbus-monitor --system --monitor "type='signal',interface='com.devicehive.gpio.Pin'"`

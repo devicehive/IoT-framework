@@ -4,11 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"github.com/godbus/dbus"
-	"io/ioutil"
 	"gopkg.in/yaml.v2"
-	"strings"
+	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 )
 
 const (
