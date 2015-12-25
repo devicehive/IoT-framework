@@ -1,0 +1,42 @@
+# Maintainer: DeviceHive <info@devicehive.com>
+pkgname=devicehive-IoT
+pkgver=1.0
+pkgrel=1
+epoch=
+pkgdesc="DeviceHive IoT framework"
+arch=('x86_64')
+url="http://devicehive.com"
+license=('MIT')
+groups=()
+depends=()
+makedepends=()
+checkdepends=()
+optdepends=()
+provides=()
+conflicts=()
+replaces=()
+backup=()
+options=()
+install=
+changelog=
+source=()
+noextract=()
+md5sums=()
+validpgpkeys=()
+SRCROOT="../../.."
+
+#prepare() {
+	# do nothing
+#}
+
+build() {
+	make -C $srcdir/../../.. build
+}
+
+#check() {
+	# do nothing
+#}
+
+package() {
+	DESTDIR="$pkgdir" make -C $srcdir/../../.. install
+}
