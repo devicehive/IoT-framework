@@ -447,7 +447,7 @@ class Lamp:
         self._dbus = LampService(self.mac)
         self._config = ConfigService(self.mac, "DeviceHiveVB")
         self._controlpanel = ControlPanelService(self.mac)
-        ble.connect_to_signal("DeviceDiscovered", device_discovered)
+        ble.connect_to_signal("PeripheralDiscovered", device_discovered)
         ble_connect(self.mac)
 
         print("Calling alljoyn bridge")

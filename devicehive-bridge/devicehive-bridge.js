@@ -293,8 +293,8 @@ systemBus.getService(DH_CLOUD_NS).getInterface(DH_CLOUD_PATH, DH_CLOUD_NS, funct
         });
 
 
-        ble.on('DeviceDiscovered', _.curry(device_discovered)(context));
-        ble.on('DeviceConnected', _.curry(device_connected)(context));
+        ble.on('PeripheralDiscovered', _.curry(device_discovered)(context));
+        ble.on('PeripheralConnected', _.curry(device_connected)(context));
         ble.on('NotificationReceived', _.curry(notification_received)(context, 'Notification'));
         ble.on('IndicationReceived', _.curry(notification_received)(context, 'Indication'));
 
