@@ -1,0 +1,61 @@
+diff --git a/build_core/SConscript b/build_core/SConscript
+index c1f8562..b3fed7b 100644
+--- a/build_core/SConscript
++++ b/build_core/SConscript
+@@ -24,7 +24,7 @@ if platform.system() == 'Linux':
+         default_target_cpu = 'x86_64'
+     else:
+         default_target_cpu = 'x86'
+-    allowed_target_cpus = ('x86', 'x86_64', 'arm', 'openwrt')
++    allowed_target_cpus = ('x86', 'x86_64', 'arm', 'armhf', 'openwrt')
+ 
+     default_msvc_version = None
+ 
+diff --git a/build_core/conf/linux/armhf/SConscript b/build_core/conf/linux/armhf/SConscript
+new file mode 100644
+index 0000000..abe6e00
+--- /dev/null
++++ b/build_core/conf/linux/armhf/SConscript
+@@ -0,0 +1,42 @@
++# Copyright AllSeen Alliance. All rights reserved.
++#
++#    Permission to use, copy, modify, and/or distribute this software for any
++#    purpose with or without fee is hereby granted, provided that the above
++#    copyright notice and this permission notice appear in all copies.
++#
++#    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
++#    WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
++#    MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
++#    ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++#    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
++#    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
++#    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++# 
++
++Import('env')
++import os
++
++# Linux specific flags
++env.Append(CPPDEFINES=['QCC_CPU_ARM'])
++env.Append(CPPFLAGS=['-fPIC',
++                     '-mthumb-interwork'])
++
++# Use the OpenEmbedded cross-compilation environment
++vars = Variables()
++vars.Add('CROSS_COMPILE', 'Cross compile toolchain prefix', os.environ.get('CROSS_COMPILE'))
++vars.Update(env)
++Help(vars.GenerateHelpText(env))
++
++# Use common CROSS_COMPILE prefix
++if '' == env.subst('$CROSS_COMPILE'):
++   print 'CROSS_COMPILE variable is required for Linux/ARM builds'
++   if not GetOption('help'):
++      Exit(1)
++
++env['CC']   = env['CROSS_COMPILE'] + 'gcc'
++env['CXX']  = env['CROSS_COMPILE'] + 'g++'
++env['LINK'] = env['CROSS_COMPILE'] + 'gcc'
++
++
++
++

@@ -53,12 +53,21 @@ class BusContainer(object):
     return self._bus
 
   def relative(self, path):
-    return "%s/%s" % (self._root, path.lstrip('/'))
+    if path is None:
+      return None
+    else:
+      return "%s/%s" % (self._root, path.lstrip('/'))
 
 class ServiceInterface(dbus.service.Object):
   def __init__(self, container, path):
     self._path = path    
-    dbus.service.Object.__init__(self, container.bus, container.relative(path))
+    if type(path) is list:
+      dbus.service.Object.__init__(self, container.bus, None)
+      self.SUPPORTS_MULTIPLE_OBJECT_PATHS = True
+      for itm in path:
+        self.add_to_connection(container.bus.get_bus() , container.relative(itm))
+    else:
+      dbus.service.Object.__init__(self, container.bus, container.relative(path))
 
   @property
   def path(self):
@@ -70,13 +79,20 @@ class ServiceInterface(dbus.service.Object):
   def IntrospectionXml(self):
     return None
 
+  def _selectPath(self, object_path):
+    if type(self.path) is list:
+      return next(p for p in self.path if object_path.endswith(p))
+    else:
+      return self.path
+
   def Introspect(self, object_path, connection):
     xml = self.IntrospectionXml()
     if xml is None:
       return dbus.service.Object.Introspect(self, object_path, connection)
     else:      
+
       children = "\n".join(['<node name="%s"/>' % name for name in connection.list_exported_child_objects(object_path)])
-      return INTROSPECTION_TEMPLATE.format(self._path, xml, children)
+      return INTROSPECTION_TEMPLATE.format(self._selectPath(object_path), xml, children)
 
 
   def introspect(self):    
@@ -164,19 +180,19 @@ class AboutService(PropertiesServiceInterface):
     """  + PropertiesServiceInterface.IntrospectionXml(self)
 
 class ConfigService(PropertiesServiceInterface):
-  def __init__(self, container, name):
-    self._name = name
+  def __init__(self, container, devicename):
+    self._devicename = devicename
     PropertiesServiceInterface.__init__(self, container, '/Config', 
       {'org.alljoyn.Config' : {'Version': 1}})
 
   ## org.alljoyn.Config Interface
   @dbus.service.method(CONFIG_SERVICE_IFACE, in_signature='s', out_signature='a{sv}')
   def GetConfigurations(self, languageTag):
-      print('GetConfigurations')
+      print('GetConfigurations: %s', self._devicename)
       
       return {            
           'DefaultLanguage': 'en',
-          'DeviceName': self._name
+          'DeviceName': self._devicename
       }
 
   def IntrospectionXml(self):

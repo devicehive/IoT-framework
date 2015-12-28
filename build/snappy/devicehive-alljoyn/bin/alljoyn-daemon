@@ -1,0 +1,30 @@
+#!/bin/bash
+
+set -e
+
+app_path=${SNAP_APP_PATH:-"$(realpath $(dirname $0)/../)"}
+app_data=${SNAP_APP_DATA_PATH:-"/var/lib$app_path"}
+
+# map platform
+case $(uname -i) in
+  x86_64)
+    platform=x86_64
+    ;;
+  armv7l)
+    platform=armhf
+    ;;
+  *)
+    echo "Unknown platform"
+    exit 1
+    ;;
+esac
+
+# set library path enviroment
+export LD_LIBRARY_PATH="$app_path/lib/$platform/:$LD_LIBRARY_PATH"
+export PATH="$app_path/bin/$platform/:$PATH"
+mkdir -p "$app_data" # system creates this folder only after service has started for the first time
+
+# run it
+$app_path/bin/$platform/alljoyn-daemon
+#-conf=$app_conf
+

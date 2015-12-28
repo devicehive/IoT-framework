@@ -7,41 +7,56 @@ import sys
 import os
 import socket
 import collections
-
 import dbus.service
 from dbus.mainloop.glib import DBusGMainLoop
-try:
-    from gi.repository import GObject
-except ImportError:
-    import gobject as GObject
-
+from gi.repository import GObject
 
 scriptDir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append( scriptDir + "/../common" )
+sys.path.append( scriptDir + "/common" )
 
-import core, lighting as lsf
+import core
 
 DBusGMainLoop(set_as_default=True)
 
 
-# import json
-
 DBUS_BRIDGE_NAME = 'com.devicehive.alljoyn.bridge'
 DBUS_BRIDGE_PATH = '/com/devicehive/alljoyn/bridge'
 
-DBUS_BUS_NAME = 'org.allseen.LSF.LampService'
-DBUS_BUS_PATH = '/com/devicehive/alljoyn/allseen/LSF/Lamp'
+DBUS_BUS_NAME = 'com.devicehive.alljoyn.SmartHome'
+DBUS_BUS_PATH = '/com/devicehive/alljoyn/SmartHome'
 
-SVC_NAME = 'org.allseen.LSF.LampService'
+HELLO_SVC = 'org.allseen.SmartHome.Hello'
 
 bus = dbus.SystemBus()
 bus_name = dbus.service.BusName(DBUS_BUS_NAME, bus)
 
 
-class Lamp():
+class HelloService(core.PropertiesServiceInterface):
+  def __init__(self, container):
+    core.PropertiesServiceInterface.__init__(self, container, "/Service", 
+      {HELLO_SVC : {'Name': 'AllJoyn'}})
+    
+
+  def IntrospectionXml(self):
+    return """
+        <interface name="org.allseen.SmartHome.Hello">
+          <property name="Name" type="s" access="readwrite"/>
+          <method name="Greet">
+             <arg name="greeting" type="s" direction="out"/>
+          </method>
+       </interface>
+    """ + core.PropertiesServiceInterface.IntrospectionXml(self)
+
+  @dbus.service.method(HELLO_SVC, in_signature='', out_signature='s')
+  def Greet(self):
+    print("Hello, %s!" % self.Get(HELLO_SVC, "Name"))
+    return "Hello, %s!" % self.Get(HELLO_SVC, "Name")
+
+
+class Hello():
   def __init__(self, busname, name):
 
-    self._id = '75b715e7e1a8411eb7c4b2719d3d0bc5' #uuid.uuid4().hex
+    self._id = uuid.uuid4().hex
     self._name = name
 
     about_props = {
@@ -50,12 +65,12 @@ class Lamp():
       'DefaultLanguage': 'en',
       'DeviceName': self.name,
       'DeviceId': self.id,
-      'AppName': 'TerminalLight',
+      'AppName': 'Hello',
       'Manufacturer': 'DeviceHive',
-      'DateOfManufacture': '2015-07-09',
-      'ModelNumber': 'Simulated Light',
+      'DateOfManufacture': '2015-10-28',
+      'ModelNumber': 'example',
       'SupportedLanguages': ['en'],
-      'Description': 'DeviceHive Alljoyn Bridge Device',
+      'Description': 'DeviceHive Alljoyn Hello Device',
       'SoftwareVersion': '1.0',
       'HardwareVersion': '1.0',
       'SupportUrl': 'devicehive.com'
@@ -64,13 +79,10 @@ class Lamp():
 
     self._container = core.BusContainer(busname, DBUS_BUS_PATH + '/' + self.id)
 
-    lamp_service = lsf.LampService(self._container, self.name)
-
     self._services = [
-       core.AboutService(self._container, about_props),
-       core.ConfigService(self._container, self.name),
-       lamp_service
-
+       core.AboutService(self._container, about_props)
+      ,HelloService(self._container)
+      # ,core.ConfigService(self._container, self.name)
     ]
 
     print("Registered %s on dbus" % self.name)
@@ -83,9 +95,9 @@ class Lamp():
   def name(self):
       return self._name
 
-  def publish(self, bridge):      
-    
-    bridge.AddService(self._container.bus.get_name(), self._container.relative('').rstrip('/'), SVC_NAME,
+  def publish(self, bridge):
+    service = self._services[0]
+    bridge.AddService(self._container.bus.get_name(), self._container.relative('').rstrip('/'), HELLO_SVC,
       # ignore_reply=True
       reply_handler=lambda id: print("ID: %s" % id),
       error_handler=lambda err: print("Error: %s" % err)
@@ -94,28 +106,23 @@ class Lamp():
     print("Published %s on bridge" % self.name)
 
 
-def worker():    
+def worker():
     try:
-        
-        bridge = dbus.Interface(bus.get_object(DBUS_BRIDGE_NAME, DBUS_BRIDGE_PATH), dbus_interface='com.devicehive.alljoyn.bridge')
-        time.sleep(2)
-
-        lamp = Lamp(bus_name, 'DeviceHive Terminal Light')
-        lamp.publish(bridge)
-        
-        return    
-
+        bridge = dbus.Interface(bus.get_object(DBUS_BRIDGE_NAME, DBUS_BRIDGE_PATH),
+                                dbus_interface='com.devicehive.alljoyn.bridge')
+        plug = Hello(bus_name, 'Hello')
+        plug.publish(bridge)
     except Exception as err:
         print(err)
         traceback.print_exc()
         os._exit(1)
 
+
 def main():
 
     # init d-bus
-    GObject.threads_init()    
+    GObject.threads_init()
     dbus.mainloop.glib.threads_init()
-    # lamps = [LampService(mac) for mac in argv]
 
     # start mainloop
     loop = GObject.MainLoop()

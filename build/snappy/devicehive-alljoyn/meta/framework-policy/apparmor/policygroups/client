@@ -1,0 +1,12 @@
+# Description: allow using devicehive-alljoyn
+# Usage: common
+
+#include <abstractions/dbus-strict>
+
+/run/dbus/system_bus_socket rw,
+dbus (receive, send)
+    bus=system
+    path=com/devicehive/alljoyn/bridge
+    interface=com.devicehive.alljoyn.bridge,org.freedesktop.DBus.Introspectable,
+	peer=(label=devicehive_alljoyn-service_*),
+

@@ -12,6 +12,7 @@ import (
 	"github.com/godbus/dbus/introspect"
 	"github.com/godbus/dbus/prop"
 
+	"strings"
 	"time"
 )
 
@@ -79,9 +80,9 @@ func exportDBusObject(bus *dbus.Conn, w *DBusWrapper) {
 			{
 				Name: "CommandReceived",
 				Args: []introspect.Arg{
-					{"id", "t", "in"},
-					{"name", "s", "in"},
-					{"parameters", "s", "in"}, // JSON string
+					{"id", "t", "out"},
+					{"name", "s", "out"},
+					{"parameters", "s", "out"}, // JSON string
 				},
 			},
 		},
@@ -102,7 +103,7 @@ func exportDBusObject(bus *dbus.Conn, w *DBusWrapper) {
 	// root node
 	root := &introspect.Node{
 		Children: []introspect.Node{
-			{Name: ComDevicehiveCloudPath},
+			{ Name: strings.TrimPrefix(ComDevicehiveCloudPath, "/") },
 		},
 	}
 	root_obj := introspect.NewIntrospectable(root)

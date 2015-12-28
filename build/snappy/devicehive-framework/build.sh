@@ -37,7 +37,7 @@ echo "Copying enocean-daemon ..."
 cp -fv $DIR/../../../devicehive-enocean/enocean-daemon $DIR/bin/devicehive-enocean
 
 echo "Pip3 install enocean ..."
-PYTHONUSERBASE=$DIR pip3 install --user enocean
+PYTHONUSERBASE=$DIR pip3 install  --force-reinstall --upgrade --user enocean
 
 # GPIO
 
@@ -46,5 +46,4 @@ cp -fv  $DIR/../../../devicehive-gpio/gpio-daemon $DIR/bin/devicehive-gpio
 
 echo "Copying gpio-daemon profiles ..."
 cp -frv $DIR/../../../devicehive-gpio/profiles $DIR/bin/
-
 

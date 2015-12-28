@@ -1,0 +1,9 @@
+Package: devicehive-IoT-framework
+Version: ${VERSION}
+Section: base
+Priority: optional
+Architecture: ${ARCHITECTURE}
+Maintainer: DeviceHive Team <info@devicehive.com>
+Description: DeviceHive IoT framework
+ Set of DeviceHive IoT tools
+ git revision ${GITHASH}

@@ -1,0 +1,56 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:          devicehive-cloud
+# Required-Start:
+# Required-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: D-Bus to DeviceHive bridge
+# Description:       This script is used to start/stop D-Bus to DeviceHive bridge.
+### END INIT INFO
+
+DESC="D-Bus to DeviceHive bridge"
+NAME="devicehive-cloud"
+DAEMON="/usr/bin/$NAME"
+
+PIDFILE="/var/run/$NAME.pid"
+LOGFILE="/var/log/$NAME.log"
+
+do_start() {
+  if [ -f "$PIDFILE" ] && kill -0 $(cat "$PIDFILE"); then
+    echo "$NAME is already running" >&2
+    return 1
+  fi
+  echo "$NAME starting..." >&2
+  local CMD="$DAEMON &> \"$LOGFILE\" & echo \$!"
+  su -c "$CMD" > "$PIDFILE"
+  echo "$NAME started" >&2
+}
+
+do_stop() {
+  if [ ! -f "$PIDFILE" ] || ! kill -0 $(cat "$PIDFILE"); then
+    echo "$NAME is not running" >&2
+    return 1
+  fi
+  echo "$NAME stopping..." >&2
+  kill -15 $(cat "$PIDFILE") && rm -f "$PIDFILE"
+  echo "$NAME stopped" >&2
+}
+
+case "$1" in
+  start)
+    do_start
+    ;;
+  stop)
+    do_stop
+    ;;
+  restart)
+    do_stop
+    do_start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    ;;
+esac
+

@@ -11,3 +11,13 @@ You can also run
 build-apps.sh
 ```
 to create few demo snap that using our IoT framework
+
+There are a few environment variables you can customize:
+- `PLATFORM` could be `x86_64` or `armhf`
+- `VARIANT` could be `debug` or `release`
+
+For example:
+```bash
+VARIANT=debug build-alljoyn.sh
+```
+

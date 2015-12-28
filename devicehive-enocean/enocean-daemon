@@ -45,12 +45,14 @@ class EnoceanService(dbus.service.Object):
 
                 self.m_communicator.start()
                 self.m_communicator.send(p)
-                print("Connected to device on %s" & self.m_port)                
+                print("Connected to device on %s" % self.m_port)
                 while self.m_communicator.is_alive():
                     try:
                         # Loop to empty the queue...
                         p = self.m_communicator.receive.get(block=True, timeout=1)
                         res = None
+
+                        print(p)
 
                         if p.type == PACKET.RADIO:
                             res = {"sender": p.sender_hex}
