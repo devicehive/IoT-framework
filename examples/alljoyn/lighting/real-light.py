@@ -477,23 +477,21 @@ class Lamp:
         if self.status == 'CONNECTED':
             self._dbus.deinit()
 
+exiting = threading.Event()
+
 def worker():
-    try:
+  while not exiting.is_set():
 
-        time.sleep(2)
+    time.sleep(2)
 
-        # single lamp for now
-        mac = 'd05fb831379f'
-        LAMPS[mac] = Lamp(mac, 'Virtual Lamp')
-        # threading.Thread(target=LAMPS[mac].connect).start()
-        LAMPS[mac].connect()
-        
-        return    
+    # single lamp for now
+    mac = '20c38ff549b4'
+    LAMPS[mac] = Lamp(mac, 'Virtual Lamp')
+    # threading.Thread(target=LAMPS[mac].connect).start()
+    LAMPS[mac].connect()
+    
+    return    
 
-    except Exception as err:
-        print(err)
-        traceback.print_exc()
-        os._exit(1)
 
 def main():
 
@@ -511,8 +509,7 @@ def main():
     try:
         loop.run()
     except (KeyboardInterrupt, SystemExit):
-        # for lamp in lamps:
-        #     lamp.deinit()
+        exiting.set()
         loop.quit()
         worker_thread.join()
 
