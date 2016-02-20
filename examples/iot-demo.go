@@ -317,7 +317,7 @@ func (d *dbusWrapper) SendInitCommands(mac string, dev *deviceInfo) error {
 	return nil
 }
 
-func (d *dbusWrapper) CloudUpdateCommand(id uint32, status string, result map[string]interface{}) {
+func (d *dbusWrapper) CloudUpdateCommand(id uint64, status string, result map[string]interface{}) {
 	b, _ := json.Marshal(result)
 	d.call("UpdateCommand", id, status, string(b))
 }
@@ -579,7 +579,7 @@ func main() {
 	}
 
 	cloud.RegisterHandler("CommandReceived", func(args ...interface{}) {
-		id := args[0].(uint32)
+		id := args[0].(uint64)
 		command := args[1].(string)
 		params := args[2].(string)
 
