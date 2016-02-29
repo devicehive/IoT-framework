@@ -5,4 +5,8 @@ DeviceID: my-simple-gw
 DeviceName: my simple gw
 DeviceKey: my-device-secret-key
 
-LoggingLevel: trace
+NetworkName: <network name>
+NetworkKey: <network key>
+NetworkDescription: <network description>
+
+LoggingLevel: debug
