@@ -45,7 +45,7 @@ func (w *MockCloudWrapper) SendNotification(name, parameters string) *dbus.Error
 }
 
 func (w *MockCloudWrapper) UpdateCommand(id uint32, status string, result string) *dbus.Error {
-	log.Printf("Updating command id: %n with status %s, result %s", id, status, result)
+	log.Printf("Updating command id: %d with status %s, result %s", id, status, result)
 	return nil
 }
 

@@ -1,3 +1,0 @@
-[submodule "devicehive-alljoyn/alljoyn"]
-	path = devicehive-alljoyn/alljoyn
-	url = https://github.com/devicehive/alljoyn.git
