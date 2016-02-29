@@ -1,0 +1,9 @@
+Package: devicehive-cloud
+Version: ${VERSION}
+Section: base
+Priority: optional
+Architecture: ${ARCHITECTURE}
+Maintainer: Anton Rudnev <arudnev@dataart.com>
+Description: DeviceHive D-Bus Gateway
+ Gateway for DeviceHive
+ GitHash: ${GITHASH}

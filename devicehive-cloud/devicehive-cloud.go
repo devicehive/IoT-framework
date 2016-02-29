@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -36,10 +37,18 @@ var (
 
 var (
 	lastTimestamp = ""
+
+	// service configuration
+	config Config
 )
 
 func main() {
-	log.Level, _ = logrus.ParseLevel(config.LoggingLevel)
+	defer func() {
+		if r := recover(); r != nil {
+			log.Fatalf("[%s]: %v", TAG, r)
+		}
+	}()
+	parseArgs()
 
 	// getting D-Bus bus
 	bus, err := dbus.SystemBus()
@@ -183,4 +192,23 @@ func newDeviceService(baseURL, accessKey, logLevel string) (dh.DeviceService, er
 		_ = dh_rest.SetLogLevel(logLevel)
 	}
 	return dh_rest.NewService(baseURL, accessKey)
+}
+
+// parse command line arguments
+func parseArgs() {
+	if !flag.Parsed() {
+		flag.Parse()
+	}
+
+	if len(configFileName) == 0 {
+		// no file provided
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	if err := config.FromFile(configFileName); err != nil {
+		panic(err) // failed to parse configuration
+	}
+
+	log.Level, _ = logrus.ParseLevel(config.LoggingLevel)
 }

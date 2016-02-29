@@ -1,12 +1,14 @@
 # DeviceHive Cloud Gateway D-Bus Daemon
 
 ## Decription
+
 `devicehive-cloud` provides D-Bus interface to access DeviceHive cloud server.
 It can also be served as a reference implementation of general purpose cloud
 conntectivity service (ex: PubNub). It starts as a daemon loading cloud
 configuration from `.yml` file. While running it maintains cloud connectivity
 and responds to D-Bus API calls from client applications, as well as notifies
 applications of incoming messages or status changes.
+
 
 ## Installation
 ### Ubuntu Snappy Core
@@ -31,47 +33,48 @@ sudo tail -n 100 /var/log/syslog
 ```
 
 ## Configuration
+
 If you are running `devicehive-cloud` as a part of Snappy Framework you can run
 `sudo snappy config devicehive-cloud config.yml`, or if you are running it on other
 system as a standalone executable, a configuration file can be supplied
 with `--conf` command line argument.
 
-Sample config:
-```
-URL: http://playground.devicehive.com/api/rest
-AccessKey: <put a valid access key here>
+See [this](./config.yml) file as an example.
 
-DeviceID: my-simple-gw
-DeviceName: my simple gw
-```
 
 ## D-Bus configuration for Ubuntu
 In some cases to run `devicehive-cloud` additional system configuration
 changes should be made. Need to provide appropriate D-Bus security file
-`/etc/dbus-1/system.d/com.devicehive.cloud.conf`:
+`/etc/dbus-1/system.d/com.devicehive.cloud.conf`.
 
-```
-<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
- "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
-<busconfig>
-  <policy user="root">
-    <allow own="com.devicehive.cloud"/>
-    <allow send_type="method_call"/>
-  </policy>
-</busconfig>
-```
+See [this](./com.devicehive.cloud.conf) file as an example.
+
 
 ## API Reference
 TBD
 
+
 ## Building and running it yourself
-###How to make a binary?
+### How to make a binary?
+
 ```
-go get github.com/devicehive/IoT-framework/tree/master/devicehive-cloud
-go install github.com/devicehive/IoT-framework/tree/master/devicehive-cloud
+go get github.com/devicehive/IoT-framework/devicehive-cloud
 ```
 
 ### How to run?
+
 ```
-$GOPATH/bin/devicehive-cloud --conf deviceconf.yml
+$GOPATH/bin/devicehive-cloud --conf config.yml
+```
+
+### How to make debian package?
+
+```
+make debian
+```
+
+### How to make snappy package?
+
+```
+make snappy
 ```

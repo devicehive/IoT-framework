@@ -4,34 +4,17 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"os"
 
 	"gopkg.in/yaml.v2"
 )
 
 var (
-	// service configuration
-	config *Config
+	configFileName string
 )
 
 // initialize command line options and parse them.
 func init() {
-	cfgFileName := flag.String("conf", "", "configuration file (YAML format)")
-
-	if !flag.Parsed() {
-		flag.Parse()
-	}
-
-	if cfgFileName == nil || len(*cfgFileName) == 0 {
-		// no file provided
-		flag.Usage()
-		os.Exit(1)
-	}
-
-	config = new(Config)
-	if err := config.FromFile(*cfgFileName); err != nil {
-		panic(err) // failed to parse configuration
-	}
+	flag.StringVar(&configFileName, "conf", "", "configuration file (YAML format)")
 }
 
 // Config holds all configuration data.
