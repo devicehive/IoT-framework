@@ -1,0 +1,9 @@
+FROM alpine:3.3
+
+# install dependencies
+RUN apk add --update dbus && rm -rf /var/cache/apk/*
+# RUN dbus-uuidgen --ensure=/etc/machine-id
+# RUN mkdir -p /var/run/dbus
+
+ENTRYPOINT ["/usr/bin/dbus-daemon"]
+CMD ["--system"]
