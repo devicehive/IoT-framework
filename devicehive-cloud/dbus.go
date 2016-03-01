@@ -9,7 +9,7 @@ import (
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
 	"github.com/godbus/dbus/prop"
-	dh "github.com/pilatuz/devicehive-go"
+	dh "github.com/devicehive/devicehive-go"
 )
 
 // DBusService is an D-Bus service wrapper.

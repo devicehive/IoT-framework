@@ -10,9 +10,9 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/godbus/dbus"
-	dh "github.com/pilatuz/devicehive-go"
-	dh_rest "github.com/pilatuz/devicehive-go/rest"
-	dh_ws "github.com/pilatuz/devicehive-go/ws"
+	dh "github.com/devicehive/devicehive-go"
+	dh_rest "github.com/devicehive/devicehive-go/rest"
+	dh_ws "github.com/devicehive/devicehive-go/ws"
 )
 
 const (
