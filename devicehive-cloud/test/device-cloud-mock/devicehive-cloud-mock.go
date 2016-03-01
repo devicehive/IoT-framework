@@ -6,13 +6,7 @@ import (
 	"log"
 	"time"
 
-	// "../conf"
-	// "../rest"
-	"../ws"
-
-	// "github.com/devicehive/IoT-framework/devicehive-cloud/conf"
-	// "github.com/devicehive/IoT-framework/devicehive-cloud/rest"
-	// "github.com/devicehive/IoT-framework/devicehive-cloud/ws"
+	"github.com/devicehive/devicehive-go/ws"
 
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
@@ -20,7 +14,7 @@ import (
 )
 
 type DbusObjectWrapper struct {
-	c *ws.Conn
+	c *ws.Service
 }
 
 type MockCloudWrapper struct {
@@ -64,7 +58,7 @@ func newDHError(message string) *dbus.Error {
 		[]interface{}{message})
 }
 
-func NewDbusObjectWrapper(c *ws.Conn) *DbusObjectWrapper {
+func NewDbusObjectWrapper(c *ws.Service) *DbusObjectWrapper {
 	w := new(DbusObjectWrapper)
 	w.c = c
 
@@ -87,7 +81,7 @@ func (w *DbusObjectWrapper) SendNotification(name, parameters string) *dbus.Erro
 		return newDHError(err.Error())
 	}
 
-	w.c.SendNotification(name, dat)
+	_ = dat //w.c.InsertNotification(name, dat)
 	return nil
 }
 
@@ -98,7 +92,7 @@ func (w *DbusObjectWrapper) UpdateCommand(id uint32, status string, result strin
 		return newDHError(err.Error())
 	}
 
-	w.c.UpdateCommand(id, status, dat)
+	_ = dat // w.c.UpdateCommand(id, status, dat)
 	return nil
 }
 
