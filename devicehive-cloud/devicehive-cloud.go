@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/godbus/dbus"
 	dh "github.com/devicehive/devicehive-go"
 	dh_rest "github.com/devicehive/devicehive-go/rest"
 	dh_ws "github.com/devicehive/devicehive-go/ws"
+	"github.com/godbus/dbus"
 )
 
 const (
@@ -138,10 +138,10 @@ func mainLoop(bus *dbus.Conn, stopCh chan os.Signal) error {
 
 	// D-Bus service wrapper
 	log.Debugf("[%s]: exporting D-Bus service...", TAG)
-	wrapper := new(DBusService)
+	wrapper := newDBusService(bus)
 	wrapper.service = service
 	wrapper.device = device
-	err = wrapper.Export(bus)
+	err = wrapper.export()
 	if err != nil {
 		return fmt.Errorf("failed to export D-Bus service: %s", err)
 	}
@@ -159,10 +159,7 @@ func mainLoop(bus *dbus.Conn, stopCh chan os.Signal) error {
 					continue
 				}
 
-				log.WithField("params", params).Debugf("[%s]: emitting CommandReceived D-Bus signal...", TAG)
-				err = bus.Emit(ComDevicehiveCloudPath, ComDevicehiveCloudIface+".CommandReceived",
-					command.ID, command.Name, params)
-				if err != nil {
+				if err = wrapper.emitCommandReceived(command.ID, command.Name, params); err != nil {
 					log.WithError(err).Warnf("[%s]: failed to emit D-Bus signal, ignored", TAG)
 					continue
 				}

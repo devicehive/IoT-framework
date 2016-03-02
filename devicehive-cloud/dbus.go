@@ -6,16 +6,25 @@ import (
 	"fmt"
 	"strings"
 
+	dh "github.com/devicehive/devicehive-go"
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
 	"github.com/godbus/dbus/prop"
-	dh "github.com/devicehive/devicehive-go"
 )
 
-// DBusService is an D-Bus service wrapper.
+// DBusService is a D-Bus service wrapper.
 type DBusService struct {
+	bus *dbus.Conn
+
 	service dh.DeviceService // DeviceHive service
 	device  *dh.Device       // DeviceHive device
+}
+
+// create new D-Bus service object
+func newDBusService(bus *dbus.Conn) *DBusService {
+	w := new(DBusService)
+	w.bus = bus
+	return w
 }
 
 // SendNotification sends notification to the DeviceHive device.
@@ -28,14 +37,14 @@ func (w *DBusService) SendNotification(name, parameters string, priority uint64)
 	params, err := parseJSON(parameters)
 	if err != nil {
 		log.WithError(err).Warnf("[%s]: failed to convert parameters to JSON", TAG)
-		return newDHError(fmt.Sprintf("failed to convert parameters to JSON: %s", err))
+		return newDBusError(fmt.Sprintf("failed to convert parameters to JSON: %s", err))
 	}
 
 	// ensure service is available
 	if w.service == nil || w.device == nil {
 		// TODO: put to pending queue?
 		log.WithError(err).Warnf("[%s]: no DeviceHive service available, ignored", TAG)
-		return newDHError("no DeviceHive service available")
+		return newDBusError("no DeviceHive service available")
 	}
 
 	// send notification
@@ -43,7 +52,7 @@ func (w *DBusService) SendNotification(name, parameters string, priority uint64)
 	err = w.service.InsertNotification(w.device, notification)
 	if err != nil {
 		log.WithError(err).Warnf("[%s]: failed to send notification", TAG)
-		return newDHError(fmt.Sprintf("failed to send notification: %s", err))
+		return newDBusError(fmt.Sprintf("failed to send notification: %s", err))
 	}
 
 	log.WithField("name", name).WithField("params", parameters).
@@ -61,14 +70,14 @@ func (w *DBusService) UpdateCommand(ID uint64, status, result string) *dbus.Erro
 	res, err := parseJSON(result)
 	if err != nil {
 		log.WithError(err).Warnf("[%s]: failed to convert result to JSON", TAG)
-		return newDHError(fmt.Sprintf("failed to convert result to JSON: %s", err))
+		return newDBusError(fmt.Sprintf("failed to convert result to JSON: %s", err))
 	}
 
 	// ensure service is available
 	if w.service == nil || w.device == nil {
 		// TODO: put to pending queue?
 		log.WithError(err).Warnf("[%s]: no DeviceHive service available, ignored", TAG)
-		return newDHError("no DeviceHive service available")
+		return newDBusError("no DeviceHive service available")
 	}
 
 	// update command
@@ -76,7 +85,7 @@ func (w *DBusService) UpdateCommand(ID uint64, status, result string) *dbus.Erro
 	err = w.service.UpdateCommand(w.device, command)
 	if err != nil {
 		log.WithError(err).Warnf("[%s]: failed to update command", TAG)
-		return newDHError(fmt.Sprintf("failed to update command: %s", err))
+		return newDBusError(fmt.Sprintf("failed to update command: %s", err))
 	}
 
 	log.WithField("ID", ID).WithField("status", status).WithField("result", result).
@@ -85,9 +94,21 @@ func (w *DBusService) UpdateCommand(ID uint64, status, result string) *dbus.Erro
 	return nil // OK
 }
 
-// Export exports main D-Bus service and introspectable.
-func (w *DBusService) Export(bus *dbus.Conn) error {
-	err := bus.Export(w, ComDevicehiveCloudPath, ComDevicehiveCloudIface)
+// emit CommandReceived signal
+func (w *DBusService) emitCommandReceived(ID uint64, name string, params string) error {
+	log.WithField("id", ID).
+		WithField("name", name).
+		WithField("params", params).
+		Debugf("[%s]: emitting CommandReceived D-Bus signal...", TAG)
+
+	return w.bus.Emit(ComDevicehiveCloudPath,
+		ComDevicehiveCloudIface+".CommandReceived",
+		ID, name, params)
+}
+
+// export exports main D-Bus service and introspectable.
+func (w *DBusService) export() error {
+	err := w.bus.Export(w, ComDevicehiveCloudPath, ComDevicehiveCloudIface)
 	if err != nil {
 		return err
 	}
@@ -119,7 +140,7 @@ func (w *DBusService) Export(bus *dbus.Conn) error {
 	}
 	nodeObj := introspect.NewIntrospectable(n)
 	log.WithField("node", nodeObj).Debugf("[%s]: %q introspectable", TAG, ComDevicehiveCloudPath)
-	err = bus.Export(nodeObj, ComDevicehiveCloudPath, introspect.IntrospectData.Name)
+	err = w.bus.Export(nodeObj, ComDevicehiveCloudPath, introspect.IntrospectData.Name)
 	if err != nil {
 		return err
 	}
@@ -132,7 +153,7 @@ func (w *DBusService) Export(bus *dbus.Conn) error {
 	}
 	rootObj := introspect.NewIntrospectable(root)
 	log.WithField("root", rootObj).Debugf("[%s]: %q introspectable", TAG, "/")
-	err = bus.Export(rootObj, "/", introspect.IntrospectData.Name)
+	err = w.bus.Export(rootObj, "/", introspect.IntrospectData.Name)
 	if err != nil {
 		return err
 	}
@@ -141,7 +162,7 @@ func (w *DBusService) Export(bus *dbus.Conn) error {
 }
 
 // create new DBus error
-func newDHError(message string) *dbus.Error {
+func newDBusError(message string) *dbus.Error {
 	return dbus.NewError("com.devicehive.Error",
 		[]interface{}{message})
 }
