@@ -1,6 +1,0 @@
-FROM alpine:3.3
-
-COPY bootstrap-ble.sh /tmp/init.sh
-RUN /tmp/init.sh v2 && rm -rf /tmp/init.sh
-
-ENTRYPOINT ["/usr/bin/devicehive-ble"]

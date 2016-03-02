@@ -1,0 +1,20 @@
+version: '2'
+services:
+  dbus:
+    build: ./dbus
+
+  cloud:
+    build: ./cloud
+    depends_on:
+      - dbus
+    volumes_from:
+      - dbus
+
+# ble:
+#   build: ./ble
+#   depends_on:
+#     - dbus
+#   volumes_from:
+#     - dbus
+#   devices:
+#     - "/dev/ttyUSB0:/dev/ttyUSB0"

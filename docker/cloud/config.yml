@@ -1,0 +1,14 @@
+AccessKey: <put a valid access key here>
+#URL: http://playground.devicehive.com/api/rest
+URL: ws://playground.devicehive.com/api/websocket
+
+DeviceID: go-dbus-docker-gw
+DeviceName: Go D-Bus Docker Gateway
+DeviceKey: my device secret key
+
+NetworkName: <network name>
+NetworkKey: <network key>
+NetworkDescription: <network description>
+
+LoggingLevel: debug
+DH-LoggingLevel: debug
