@@ -7,7 +7,6 @@ RUN mkdir -p /var/run/dbus && \
 
 # prepare scripts
 COPY ./start.sh /start.sh
-RUN chmod +x /start.sh
 
 VOLUME ["/etc/dbus-1/system.d", "/var/run/dbus"]
 

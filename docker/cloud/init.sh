@@ -19,7 +19,7 @@ cd $GOPATH/src/github.com/devicehive/IoT-framework/devicehive-cloud
 go get -d -t -v ./...
 go build -o /usr/bin/devicehive-cloud
 
-# copy configuration file for D-Bus, it will be processed by start.sh script
+# copy configuration file for D-Bus, it will be processed by /start.sh script
 mkdir -p /usr/share/dbus-1/system.d && \
 	cp com.devicehive.cloud.conf /usr/share/dbus-1/system.d/
 
