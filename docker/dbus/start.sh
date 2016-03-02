@@ -1,9 +1,10 @@
 #!/bin/sh -e
 
 # this script is used to start D-Bus daemon
-# check start() from /etc/init.d/dbus to reference
+# for reference check start() function from /etc/init.d/dbus
 
 /usr/bin/dbus-uuidgen --ensure=/etc/machine-id
 
-mkdir -p /var/run/dbus
-/usr/bin/dbus-daemon --system $@
+# important do not fork D-Bus daemon!
+# (to keep container running)
+/usr/bin/dbus-daemon --nofork $@

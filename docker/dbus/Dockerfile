@@ -6,9 +6,10 @@ RUN mkdir -p /var/run/dbus && \
 	mkdir -p /etc/dbus-1/system.d
 
 # prepare scripts
-ADD ./start.sh /start.sh
+COPY ./start.sh /start.sh
 RUN chmod +x /start.sh
 
 VOLUME ["/etc/dbus-1/system.d", "/var/run/dbus"]
+
 ENTRYPOINT ["/start.sh"]
-# CMD ["--system"]
+CMD ["--system"]

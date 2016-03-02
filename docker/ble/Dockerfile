@@ -1,10 +1,10 @@
 FROM alpine:3.3
 
 # bootstrap
-COPY ./init.sh /tmp/init.sh
-RUN chmod +x /tmp/init.sh && \
-	/tmp/init.sh v2 && \
-	rm -rf /tmp/init.sh
+COPY ./init.sh /init.sh
+RUN chmod +x /init.sh && \
+	/init.sh v2 && \
+	rm -rf /init.sh
 
 # prepare scripts
 COPY ./start.sh /start.sh

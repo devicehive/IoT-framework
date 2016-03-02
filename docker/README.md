@@ -6,47 +6,51 @@ Instead D-Bus daemon from `devicehive-dbus` container is used.
 To make all services up use the following command:
 
 ```{.sh}
-cd IoT-framework/docker
-docker-compose up
+$ cd IoT-framework/docker
+$ docker-compose up
 ```
 
 ## Manual run
 
-First we need to run D-Bus service:
+First of all we need to run D-Bus service (see below how to build images):
 
 ```{.sh}
-(host)$ docker run -it --name dbus --entrypoint /bin/sh devicehive/devicehive-dbus:v2
-(dbus)# /start.sh
-(dbus)# dbus-monitor --system # to catch what is going on D-Bus
+$ docker run -d --name=dbus devicehive/devicehive-dbus:v2
 ```
 
 Then it's possible to run cloud service:
 
 ```{.sh}
-(host)$ docker run -it --volumes-from dbus --name cloud --entrypoint /bin/sh devicehive/devicehive-dbus:v2
-(cloud)# /start.sh
+$ docker run -d --volumes-from dbus --name=cloud devicehive/devicehive-cloud:v2
 ```
 
 It's it. Now you can send commands via Admin page.
 
+At the same time it's possible to connect to `dbus` container to monitor D-Bus messages:
+
+```{.sh}
+$ docker exec -it dbus /bin/sh
+# dbus-monitor --system
+```
+
+
+
+## Build devicehive-dbus
+```{.sh}
+$ cd IoT-framework/docker
+$ docker build -t devicehive/devicehive-dbus:v2 dbus
+```
 
 ## Build devicehive-cloud
-
 Please put valid data to `IoT-framework/docker/cloud/config.yml` before building image.
 
 ```{.sh}
-cd IoT-framework/docker
-docker build -t devicehive/devicehive-cloud:v2 cloud
+$ cd IoT-framework/docker
+$ docker build -t devicehive/devicehive-cloud:v2 cloud
 ```
 
 ## Build devicehive-ble
 ```{.sh}
-cd IoT-framework/docker
-docker build -t devicehive/devicehive-ble:v2 ble
-```
-
-## Build devicehive-dbus
-```{.sh}
-cd IoT-framework/docker
-docker build -t devicehive/devicehive-dbus:v2 dbus
+$ cd IoT-framework/docker
+$ docker build -t devicehive/devicehive-ble:v2 ble
 ```
