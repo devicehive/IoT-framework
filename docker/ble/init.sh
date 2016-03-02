@@ -5,7 +5,7 @@ REPO_BASE=https://github.com/devicehive
 export GOPATH=/go
 
 # install dependencies
-apk add --update go git
+apk add --update go git bluez
 
 # cloning repositories
 mkdir -p $GOPATH/src/github.com/devicehive

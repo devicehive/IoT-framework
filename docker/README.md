@@ -33,6 +33,8 @@ $ docker exec -it dbus /bin/sh
 # dbus-monitor --system
 ```
 
+The `devicehive-ble` container should be run in privileged mode with "host" network.
+See this docker [issue](https://github.com/docker/docker/issues/16208) for more details.
 
 
 ## Build devicehive-dbus

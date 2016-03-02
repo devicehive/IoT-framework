@@ -2,6 +2,7 @@ version: '2'
 services:
   dbus:
     build: ./dbus
+    network_mode: "host"
 
   cloud:
     build: ./cloud
@@ -9,12 +10,13 @@ services:
       - dbus
     volumes_from:
       - dbus
+    network_mode: "host"
 
-# ble:
-#   build: ./ble
-#   depends_on:
-#     - dbus
-#   volumes_from:
-#     - dbus
-#   devices:
-#     - "/dev/ttyUSB0:/dev/ttyUSB0"
+  ble:
+    build: ./ble
+    depends_on:
+      - dbus
+    volumes_from:
+      - dbus
+    network_mode: "host"
+    privileged: true
