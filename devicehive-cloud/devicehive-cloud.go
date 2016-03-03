@@ -147,7 +147,7 @@ func mainLoop(bus *dbus.Conn, stopCh chan os.Signal) error {
 	}
 
 	// main loop
-	log.Debugf("[%s]: waiting for events...", TAG)
+	log.Debugf("[%s]: running...", TAG)
 	for {
 		select {
 		case command := <-listener.C:
