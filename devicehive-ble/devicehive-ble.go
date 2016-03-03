@@ -30,12 +30,14 @@ var (
 )
 
 var (
-	deviceID int = 0
+	deviceID int    = 0
+	logLevel string = "info"
 )
 
 // populate flags
 func init() {
 	flag.IntVar(&deviceID, "device-id", 0, "HCI device index")
+	flag.StringVar(&logLevel, "log-level", "info", "logging level")
 }
 
 // entry point
@@ -51,6 +53,8 @@ func main() {
 	if !flag.Parsed() {
 		flag.Parse()
 	}
+
+	log.Level, _ = logrus.ParseLevel(logLevel)
 
 	// getting D-Bus bus
 	bus, err := dbus.SystemBus()

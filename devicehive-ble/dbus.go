@@ -189,7 +189,7 @@ func (w *DBusService) Connect(mac string, random bool) (bool, *dbus.Error) {
 	}
 
 	log.WithField("mac", mac).WithField("random", random).
-		Infof("[%s]: connecting", TAG)
+		Infof("[%s]: connecting...", TAG)
 
 	w.connecting = true
 	defer func() {
@@ -261,19 +261,24 @@ func (w *DBusService) Connect(mac string, random bool) (bool, *dbus.Error) {
 func (w *DBusService) Disconnect(mac string) *dbus.Error {
 	mac, _ = normalizeHex(mac)
 
-	if pdev := w.findDeviceDiscovered(mac); pdev != nil {
-		// TODO: remove from w.devicesConnected?
-		w.device.CancelConnection(pdev.peripheral)
-		return nil // OK
+	pdev := w.findDeviceConnected(mac)
+	if pdev == nil {
+		return newDBusError("Not Connected")
 	}
 
-	return newDBusError("Not connected")
+	log.WithField("mac", mac).
+		Infof("[%s]: disconnecting", TAG)
+
+	w.device.CancelConnection(pdev.peripheral)
+	return nil // OK
 }
 
 // Is peripheral connected?
 func (w *DBusService) Connected(mac string) (bool, *dbus.Error) {
 	mac, _ = normalizeHex(mac)
 	pdev := w.findDeviceConnected(mac)
+	log.WithField("mac", mac).WithField("connected", pdev != nil).
+		Infof("[%s]: getting status", TAG)
 	return pdev != nil, nil
 }
 
@@ -367,13 +372,11 @@ func (w *DBusService) onPeripheralDiscovered(p gatt.Peripheral, a *gatt.Advertis
 	mac, _ := normalizeHex(p.ID())
 	name := strings.Trim(p.Name(), "\x00")
 
-	if pdev := w.findDeviceDiscovered(mac); pdev != nil {
-		// update existing peripheral
-		if pdev.name == "" && name != "" {
-			pdev.name = name
-		}
-		w.emitPeripheralDiscovered(mac, pdev.name, rssi)
-	} else {
+	log.WithField("mac", mac).WithField("name", name).
+		Infof("[%s]: peripheral discovered", TAG)
+
+	pdev := w.findDeviceDiscovered(mac)
+	if pdev == nil {
 		// new peripheral discovered
 		pdev = &DeviceInfo{
 			name:       name,
@@ -381,8 +384,14 @@ func (w *DBusService) onPeripheralDiscovered(p gatt.Peripheral, a *gatt.Advertis
 			peripheral: p,
 		}
 		w.insertDeviceDiscovered(mac, pdev)
-		w.emitPeripheralDiscovered(mac, name, rssi)
+	} else {
+		// update existing peripheral
+		if pdev.name == "" && name != "" {
+			pdev.name = name
+		}
 	}
+
+	w.emitPeripheralDiscovered(mac, pdev.name, rssi)
 }
 
 // "PeripheralConnected" handler
@@ -513,6 +522,9 @@ func (w *DBusService) handleGattCommand(mac string, uuid string, message string,
 		log.WithField("mac", mac).Warnf("[%s]: peripheral is not discovered", TAG)
 		return "", newDBusError(fmt.Sprintf("Peripheral [%s] is not discovered", mac))
 	}
+
+	log.WithField("mac", mac).WithField("char", uuid).WithField("result", res).
+		Infof("[%s]: GATT command response", TAG)
 
 	return res, nil // OK
 }
