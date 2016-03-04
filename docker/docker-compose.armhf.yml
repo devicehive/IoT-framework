@@ -3,13 +3,13 @@ services:
   dbus:
     build:
       context: ./dbus
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.armhf
     network_mode: "host"
 
   cloud:
     build:
       context: ./cloud
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.armhf
     depends_on:
       - dbus
     volumes_from:
@@ -19,7 +19,7 @@ services:
   ble:
     build:
       context: ./ble
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.armhf
     depends_on:
       - dbus
     volumes_from:
