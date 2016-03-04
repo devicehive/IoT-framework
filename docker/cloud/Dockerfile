@@ -1,4 +1,4 @@
-FROM alpine:3.3
+FROM alpine:3.2
 
 # bootstrap
 COPY ./init.sh /init.sh

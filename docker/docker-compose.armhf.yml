@@ -1,3 +1,6 @@
+# TODO: use ${ARCH} environment variable instead of armhf suffix
+# to support multiple architectures within the same file!
+
 version: '2'
 services:
   dbus:
@@ -26,3 +29,14 @@ services:
       - dbus
     network_mode: "host"
     privileged: true
+
+  examples:
+    build:
+      context: ./examples
+      dockerfile: Dockerfile.armhf
+    depends_on:
+      - dbus
+      - cloud
+      - ble
+    volumes_from:
+      - dbus
