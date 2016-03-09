@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
+# required: py-dbus, py-gobject
+
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
-from gi.repository import GObject
+from gobject import MainLoop
 import struct, codecs
 
 DBusGMainLoop(set_as_default=True)
@@ -46,7 +48,7 @@ def main():
     ble.connect_to_signal("NotificationReceived", notification_received)
     ble.ScanStart()
 
-    GObject.MainLoop().run()
+    MainLoop().run()
 
 if __name__ == '__main__':
     main()
