@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 # required: py-dbus, py-gobject
 
@@ -6,8 +6,10 @@ import dbus
 from dbus.mainloop.glib import DBusGMainLoop
 from gobject import MainLoop
 import struct, codecs
+import signal, sys
 
 DBusGMainLoop(set_as_default=True)
+main_loop = MainLoop()
 
 def get_ble():
     bus = dbus.SystemBus()
@@ -19,6 +21,7 @@ ble = get_ble()
 def device_discovered(mac, name, rssi):
     print("Discovered %s (%s) %s" % (mac, name, rssi))
     if name == 'SensorTag':
+        print("Connecting to %s ..." % (mac))
         ble.ScanStop()
         ble.Connect(mac, True)
 
@@ -33,6 +36,7 @@ def device_connected(mac):
 
 def device_disconnected(mac):
     print("Disconnected %s" % (mac))
+    main_loop.quit()
 
 def notification_received(mac, uuid, message):
     if uuid == "F000AA1104514000b000000000000000":
@@ -47,8 +51,11 @@ def main():
     ble.connect_to_signal("PeripheralDisconnected", device_disconnected)
     ble.connect_to_signal("NotificationReceived", notification_received)
     ble.ScanStart()
-
-    MainLoop().run()
+    main_loop.run()
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit()
+
