@@ -15,6 +15,8 @@ services:
       dockerfile: Dockerfile.armhf
     depends_on:
       - dbus
+    volumes:
+      - ./cloud/config.yml:/etc/devicehive-cloud.yml
     volumes_from:
       - dbus
     network_mode: "host"
@@ -34,6 +36,7 @@ services:
     build:
       context: ./examples
       dockerfile: Dockerfile.armhf
+    command: ./sensortag.py
     depends_on:
       - dbus
       - cloud
