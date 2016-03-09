@@ -7,4 +7,4 @@
 
 # important do not fork D-Bus daemon!
 # (to keep container running)
-/usr/bin/dbus-daemon --nofork $@
+/usr/bin/dbus-daemon --nofork --nopidfile $@
