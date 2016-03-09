@@ -16,15 +16,26 @@ endif
 
 # architecture
 ifeq (${ARCH},)
-  dash_arch=
-  dot_arch=
+  # auto-detection...
+  arch=$(shell uname -m)
+  ifeq (${arch},$(filter ${arch},x86_64 amd64))
+    # default one, no prefix
+    dash_arch=
+    dot_arch=
+  else ifeq (${arch},$(filter ${arch},armv7l))
+    # armhf prefix
+    dash_arch=-armhf
+    dot_arch=.armhf
+  endif
 else
-  dash_arch=-${ARCH}
-  dot_arch=.${ARCH}
+  arch=${ARCH}
+  dash_arch=-${arch}
+  dot_arch=.${arch}
 endif
 
 all: build
 
+# build
 build_dbus:
 	docker build -t ${prefix}devicehive-dbus:${version}${dash_arch} -f dbus/Dockerfile${dot_arch} dbus
 build_cloud:
@@ -36,6 +47,7 @@ build_examples:
 build: build_dbus build_cloud build_ble build_examples
 .PHONY: build build_dbus build_cloud build_ble build_examples
 
+# push
 push_dbus: build_dbus
 	docker push ${prefix}devicehive-dbus:${version}${dash_arch}
 push_cloud: build_cloud
@@ -46,3 +58,7 @@ push_examples: build_examples
 	docker push ${prefix}devicehive-examples:${version}${dash_arch}
 push: push_dbus push_cloud push_ble push_examples
 .PHONY: push push_dbus push_cloud push_ble push_examples
+
+up:
+	docker-compose -f docker-compose${dot_arch}.yml up
+.PHONY: up
