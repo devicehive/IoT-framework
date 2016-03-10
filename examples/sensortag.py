@@ -6,7 +6,6 @@ import dbus
 from dbus.mainloop.glib import DBusGMainLoop
 from gobject import MainLoop
 import struct, codecs
-import signal, sys
 
 DBusGMainLoop(set_as_default=True)
 main_loop = MainLoop()
@@ -57,5 +56,4 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        sys.exit()
-
+        pass
