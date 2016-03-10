@@ -11,7 +11,7 @@ endif
 ifeq (${VERSION},)
   version=2.0
 else
-  version=${VERSION}/
+  version=${VERSION}
 endif
 
 # architecture
@@ -62,3 +62,11 @@ push: push_dbus push_cloud push_ble push_examples
 up:
 	docker-compose -f docker-compose${dot_arch}.yml up
 .PHONY: up
+
+# WARNING: remove *ALL* containers/images
+clean_docker: clean_docker_containers clean_docker_images
+clean_docker_containers:
+	docker rm -f $(shell docker ps -a -q)
+clean_docker_images:
+	docker rmi -f $(shell docker images -q)
+.PHONY: clean_docker clean_docker_containers clean_docker_images
