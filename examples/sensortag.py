@@ -2,10 +2,15 @@
 
 # required: py-dbus, py-gobject
 
-import dbus
+import dbus, struct, codecs
 from dbus.mainloop.glib import DBusGMainLoop
-from gobject import MainLoop
-import struct, codecs
+try:
+    from gi.repository import GObject
+    MainLoop = GObject.MainLoop
+except:
+    # alpine linux doesn't have gi.repository package (py-gobject on armhf)
+    # but the MainLoop can be imported from gobject
+    from gobject import MainLoop
 
 DBusGMainLoop(set_as_default=True)
 main_loop = MainLoop()
