@@ -1,7 +1,7 @@
 package main
 
 /*
-#cgo CFLAGS: -DNDEBUG -I${SRCDIR}/lib -I${SRCDIR}/alljoyn/core/ajtcl/inc -I${SRCDIR}/alljoyn/core/ajtcl/target/linux -I${SRCDIR}/alljoyn/services/base_tcl/notification/inc -I${SRCDIR}/alljoyn/services/base_tcl/services_common/inc -I${SRCDIR}/alljoyn/services/base_tcl/notification/src -I${SRCDIR}/alljoyn/services/base_tcl/services_common/src  -I${SRCDIR}/alljoyn/services/base_tcl/sample_apps/AppsCommon/inc -I${SRCDIR}/alljoyn/services/base_tcl/sample_apps/AppsCommon/src
+#cgo CFLAGS: -DNDEBUG -I${SRCDIR}/lib -I${SRCDIR}/alljoyn/services/base_tcl/src -I${SRCDIR}/alljoyn/core/ajtcl/inc -I${SRCDIR}/alljoyn/core/ajtcl/dist/include -I${SRCDIR}/alljoyn/core/ajtcl/target/linux -I${SRCDIR}/alljoyn/services/base_tcl/notification/inc -I${SRCDIR}/alljoyn/services/base_tcl/services_common/inc -I${SRCDIR}/alljoyn/services/base_tcl/notification/src -I${SRCDIR}/alljoyn/services/base_tcl/services_common/src  -I${SRCDIR}/alljoyn/services/base_tcl/sample_apps/AppsCommon/inc -I${SRCDIR}/alljoyn/services/base_tcl/sample_apps/AppsCommon/src
 #cgo LDFLAGS: -L${SRCDIR}/alljoyn/core/ajtcl -lajtcl
 #include "cfuncs.h"
 */
@@ -12,17 +12,18 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/xml"
+	"flag"
 	"fmt"
+	"io"
+	"log"
+	"os"
+	"os/exec"
+	"strings"
+	"unsafe"
+
 	"github.com/devicehive/IoT-framework/devicehive-alljoyn/ajmarshal"
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
-	"io"
-	"log"
-	"strings"
-	"unsafe"
-	"flag"
-	"os/exec"
-	"os"
 )
 
 const UNMARSHAL_TIMEOUT = 100
@@ -98,10 +99,10 @@ type AllJoynMessenger struct {
 }
 
 var (
-	spawnUUID      = ""
-	spawnDbusServiceId = ""
-	spawnDbusService = ""
-	spawnDbusPath = ""
+	spawnUUID           = ""
+	spawnDbusServiceId  = ""
+	spawnDbusService    = ""
+	spawnDbusPath       = ""
 	spawnAlljoynService = ""
 )
 
@@ -1015,11 +1016,11 @@ func (a *AllJoynBridge) AddService(dbusService, dbusPath, alljoynService string,
 
 	// a.addService(uuid, string(sender), dbusService, dbusPath, alljoynService)
 	async := exec.Command(os.Args[0],
-			"--spawn-uuid", uuid,
-			"--spawn-dbus-service-id", string(sender),
-			"--spawn-dbus-service", dbusService,
-			"--spawn-dbus-path", dbusPath,
-			"--spawn-alljoyn-service", alljoynService)
+		"--spawn-uuid", uuid,
+		"--spawn-dbus-service-id", string(sender),
+		"--spawn-dbus-service", dbusService,
+		"--spawn-dbus-path", dbusPath,
+		"--spawn-alljoyn-service", alljoynService)
 	async.Stdout = os.Stdout
 	async.Stderr = os.Stderr
 	async.Start()
@@ -1042,7 +1043,7 @@ func (a *AllJoynBridge) addService(uuid, dbusServiceId, dbusService, dbusPath, a
 
 	log.Printf("Added %s service with %d AJ objects", alljoynService, len(bindings))
 
-	if len(bindings)!=0 {
+	if len(bindings) != 0 {
 		go a.startAllJoyn(uuid)
 	}
 }
@@ -1055,7 +1056,7 @@ func main() {
 	}
 
 	// run as a child
-	if len(spawnUUID)!=0 && len(spawnDbusServiceId)!=0 && len(spawnDbusPath)!=0 {
+	if len(spawnUUID) != 0 && len(spawnDbusServiceId) != 0 && len(spawnDbusPath) != 0 {
 		allJoynBridge := NewAllJoynBridge(bus)
 		allJoynBridge.addService(spawnUUID, spawnDbusServiceId, spawnDbusService, spawnDbusPath, spawnAlljoynService)
 		select {} // exit?

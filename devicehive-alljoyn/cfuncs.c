@@ -1,11 +1,6 @@
 #include "_cgo_export.h"
 
-#include <stdio.h>
-#include <aj_debug.h>
-#include <aj_guid.h>
-#include <aj_creds.h>
-#include <aj_nvram.h>
-#include "alljoyn.h"
+#include "cfuncs.h"
 #include "lib/hashmap.c"
 
 

@@ -1,0 +1,15 @@
+diff --git a/common/inc/qcc/posix/util.h b/common/inc/qcc/posix/util.h
+index a06ae65..aed1087 100644
+--- a/common/inc/qcc/posix/util.h
++++ b/common/inc/qcc/posix/util.h
+@@ -88,6 +88,10 @@
+ #define __swap32(_val) __bswap_32(_val)
+ #define __swap64(_val) __bswap_64(_val)
+ 
++#else
++#define __swap16(_val) __builtin_bswap16(_val)
++#define __swap32(_val) __builtin_bswap32(_val)
++#define __swap64(_val) __builtin_bswap64(_val)
+ #endif
+ 
+ #if defined(QCC_OS_DARWIN)

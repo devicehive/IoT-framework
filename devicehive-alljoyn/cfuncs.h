@@ -4,7 +4,7 @@
 #include <aj_creds.h>
 #include <aj_peer.h>
 #include <aj_link_timeout.h>
-#include "alljoyn.h"
+#include <alljoyn.h>
 
 uint32_t Get_AJ_Message_msgId();
 uint32_t Get_AJ_Message_bodyLen();

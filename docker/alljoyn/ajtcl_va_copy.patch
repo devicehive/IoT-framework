@@ -1,0 +1,17 @@
+diff --git a/src/aj_msg.c b/src/aj_msg.c
+index 9aa262d..789b774 100644
+--- a/src/aj_msg.c
++++ b/src/aj_msg.c
+@@ -112,7 +112,11 @@ uint8_t dbgMSG = 0;
+  * gcc defines __va_copy() other compilers allow direct assignent of a va_list
+  */
+ #ifndef __va_copy
+-#define __va_copy(a, b) (a) = (b)
++# ifdef va_copy
++#  define __va_copy va_copy
++# else
++#  define __va_copy(a, b) (a) = (b)
++# endif
+ #endif
+ 
+ /*

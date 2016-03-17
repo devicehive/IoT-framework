@@ -1,0 +1,19 @@
+diff --git a/build_core/conf/linux/arm/SConscript b/build_core/conf/linux/arm/SConscript
+index 7b07fcc..12e0c30 100644
+--- a/build_core/conf/linux/arm/SConscript
++++ b/build_core/conf/linux/arm/SConscript
+@@ -27,10 +27,10 @@ vars.Update(env)
+ Help(vars.GenerateHelpText(env))
+
+ # Use common CROSS_COMPILE prefix
+-if '' == env.subst('$CROSS_COMPILE'):
+-   print 'CROSS_COMPILE variable is required for Linux/ARM builds'
+-   if not GetOption('help'):
+-      Exit(1)
++#if '' == env.subst('$CROSS_COMPILE'):
++#   print 'CROSS_COMPILE variable is required for Linux/ARM builds'
++#   if not GetOption('help'):
++#      Exit(1)
+
+ env['CC']   = env['CROSS_COMPILE'] + 'gcc'
+ env['CXX']  = env['CROSS_COMPILE'] + 'g++'
