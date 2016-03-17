@@ -1,4 +1,4 @@
-FROM alpine:3.2
+FROM alpine:3.3
 
 # install D-Bus
 RUN apk add --update dbus && rm -rf /var/cache/apk/*
