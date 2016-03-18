@@ -1,8 +1,34 @@
 #!/bin/sh -e
 
-BRANCH=${1:-master}
-REPO_BASE=https://github.com/devicehive
 export GOPATH=/go
+
+BRANCH=master
+REPO_BASE=https://github.com/devicehive
+
+# parse command line
+while [ $# -gt 0 ]; do
+	case "$1" in
+	--branch=*)
+		BRANCH="${1#*=}"
+		shift
+		;;
+	--branch)
+		BRANCH="$2"
+		shift 2
+		;;
+	--extra-repo=*)
+		echo "${1#*=}" >> /etc/apk/repositories
+		shift
+		;;
+	--extra-repo)
+		echo "$2" >> /etc/apk/repositories
+		shift 2
+		;;
+	*)
+		echo "'$1' is unknown option, ignored"
+		shift
+	esac
+done
 
 # install dependencies
 apk add --update go git

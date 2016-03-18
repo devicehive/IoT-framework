@@ -1,8 +1,10 @@
 #!/bin/sh -e
 
-BRANCH=${1:-master}
+export GOPATH=/go
+
+BRANCH=master
 REPO_BASE=https://github.com/devicehive
-AJ_TAG=${2:-v15.09}
+AJ_TAG=v14.12
 AJ_REPO_BASE=https://git.allseenalliance.org/gerrit
 AJ_VARIANT=release
 AJ_CPU=`uname -m`
@@ -13,7 +15,38 @@ case "$AJ_CPU" in
 		;;
 esac
 
-export GOPATH=/go
+# parse command line
+while [ $# -gt 0 ]; do
+	case "$1" in
+	--branch=*)
+		BRANCH="${1#*=}"
+		shift
+		;;
+	--branch)
+		BRANCH="$2"
+		shift 2
+		;;
+	--alljoyn=*)
+		AJ_TAG="${1#*=}"
+		shift
+		;;
+	--alljoyn)
+		AJ_TAG="$2"
+		shift 2
+		;;
+	--extra-repo=*)
+		echo "${1#*=}" >> /etc/apk/repositories
+		shift
+		;;
+	--extra-repo)
+		echo "$2" >> /etc/apk/repositories
+		shift 2
+		;;
+	*)
+		echo "'$1' is unknown option, ignored"
+		shift
+	esac
+done
 
 # install dependencies
 apk add --update go git scons g++ libcap-dev openssl-dev libstdc++ libgcc

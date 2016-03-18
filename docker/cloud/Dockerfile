@@ -2,7 +2,7 @@ FROM alpine:3.3
 
 # bootstrap
 COPY ./init.sh /init.sh
-RUN /init.sh v2
+RUN /init.sh --branch=v2
 
 # prepare config and scripts
 COPY ./config.yml /etc/devicehive-cloud.yml

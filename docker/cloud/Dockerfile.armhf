@@ -2,7 +2,7 @@ FROM container4armhf/armhf-alpine:3.3
 
 # bootstrap
 COPY ./init.sh /init.sh
-RUN /init.sh v2
+RUN /init.sh --branch=v2 --extra-repo=http://nl.alpinelinux.org/alpine/v3.3/community
 
 # prepare config and scripts
 COPY ./config.yml /etc/devicehive-cloud.yml
