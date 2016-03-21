@@ -1,7 +1,7 @@
 # How to build docker images
 
-All `devicehive-cloud` and `devicehive-ble` containers don't have D-Bus installed.
-Instead D-Bus daemon from `devicehive-dbus` container is used.
+All `iot-cloud` and `iot-ble` containers don't have D-Bus installed.
+Instead D-Bus daemon from `iot-dbus` container is used.
 
 To make all services up use the following command:
 
@@ -15,13 +15,13 @@ $ docker-compose up
 First of all we need to run D-Bus service (see below how to build images):
 
 ```{.sh}
-$ docker run -d --name=dbus devicehive/devicehive-dbus:v2
+$ docker run -d --name=dbus devicehive/iot-dbus:2.0
 ```
 
 Then it's possible to run cloud service:
 
 ```{.sh}
-$ docker run -d --volumes-from dbus --name=cloud devicehive/devicehive-cloud:v2
+$ docker run -d --volumes-from dbus --name=cloud devicehive/iot-cloud:2.0
 ```
 
 It's it. Now you can send commands via Admin page.
@@ -33,28 +33,29 @@ $ docker exec -it dbus /bin/sh
 # dbus-monitor --system
 ```
 
-The `devicehive-ble` container should be run in privileged mode with "host" network.
+The `iot-ble` container should be run in privileged mode with "host" network.
 See this docker [issue](https://github.com/docker/docker/issues/16208) for more details.
 
 
-## Build devicehive-dbus
+## Build iot-dbus
 ```{.sh}
 $ cd IoT-framework/docker
-$ docker build -t devicehive/devicehive-dbus:v2 dbus
+$ docker build -t devicehive/iot-dbus:2.0 dbus
 ```
 
-## Build devicehive-cloud
-Please put valid data to `IoT-framework/docker/cloud/config.yml` before building image.
+## Build iot-cloud
+You can put valid data to `IoT-framework/docker/cloud/config.yml` before building image.
+Or just override this configuration later (via volumes) to provide valid credentials.
 
 ```{.sh}
 $ cd IoT-framework/docker
-$ docker build -t devicehive/devicehive-cloud:v2 cloud
+$ docker build -t devicehive/iot-cloud:2.0 cloud
 ```
 
-## Build devicehive-ble
+## Build iot-ble
 ```{.sh}
 $ cd IoT-framework/docker
-$ docker build -t devicehive/devicehive-ble:v2 ble
+$ docker build -t devicehive/iot-ble:2.0 ble
 ```
 
 ## Beagle Bone Black

@@ -1,12 +1,13 @@
 version: '2'
 services:
   dbus:
+    image: devicehive/iot-dbus:2.0
     build:
       context: ./dbus
       dockerfile: Dockerfile
-    network_mode: "host"
 
   cloud:
+    image: devicehive/iot-cloud:2.0
     build:
       context: ./cloud
       dockerfile: Dockerfile
@@ -14,9 +15,11 @@ services:
       - dbus
     volumes_from:
       - dbus
-    network_mode: "host"
+    volumes:
+      - ./cloud/config.yml:/etc/devicehive-cloud.yml
 
   ble:
+    image: devicehive/iot-ble:2.0
     build:
       context: ./ble
       dockerfile: Dockerfile
@@ -27,10 +30,12 @@ services:
     network_mode: "host"
     privileged: true
 
-  examples:
+  apps:
+    image: devicehive/iot-apps:2.0
     build:
-      context: ./examples
+      context: ./apps
       dockerfile: Dockerfile
+    command: ./sensortag.py
     depends_on:
       - dbus
       - cloud

@@ -5,4 +5,5 @@ COPY ./init.sh /init.sh
 RUN /init.sh --branch=v2 --extra-repo=http://nl.alpinelinux.org/alpine/v3.3/community
 
 WORKDIR "/go/src/github.com/devicehive/IoT-framework/examples"
+ENV GOPATH=/go
 CMD ["/bin/sh"]

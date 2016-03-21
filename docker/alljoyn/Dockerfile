@@ -3,7 +3,7 @@ FROM alpine:3.3
 # bootstrap
 COPY ./init.sh /init.sh
 COPY ./*.patch /tmp/
-RUN /init.sh --branch=v2 --alljoyn=v14.12
+RUN /init.sh --branch=v2 --alljoyn=v15.04
 
 # prepare scripts
 COPY ./start.sh /start.sh
