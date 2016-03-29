@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/devicehive/devicehive-go/ws"
+	"gopkg.in/devicehive/devicehive-go.v2/ws"
 
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"

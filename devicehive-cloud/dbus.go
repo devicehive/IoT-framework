@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	dh "github.com/devicehive/devicehive-go"
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
 	"github.com/godbus/dbus/prop"
+	dh "gopkg.in/devicehive/devicehive-go.v2"
 )
 
 // DBusService is a D-Bus service wrapper.

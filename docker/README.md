@@ -129,7 +129,6 @@ Get IoT-framework:
 export GOPATH=~/go
 mkdir -p $GOPATH/src/github.com/devicehive
 cd $GOPATH/src/github.com/devicehive
-git clone -b v2 --single-branch https://github.com/devicehive/devicehive-go
 git clone -b v2 --single-branch https://github.com/devicehive/IoT-framework
 cd $GOPATH/src/github.com/devicehive/IoT-framework/docker
 docker-compose -f docker-compose.armhf.yml up

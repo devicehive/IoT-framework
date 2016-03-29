@@ -36,7 +36,6 @@ apk add --update go git bluez
 # cloning repositories
 mkdir -p $GOPATH/src/github.com/devicehive
 cd $GOPATH/src/github.com/devicehive
-#git clone -b $BRANCH --single-branch $REPO_BASE/devicehive-go
 git clone -b $BRANCH --single-branch $REPO_BASE/IoT-framework
 
 # update sources and build

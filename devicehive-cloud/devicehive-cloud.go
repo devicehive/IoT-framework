@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	dh "github.com/devicehive/devicehive-go"
-	dh_rest "github.com/devicehive/devicehive-go/rest"
-	dh_ws "github.com/devicehive/devicehive-go/ws"
 	"github.com/godbus/dbus"
+	dh "gopkg.in/devicehive/devicehive-go.v2"
+	dh_rest "gopkg.in/devicehive/devicehive-go.v2/rest"
+	dh_ws "gopkg.in/devicehive/devicehive-go.v2/ws"
 )
 
 const (
