@@ -1,2 +1,8 @@
 /devicehive-cloud
 /*.deb
+
+# snapcraft
+/parts
+/stage
+/snap
+/*.snap

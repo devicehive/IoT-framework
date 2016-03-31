@@ -7,18 +7,23 @@ ifeq (${GITHASH},)
   GITHASH=$(shell git log -1 --format='%H')
 endif
 
-build:
-	go build .
+build: update
+	go build -o devicehive-cloud .
 
-intall:
-	go install .
+install:
+	mkdir -p "${DESTDIR}/usr/bin"
+	mkdir -p "${DESTDIR}/etc/dbus-1/system.d"
+	cp "devicehive-cloud" "${DESTDIR}/usr/bin/"
+	cp "com.devicehive.cloud.conf" "${DESTDIR}/etc/dbus-1/system.d/"
+	cp "config.yml" "${DESTDIR}/etc/devicehive-cloud.yml"
 
 update:
-	@echo TODO: go get -v -u -d -t ./...
+	go get -v -d -t ./...
 
 clean:
 	rm ./devicehive-cloud
-	rm *.deb
+#	rm *.deb
+#	rm *.snap
 
 DEBIAN_TEMPLATE=debian/template
 DEBIAN_PACKAGE_AMD64=devicehive-cloud-${VERSION}_amd64

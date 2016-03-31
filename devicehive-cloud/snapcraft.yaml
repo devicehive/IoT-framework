@@ -1,0 +1,16 @@
+name: devicehive-cloud
+version: 0.0.1 # TODO: use ${VERSION} here
+vendor: DeviceHive <info@devicehive.com>
+summary: DeviceHive cloud service
+description: Exports D-Bus object to DeviceHive server
+icon: dh.png
+
+apps:
+  devicehive-cloud:
+    command: usr/bin/devicehive-cloud
+    daemon: simple
+
+parts:
+  devicehive-cloud:
+    plugin: make
+    source: .
