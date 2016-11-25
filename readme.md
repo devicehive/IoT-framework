@@ -1,5 +1,7 @@
 # DeviceHive D-Bus Framework
 
+[DeviceHive]: http://devicehive.com "DeviceHive framework"
+[DataArt]: http://dataart.com "DataArt"
 
 Develop apps connected to devices, peripherials and cloud using commonly available linux dbus interface.
 
