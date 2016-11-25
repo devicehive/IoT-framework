@@ -18,7 +18,7 @@
     "dbus"
   ],
   "author": "Sergey Demyanov",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "bugs": {
     "url": "https://github.com/devicehive/IoT-framework/issues"
   },

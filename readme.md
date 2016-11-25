@@ -1,5 +1,7 @@
 # DeviceHive D-Bus Framework
 
+[DeviceHive]: http://devicehive.com "DeviceHive framework"
+[DataArt]: http://dataart.com "DataArt"
 
 Develop apps connected to devices, peripherials and cloud using commonly available linux dbus interface.
 
@@ -52,3 +54,15 @@ To build `Ubuntu Snappy` package navigate to `build/snappy` and run
 #for sample apps
 ./build-apps.sh
 ```
+
+DeviceHive license
+------------------
+
+[DeviceHive] is developed by [DataArt] Apps and distributed under Open Source
+[Apache 2.0](https://en.wikipedia.org/wiki/Apache_License). This basically means
+you can do whatever you want with the software as long as the copyright notice
+is included. This also means you don't have to contribute the end product or
+modified sources back to Open Source, but if you feel like sharing, you are
+highly encouraged to do so!
+
+&copy; Copyright 2015-2016 DataArt Apps &copy; All Rights Reserved
