@@ -11,8 +11,6 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/godbus/dbus"
 	dh "gopkg.in/devicehive/devicehive-go.v2"
-	dh_rest "gopkg.in/devicehive/devicehive-go.v2/rest"
-	dh_ws "gopkg.in/devicehive/devicehive-go.v2/ws"
 )
 
 const (
@@ -174,21 +172,21 @@ func mainLoop(bus *dbus.Conn, stopCh chan os.Signal) error {
 // newDeviceService creates a new device service (either REST or Websocket).
 // If protocol is "ws://" or "wss://" Websocket service will be created,
 // otherwise REST service will be used as a fallback.
-// Access key is optional, might be empty.
-func newDeviceService(baseURL, accessKey, logLevel string) (dh.DeviceService, error) {
+// Access token is important!
+func newDeviceService(baseURL, accessToken, logLevel string) (dh.DeviceService, error) {
 	url := strings.ToLower(baseURL)
 	if strings.HasPrefix(url, `ws://`) || strings.HasPrefix(url, `wss://`) {
 		if len(logLevel) != 0 {
-			_ = dh_ws.SetLogLevel(logLevel)
+			_ = dh.SetLogLevel(logLevel)
 		}
-		return dh_ws.NewDeviceService(baseURL, accessKey)
+		return dh.NewWsDeviceService(baseURL, accessToken)
 	}
 
 	// use REST service as a fallback
 	if len(logLevel) != 0 {
-		_ = dh_rest.SetLogLevel(logLevel)
+		_ = dh.SetLogLevel(logLevel)
 	}
-	return dh_rest.NewService(baseURL, accessKey)
+	return dh.NewRestService(baseURL, accessToken)
 }
 
 // parse command line arguments

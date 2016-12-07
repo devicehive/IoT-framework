@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"gopkg.in/devicehive/devicehive-go.v2/ws"
+	dh "gopkg.in/devicehive/devicehive-go.v2"
 
 	"github.com/godbus/dbus"
 	"github.com/godbus/dbus/introspect"
@@ -14,7 +14,7 @@ import (
 )
 
 type DbusObjectWrapper struct {
-	c *ws.Service
+	c *dh.WsService
 }
 
 type MockCloudWrapper struct {
@@ -58,7 +58,7 @@ func newDHError(message string) *dbus.Error {
 		[]interface{}{message})
 }
 
-func NewDbusObjectWrapper(c *ws.Service) *DbusObjectWrapper {
+func NewDbusObjectWrapper(c *dh.WsService) *DbusObjectWrapper {
 	w := new(DbusObjectWrapper)
 	w.c = c
 
