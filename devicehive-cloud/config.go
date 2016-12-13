@@ -19,15 +19,14 @@ func init() {
 
 // Config holds all configuration data.
 type Config struct {
-	URL       string `yaml:"URL,omitempty"`
-	AccessKey string `yaml:"AccessKey,omitempty"`
+	URL        string `yaml:"URL,omitempty"`
+	RefreshKey string `yaml:"RefreshKey,omitempty"`
+	AccessKey  string `yaml:"AccessKey,omitempty"`
 
 	DeviceID   string `yaml:"DeviceID,omitempty"`
 	DeviceName string `yaml:"DeviceName,omitempty"`
-	DeviceKey  string `yaml:"DeviceKey,omitempty"`
 
 	NetworkName string `yaml:"NetworkName,omitempty"`
-	NetworkKey  string `yaml:"NetworkKey,omitempty"`
 	NetworkDesc string `yaml:"NetworkDescription,omitempty"`
 
 	LoggingLevel       string `yaml:"LoggingLevel,omitempty"`

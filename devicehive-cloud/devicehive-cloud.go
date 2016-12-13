@@ -93,7 +93,7 @@ func main() {
 func mainLoop(bus *dbus.Conn, stopCh chan os.Signal) error {
 	// getting DeviceHive service
 	log.Debugf("[%s]: creating DeviceHive service...", TAG)
-	service, err := newDeviceService(config.URL, config.AccessKey, config.DeviceHiveLogLevel)
+	service, err := newDeviceService(config.URL, config.RefreshKey, config.AccessKey, config.DeviceHiveLogLevel)
 	if err != nil {
 		return fmt.Errorf("failed to create DeviceHive service: %s", err)
 	}
@@ -116,9 +116,8 @@ func mainLoop(bus *dbus.Conn, stopCh chan os.Signal) error {
 	log.Debugf("[%s]: registering gateway device...", TAG)
 	device := dh.NewDevice(config.DeviceID, config.DeviceName,
 		dh.NewDeviceClass(DeviceClassName, DeviceClassVersion))
-	device.Key = config.DeviceKey
-	if len(config.NetworkName) != 0 || len(config.NetworkKey) != 0 {
-		device.Network = dh.NewNetwork(config.NetworkName, config.NetworkKey)
+	if len(config.NetworkName) != 0 {
+		device.Network = dh.NewNetwork(config.NetworkName)
 		device.Network.Description = config.NetworkDesc
 	}
 	err = service.RegisterDevice(device)
@@ -173,20 +172,20 @@ func mainLoop(bus *dbus.Conn, stopCh chan os.Signal) error {
 // If protocol is "ws://" or "wss://" Websocket service will be created,
 // otherwise REST service will be used as a fallback.
 // Access token is important!
-func newDeviceService(baseURL, accessToken, logLevel string) (dh.DeviceService, error) {
+func newDeviceService(baseURL, refreshToken, accessToken, logLevel string) (dh.DeviceService, error) {
 	url := strings.ToLower(baseURL)
 	if strings.HasPrefix(url, `ws://`) || strings.HasPrefix(url, `wss://`) {
 		if len(logLevel) != 0 {
 			_ = dh.SetLogLevel(logLevel)
 		}
-		return dh.NewWsDeviceService(baseURL, accessToken)
+		return dh.NewWsDeviceService(baseURL, refreshToken, accessToken)
 	}
 
 	// use REST service as a fallback
 	if len(logLevel) != 0 {
 		_ = dh.SetLogLevel(logLevel)
 	}
-	return dh.NewRestService(baseURL, accessToken)
+	return dh.NewRestService(baseURL, refreshToken, accessToken)
 }
 
 // parse command line arguments

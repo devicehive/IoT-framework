@@ -1,13 +1,12 @@
-AccessKey: <put a valid access key here>
+RefreshKey: <put a valid refresh key here>
+AccessKey: <put an optional access key here>
 #URL: http://playground.devicehive.com/api/rest
 URL: ws://playground.devicehive.com/api/websocket
 
 DeviceID: go-dbus-gw
 DeviceName: Go D-Bus Gateway
-DeviceKey: my device secret key
 
 NetworkName: <network name>
-NetworkKey: <network key>
 NetworkDescription: <network description>
 
 LoggingLevel: debug
