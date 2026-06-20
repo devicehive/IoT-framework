@@ -30,7 +30,7 @@ Each directory contains more detailed information about component, see details t
 
 ## Cloning
 
-This repository uses submodules so to clonse fresh copy use command
+This repository uses submodules so to clone fresh copy use command
 ```
 git clone --recursive git@github.com:devicehive/IoT-framework.git
 ```
